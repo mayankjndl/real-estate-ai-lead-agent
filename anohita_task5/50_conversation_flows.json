@@ -1,0 +1,1152 @@
+[
+  {
+    "id": 1,
+    "intent": "buy",
+    "lead_score": "high",
+    "conversation": [
+      {
+        "role": "user",
+        "message": "Sample query 1 for buy"
+      },
+      {
+        "role": "assistant",
+        "message": "Sure, I can help you with that. What is your budget range?"
+      },
+      {
+        "role": "user",
+        "message": "Around 80L"
+      },
+      {
+        "role": "assistant",
+        "message": "Great, I can suggest options in your budget. Would you like a site visit?"
+      }
+    ]
+  },
+  {
+    "id": 2,
+    "intent": "rent",
+    "lead_score": "medium",
+    "conversation": [
+      {
+        "role": "user",
+        "message": "Sample query 2 for rent"
+      },
+      {
+        "role": "assistant",
+        "message": "Sure, I can help you with that. What is your budget range?"
+      },
+      {
+        "role": "user",
+        "message": "Around 80L"
+      },
+      {
+        "role": "assistant",
+        "message": "Great, I can suggest options in your budget. Would you like a site visit?"
+      }
+    ]
+  },
+  {
+    "id": 3,
+    "intent": "investment",
+    "lead_score": "low",
+    "conversation": [
+      {
+        "role": "user",
+        "message": "Sample query 3 for investment"
+      },
+      {
+        "role": "assistant",
+        "message": "Sure, I can help you with that. What is your budget range?"
+      },
+      {
+        "role": "user",
+        "message": "Around 80L"
+      },
+      {
+        "role": "assistant",
+        "message": "Great, I can suggest options in your budget. Would you like a site visit?"
+      }
+    ]
+  },
+  {
+    "id": 4,
+    "intent": "browsing",
+    "lead_score": "high",
+    "conversation": [
+      {
+        "role": "user",
+        "message": "Sample query 4 for browsing"
+      },
+      {
+        "role": "assistant",
+        "message": "Sure, I can help you with that. What is your budget range?"
+      },
+      {
+        "role": "user",
+        "message": "Around 80L"
+      },
+      {
+        "role": "assistant",
+        "message": "Great, I can suggest options in your budget. Would you like a site visit?"
+      }
+    ]
+  },
+  {
+    "id": 5,
+    "intent": "buy",
+    "lead_score": "medium",
+    "conversation": [
+      {
+        "role": "user",
+        "message": "Sample query 5 for buy"
+      },
+      {
+        "role": "assistant",
+        "message": "Sure, I can help you with that. What is your budget range?"
+      },
+      {
+        "role": "user",
+        "message": "Around 80L"
+      },
+      {
+        "role": "assistant",
+        "message": "Great, I can suggest options in your budget. Would you like a site visit?"
+      }
+    ]
+  },
+  {
+    "id": 6,
+    "intent": "rent",
+    "lead_score": "low",
+    "conversation": [
+      {
+        "role": "user",
+        "message": "Sample query 6 for rent"
+      },
+      {
+        "role": "assistant",
+        "message": "Sure, I can help you with that. What is your budget range?"
+      },
+      {
+        "role": "user",
+        "message": "Around 80L"
+      },
+      {
+        "role": "assistant",
+        "message": "Great, I can suggest options in your budget. Would you like a site visit?"
+      }
+    ]
+  },
+  {
+    "id": 7,
+    "intent": "investment",
+    "lead_score": "high",
+    "conversation": [
+      {
+        "role": "user",
+        "message": "Sample query 7 for investment"
+      },
+      {
+        "role": "assistant",
+        "message": "Sure, I can help you with that. What is your budget range?"
+      },
+      {
+        "role": "user",
+        "message": "Around 80L"
+      },
+      {
+        "role": "assistant",
+        "message": "Great, I can suggest options in your budget. Would you like a site visit?"
+      }
+    ]
+  },
+  {
+    "id": 8,
+    "intent": "browsing",
+    "lead_score": "medium",
+    "conversation": [
+      {
+        "role": "user",
+        "message": "Sample query 8 for browsing"
+      },
+      {
+        "role": "assistant",
+        "message": "Sure, I can help you with that. What is your budget range?"
+      },
+      {
+        "role": "user",
+        "message": "Around 80L"
+      },
+      {
+        "role": "assistant",
+        "message": "Great, I can suggest options in your budget. Would you like a site visit?"
+      }
+    ]
+  },
+  {
+    "id": 9,
+    "intent": "buy",
+    "lead_score": "low",
+    "conversation": [
+      {
+        "role": "user",
+        "message": "Sample query 9 for buy"
+      },
+      {
+        "role": "assistant",
+        "message": "Sure, I can help you with that. What is your budget range?"
+      },
+      {
+        "role": "user",
+        "message": "Around 80L"
+      },
+      {
+        "role": "assistant",
+        "message": "Great, I can suggest options in your budget. Would you like a site visit?"
+      }
+    ]
+  },
+  {
+    "id": 10,
+    "intent": "rent",
+    "lead_score": "high",
+    "conversation": [
+      {
+        "role": "user",
+        "message": "Sample query 10 for rent"
+      },
+      {
+        "role": "assistant",
+        "message": "Sure, I can help you with that. What is your budget range?"
+      },
+      {
+        "role": "user",
+        "message": "Around 80L"
+      },
+      {
+        "role": "assistant",
+        "message": "Great, I can suggest options in your budget. Would you like a site visit?"
+      }
+    ]
+  },
+  {
+    "id": 11,
+    "intent": "investment",
+    "lead_score": "medium",
+    "conversation": [
+      {
+        "role": "user",
+        "message": "Sample query 11 for investment"
+      },
+      {
+        "role": "assistant",
+        "message": "Sure, I can help you with that. What is your budget range?"
+      },
+      {
+        "role": "user",
+        "message": "Around 80L"
+      },
+      {
+        "role": "assistant",
+        "message": "Great, I can suggest options in your budget. Would you like a site visit?"
+      }
+    ]
+  },
+  {
+    "id": 12,
+    "intent": "browsing",
+    "lead_score": "low",
+    "conversation": [
+      {
+        "role": "user",
+        "message": "Sample query 12 for browsing"
+      },
+      {
+        "role": "assistant",
+        "message": "Sure, I can help you with that. What is your budget range?"
+      },
+      {
+        "role": "user",
+        "message": "Around 80L"
+      },
+      {
+        "role": "assistant",
+        "message": "Great, I can suggest options in your budget. Would you like a site visit?"
+      }
+    ]
+  },
+  {
+    "id": 13,
+    "intent": "buy",
+    "lead_score": "high",
+    "conversation": [
+      {
+        "role": "user",
+        "message": "Sample query 13 for buy"
+      },
+      {
+        "role": "assistant",
+        "message": "Sure, I can help you with that. What is your budget range?"
+      },
+      {
+        "role": "user",
+        "message": "Around 80L"
+      },
+      {
+        "role": "assistant",
+        "message": "Great, I can suggest options in your budget. Would you like a site visit?"
+      }
+    ]
+  },
+  {
+    "id": 14,
+    "intent": "rent",
+    "lead_score": "medium",
+    "conversation": [
+      {
+        "role": "user",
+        "message": "Sample query 14 for rent"
+      },
+      {
+        "role": "assistant",
+        "message": "Sure, I can help you with that. What is your budget range?"
+      },
+      {
+        "role": "user",
+        "message": "Around 80L"
+      },
+      {
+        "role": "assistant",
+        "message": "Great, I can suggest options in your budget. Would you like a site visit?"
+      }
+    ]
+  },
+  {
+    "id": 15,
+    "intent": "investment",
+    "lead_score": "low",
+    "conversation": [
+      {
+        "role": "user",
+        "message": "Sample query 15 for investment"
+      },
+      {
+        "role": "assistant",
+        "message": "Sure, I can help you with that. What is your budget range?"
+      },
+      {
+        "role": "user",
+        "message": "Around 80L"
+      },
+      {
+        "role": "assistant",
+        "message": "Great, I can suggest options in your budget. Would you like a site visit?"
+      }
+    ]
+  },
+  {
+    "id": 16,
+    "intent": "browsing",
+    "lead_score": "high",
+    "conversation": [
+      {
+        "role": "user",
+        "message": "Sample query 16 for browsing"
+      },
+      {
+        "role": "assistant",
+        "message": "Sure, I can help you with that. What is your budget range?"
+      },
+      {
+        "role": "user",
+        "message": "Around 80L"
+      },
+      {
+        "role": "assistant",
+        "message": "Great, I can suggest options in your budget. Would you like a site visit?"
+      }
+    ]
+  },
+  {
+    "id": 17,
+    "intent": "buy",
+    "lead_score": "medium",
+    "conversation": [
+      {
+        "role": "user",
+        "message": "Sample query 17 for buy"
+      },
+      {
+        "role": "assistant",
+        "message": "Sure, I can help you with that. What is your budget range?"
+      },
+      {
+        "role": "user",
+        "message": "Around 80L"
+      },
+      {
+        "role": "assistant",
+        "message": "Great, I can suggest options in your budget. Would you like a site visit?"
+      }
+    ]
+  },
+  {
+    "id": 18,
+    "intent": "rent",
+    "lead_score": "low",
+    "conversation": [
+      {
+        "role": "user",
+        "message": "Sample query 18 for rent"
+      },
+      {
+        "role": "assistant",
+        "message": "Sure, I can help you with that. What is your budget range?"
+      },
+      {
+        "role": "user",
+        "message": "Around 80L"
+      },
+      {
+        "role": "assistant",
+        "message": "Great, I can suggest options in your budget. Would you like a site visit?"
+      }
+    ]
+  },
+  {
+    "id": 19,
+    "intent": "investment",
+    "lead_score": "high",
+    "conversation": [
+      {
+        "role": "user",
+        "message": "Sample query 19 for investment"
+      },
+      {
+        "role": "assistant",
+        "message": "Sure, I can help you with that. What is your budget range?"
+      },
+      {
+        "role": "user",
+        "message": "Around 80L"
+      },
+      {
+        "role": "assistant",
+        "message": "Great, I can suggest options in your budget. Would you like a site visit?"
+      }
+    ]
+  },
+  {
+    "id": 20,
+    "intent": "browsing",
+    "lead_score": "medium",
+    "conversation": [
+      {
+        "role": "user",
+        "message": "Sample query 20 for browsing"
+      },
+      {
+        "role": "assistant",
+        "message": "Sure, I can help you with that. What is your budget range?"
+      },
+      {
+        "role": "user",
+        "message": "Around 80L"
+      },
+      {
+        "role": "assistant",
+        "message": "Great, I can suggest options in your budget. Would you like a site visit?"
+      }
+    ]
+  },
+  {
+    "id": 21,
+    "intent": "buy",
+    "lead_score": "low",
+    "conversation": [
+      {
+        "role": "user",
+        "message": "Sample query 21 for buy"
+      },
+      {
+        "role": "assistant",
+        "message": "Sure, I can help you with that. What is your budget range?"
+      },
+      {
+        "role": "user",
+        "message": "Around 80L"
+      },
+      {
+        "role": "assistant",
+        "message": "Great, I can suggest options in your budget. Would you like a site visit?"
+      }
+    ]
+  },
+  {
+    "id": 22,
+    "intent": "rent",
+    "lead_score": "high",
+    "conversation": [
+      {
+        "role": "user",
+        "message": "Sample query 22 for rent"
+      },
+      {
+        "role": "assistant",
+        "message": "Sure, I can help you with that. What is your budget range?"
+      },
+      {
+        "role": "user",
+        "message": "Around 80L"
+      },
+      {
+        "role": "assistant",
+        "message": "Great, I can suggest options in your budget. Would you like a site visit?"
+      }
+    ]
+  },
+  {
+    "id": 23,
+    "intent": "investment",
+    "lead_score": "medium",
+    "conversation": [
+      {
+        "role": "user",
+        "message": "Sample query 23 for investment"
+      },
+      {
+        "role": "assistant",
+        "message": "Sure, I can help you with that. What is your budget range?"
+      },
+      {
+        "role": "user",
+        "message": "Around 80L"
+      },
+      {
+        "role": "assistant",
+        "message": "Great, I can suggest options in your budget. Would you like a site visit?"
+      }
+    ]
+  },
+  {
+    "id": 24,
+    "intent": "browsing",
+    "lead_score": "low",
+    "conversation": [
+      {
+        "role": "user",
+        "message": "Sample query 24 for browsing"
+      },
+      {
+        "role": "assistant",
+        "message": "Sure, I can help you with that. What is your budget range?"
+      },
+      {
+        "role": "user",
+        "message": "Around 80L"
+      },
+      {
+        "role": "assistant",
+        "message": "Great, I can suggest options in your budget. Would you like a site visit?"
+      }
+    ]
+  },
+  {
+    "id": 25,
+    "intent": "buy",
+    "lead_score": "high",
+    "conversation": [
+      {
+        "role": "user",
+        "message": "Sample query 25 for buy"
+      },
+      {
+        "role": "assistant",
+        "message": "Sure, I can help you with that. What is your budget range?"
+      },
+      {
+        "role": "user",
+        "message": "Around 80L"
+      },
+      {
+        "role": "assistant",
+        "message": "Great, I can suggest options in your budget. Would you like a site visit?"
+      }
+    ]
+  },
+  {
+    "id": 26,
+    "intent": "rent",
+    "lead_score": "medium",
+    "conversation": [
+      {
+        "role": "user",
+        "message": "Sample query 26 for rent"
+      },
+      {
+        "role": "assistant",
+        "message": "Sure, I can help you with that. What is your budget range?"
+      },
+      {
+        "role": "user",
+        "message": "Around 80L"
+      },
+      {
+        "role": "assistant",
+        "message": "Great, I can suggest options in your budget. Would you like a site visit?"
+      }
+    ]
+  },
+  {
+    "id": 27,
+    "intent": "investment",
+    "lead_score": "low",
+    "conversation": [
+      {
+        "role": "user",
+        "message": "Sample query 27 for investment"
+      },
+      {
+        "role": "assistant",
+        "message": "Sure, I can help you with that. What is your budget range?"
+      },
+      {
+        "role": "user",
+        "message": "Around 80L"
+      },
+      {
+        "role": "assistant",
+        "message": "Great, I can suggest options in your budget. Would you like a site visit?"
+      }
+    ]
+  },
+  {
+    "id": 28,
+    "intent": "browsing",
+    "lead_score": "high",
+    "conversation": [
+      {
+        "role": "user",
+        "message": "Sample query 28 for browsing"
+      },
+      {
+        "role": "assistant",
+        "message": "Sure, I can help you with that. What is your budget range?"
+      },
+      {
+        "role": "user",
+        "message": "Around 80L"
+      },
+      {
+        "role": "assistant",
+        "message": "Great, I can suggest options in your budget. Would you like a site visit?"
+      }
+    ]
+  },
+  {
+    "id": 29,
+    "intent": "buy",
+    "lead_score": "medium",
+    "conversation": [
+      {
+        "role": "user",
+        "message": "Sample query 29 for buy"
+      },
+      {
+        "role": "assistant",
+        "message": "Sure, I can help you with that. What is your budget range?"
+      },
+      {
+        "role": "user",
+        "message": "Around 80L"
+      },
+      {
+        "role": "assistant",
+        "message": "Great, I can suggest options in your budget. Would you like a site visit?"
+      }
+    ]
+  },
+  {
+    "id": 30,
+    "intent": "rent",
+    "lead_score": "low",
+    "conversation": [
+      {
+        "role": "user",
+        "message": "Sample query 30 for rent"
+      },
+      {
+        "role": "assistant",
+        "message": "Sure, I can help you with that. What is your budget range?"
+      },
+      {
+        "role": "user",
+        "message": "Around 80L"
+      },
+      {
+        "role": "assistant",
+        "message": "Great, I can suggest options in your budget. Would you like a site visit?"
+      }
+    ]
+  },
+  {
+    "id": 31,
+    "intent": "investment",
+    "lead_score": "high",
+    "conversation": [
+      {
+        "role": "user",
+        "message": "Sample query 31 for investment"
+      },
+      {
+        "role": "assistant",
+        "message": "Sure, I can help you with that. What is your budget range?"
+      },
+      {
+        "role": "user",
+        "message": "Around 80L"
+      },
+      {
+        "role": "assistant",
+        "message": "Great, I can suggest options in your budget. Would you like a site visit?"
+      }
+    ]
+  },
+  {
+    "id": 32,
+    "intent": "browsing",
+    "lead_score": "medium",
+    "conversation": [
+      {
+        "role": "user",
+        "message": "Sample query 32 for browsing"
+      },
+      {
+        "role": "assistant",
+        "message": "Sure, I can help you with that. What is your budget range?"
+      },
+      {
+        "role": "user",
+        "message": "Around 80L"
+      },
+      {
+        "role": "assistant",
+        "message": "Great, I can suggest options in your budget. Would you like a site visit?"
+      }
+    ]
+  },
+  {
+    "id": 33,
+    "intent": "buy",
+    "lead_score": "low",
+    "conversation": [
+      {
+        "role": "user",
+        "message": "Sample query 33 for buy"
+      },
+      {
+        "role": "assistant",
+        "message": "Sure, I can help you with that. What is your budget range?"
+      },
+      {
+        "role": "user",
+        "message": "Around 80L"
+      },
+      {
+        "role": "assistant",
+        "message": "Great, I can suggest options in your budget. Would you like a site visit?"
+      }
+    ]
+  },
+  {
+    "id": 34,
+    "intent": "rent",
+    "lead_score": "high",
+    "conversation": [
+      {
+        "role": "user",
+        "message": "Sample query 34 for rent"
+      },
+      {
+        "role": "assistant",
+        "message": "Sure, I can help you with that. What is your budget range?"
+      },
+      {
+        "role": "user",
+        "message": "Around 80L"
+      },
+      {
+        "role": "assistant",
+        "message": "Great, I can suggest options in your budget. Would you like a site visit?"
+      }
+    ]
+  },
+  {
+    "id": 35,
+    "intent": "investment",
+    "lead_score": "medium",
+    "conversation": [
+      {
+        "role": "user",
+        "message": "Sample query 35 for investment"
+      },
+      {
+        "role": "assistant",
+        "message": "Sure, I can help you with that. What is your budget range?"
+      },
+      {
+        "role": "user",
+        "message": "Around 80L"
+      },
+      {
+        "role": "assistant",
+        "message": "Great, I can suggest options in your budget. Would you like a site visit?"
+      }
+    ]
+  },
+  {
+    "id": 36,
+    "intent": "browsing",
+    "lead_score": "low",
+    "conversation": [
+      {
+        "role": "user",
+        "message": "Sample query 36 for browsing"
+      },
+      {
+        "role": "assistant",
+        "message": "Sure, I can help you with that. What is your budget range?"
+      },
+      {
+        "role": "user",
+        "message": "Around 80L"
+      },
+      {
+        "role": "assistant",
+        "message": "Great, I can suggest options in your budget. Would you like a site visit?"
+      }
+    ]
+  },
+  {
+    "id": 37,
+    "intent": "buy",
+    "lead_score": "high",
+    "conversation": [
+      {
+        "role": "user",
+        "message": "Sample query 37 for buy"
+      },
+      {
+        "role": "assistant",
+        "message": "Sure, I can help you with that. What is your budget range?"
+      },
+      {
+        "role": "user",
+        "message": "Around 80L"
+      },
+      {
+        "role": "assistant",
+        "message": "Great, I can suggest options in your budget. Would you like a site visit?"
+      }
+    ]
+  },
+  {
+    "id": 38,
+    "intent": "rent",
+    "lead_score": "medium",
+    "conversation": [
+      {
+        "role": "user",
+        "message": "Sample query 38 for rent"
+      },
+      {
+        "role": "assistant",
+        "message": "Sure, I can help you with that. What is your budget range?"
+      },
+      {
+        "role": "user",
+        "message": "Around 80L"
+      },
+      {
+        "role": "assistant",
+        "message": "Great, I can suggest options in your budget. Would you like a site visit?"
+      }
+    ]
+  },
+  {
+    "id": 39,
+    "intent": "investment",
+    "lead_score": "low",
+    "conversation": [
+      {
+        "role": "user",
+        "message": "Sample query 39 for investment"
+      },
+      {
+        "role": "assistant",
+        "message": "Sure, I can help you with that. What is your budget range?"
+      },
+      {
+        "role": "user",
+        "message": "Around 80L"
+      },
+      {
+        "role": "assistant",
+        "message": "Great, I can suggest options in your budget. Would you like a site visit?"
+      }
+    ]
+  },
+  {
+    "id": 40,
+    "intent": "browsing",
+    "lead_score": "high",
+    "conversation": [
+      {
+        "role": "user",
+        "message": "Sample query 40 for browsing"
+      },
+      {
+        "role": "assistant",
+        "message": "Sure, I can help you with that. What is your budget range?"
+      },
+      {
+        "role": "user",
+        "message": "Around 80L"
+      },
+      {
+        "role": "assistant",
+        "message": "Great, I can suggest options in your budget. Would you like a site visit?"
+      }
+    ]
+  },
+  {
+    "id": 41,
+    "intent": "buy",
+    "lead_score": "medium",
+    "conversation": [
+      {
+        "role": "user",
+        "message": "Sample query 41 for buy"
+      },
+      {
+        "role": "assistant",
+        "message": "Sure, I can help you with that. What is your budget range?"
+      },
+      {
+        "role": "user",
+        "message": "Around 80L"
+      },
+      {
+        "role": "assistant",
+        "message": "Great, I can suggest options in your budget. Would you like a site visit?"
+      }
+    ]
+  },
+  {
+    "id": 42,
+    "intent": "rent",
+    "lead_score": "low",
+    "conversation": [
+      {
+        "role": "user",
+        "message": "Sample query 42 for rent"
+      },
+      {
+        "role": "assistant",
+        "message": "Sure, I can help you with that. What is your budget range?"
+      },
+      {
+        "role": "user",
+        "message": "Around 80L"
+      },
+      {
+        "role": "assistant",
+        "message": "Great, I can suggest options in your budget. Would you like a site visit?"
+      }
+    ]
+  },
+  {
+    "id": 43,
+    "intent": "investment",
+    "lead_score": "high",
+    "conversation": [
+      {
+        "role": "user",
+        "message": "Sample query 43 for investment"
+      },
+      {
+        "role": "assistant",
+        "message": "Sure, I can help you with that. What is your budget range?"
+      },
+      {
+        "role": "user",
+        "message": "Around 80L"
+      },
+      {
+        "role": "assistant",
+        "message": "Great, I can suggest options in your budget. Would you like a site visit?"
+      }
+    ]
+  },
+  {
+    "id": 44,
+    "intent": "browsing",
+    "lead_score": "medium",
+    "conversation": [
+      {
+        "role": "user",
+        "message": "Sample query 44 for browsing"
+      },
+      {
+        "role": "assistant",
+        "message": "Sure, I can help you with that. What is your budget range?"
+      },
+      {
+        "role": "user",
+        "message": "Around 80L"
+      },
+      {
+        "role": "assistant",
+        "message": "Great, I can suggest options in your budget. Would you like a site visit?"
+      }
+    ]
+  },
+  {
+    "id": 45,
+    "intent": "buy",
+    "lead_score": "low",
+    "conversation": [
+      {
+        "role": "user",
+        "message": "Sample query 45 for buy"
+      },
+      {
+        "role": "assistant",
+        "message": "Sure, I can help you with that. What is your budget range?"
+      },
+      {
+        "role": "user",
+        "message": "Around 80L"
+      },
+      {
+        "role": "assistant",
+        "message": "Great, I can suggest options in your budget. Would you like a site visit?"
+      }
+    ]
+  },
+  {
+    "id": 46,
+    "intent": "rent",
+    "lead_score": "high",
+    "conversation": [
+      {
+        "role": "user",
+        "message": "Sample query 46 for rent"
+      },
+      {
+        "role": "assistant",
+        "message": "Sure, I can help you with that. What is your budget range?"
+      },
+      {
+        "role": "user",
+        "message": "Around 80L"
+      },
+      {
+        "role": "assistant",
+        "message": "Great, I can suggest options in your budget. Would you like a site visit?"
+      }
+    ]
+  },
+  {
+    "id": 47,
+    "intent": "investment",
+    "lead_score": "medium",
+    "conversation": [
+      {
+        "role": "user",
+        "message": "Sample query 47 for investment"
+      },
+      {
+        "role": "assistant",
+        "message": "Sure, I can help you with that. What is your budget range?"
+      },
+      {
+        "role": "user",
+        "message": "Around 80L"
+      },
+      {
+        "role": "assistant",
+        "message": "Great, I can suggest options in your budget. Would you like a site visit?"
+      }
+    ]
+  },
+  {
+    "id": 48,
+    "intent": "browsing",
+    "lead_score": "low",
+    "conversation": [
+      {
+        "role": "user",
+        "message": "Sample query 48 for browsing"
+      },
+      {
+        "role": "assistant",
+        "message": "Sure, I can help you with that. What is your budget range?"
+      },
+      {
+        "role": "user",
+        "message": "Around 80L"
+      },
+      {
+        "role": "assistant",
+        "message": "Great, I can suggest options in your budget. Would you like a site visit?"
+      }
+    ]
+  },
+  {
+    "id": 49,
+    "intent": "buy",
+    "lead_score": "high",
+    "conversation": [
+      {
+        "role": "user",
+        "message": "Sample query 49 for buy"
+      },
+      {
+        "role": "assistant",
+        "message": "Sure, I can help you with that. What is your budget range?"
+      },
+      {
+        "role": "user",
+        "message": "Around 80L"
+      },
+      {
+        "role": "assistant",
+        "message": "Great, I can suggest options in your budget. Would you like a site visit?"
+      }
+    ]
+  },
+  {
+    "id": 50,
+    "intent": "rent",
+    "lead_score": "medium",
+    "conversation": [
+      {
+        "role": "user",
+        "message": "Sample query 50 for rent"
+      },
+      {
+        "role": "assistant",
+        "message": "Sure, I can help you with that. What is your budget range?"
+      },
+      {
+        "role": "user",
+        "message": "Around 80L"
+      },
+      {
+        "role": "assistant",
+        "message": "Great, I can suggest options in your budget. Would you like a site visit?"
+      }
+    ]
+  }
+]
