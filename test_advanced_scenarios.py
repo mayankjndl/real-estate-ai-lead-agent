@@ -12,11 +12,11 @@ def test_conversation_flows():
     print("🚀 Starting Advanced Client-Grade AI CRM System Test...")
     
     # Check if the mock dataset exists
-    if not os.path.exists("anohita_task5/50_conversation_flows.json"):
-        print("❌ Dataset missing: anohita_task5/50_conversation_flows.json")
+    if not os.path.exists("simulation_data/50_conversation_flows.json"):
+        print("❌ Dataset missing: simulation_data/50_conversation_flows.json")
         return
         
-    with open("anohita_task5/50_conversation_flows.json", "r") as f:
+    with open("simulation_data/50_conversation_flows.json", "r") as f:
         scenarios = json.load(f)
 
     # We will test the first 5 completely to ensure it works without overwhelming the API rate limits

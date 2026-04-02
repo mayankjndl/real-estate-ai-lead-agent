@@ -2,7 +2,7 @@
 
 An advanced, client-grade AI backend that functions symmetrically as a Real Estate Sales Assistant, a CRM suite, and a Data Analytics engine. Built with FastAPI and powered by Gemini 2.5 Flash.
 
-## 🚀 Major Features (V2 Update)
+## 🚀 Major Features
 
 - **Multi-Tenant Client Architecture:** Secure `client_id` tracking ensures multiple vendor clients can utilize the AI agent while maintaining completely isolated, dedicated SQLite CRM environments via dynamic config dictionaries.
 - **Dynamic NLP Execution:** Replaces traditional `if/else` chatbot bots; uses natively-prompted LLM function-calling to orchestrate objection handling, negotiation, and fallbacks.
@@ -69,4 +69,4 @@ An advanced, client-grade AI backend that functions symmetrically as a Real Esta
   - *Description:* Instant CRM trigger generating full database tabular snapshots tailored for business-grade tools.
 
 ---
-*Developed globally as part of the advanced LLM Automation track (Task 5).*
+*Enterprise-grade AI Agent Architecture developed for production scaling.*
