@@ -1,0 +1,32 @@
+[
+  {
+    "location": "Wakad",
+    "type": "2BHK",
+    "details": "80L - 90L",
+    "description": "Premium 2BHK apartments in Wakad Phase 2 with modern amenities and smart home systems."
+  },
+  {
+    "location": "Hinjewadi",
+    "type": "3BHK",
+    "details": "1.2Cr - 1.5Cr",
+    "description": "Luxurious 3BHK flats near Hinjewadi IT Park. Excellent connectivity and high ROI for investors."
+  },
+  {
+    "location": "Baner",
+    "type": "2BHK",
+    "details": "95L - 1.1Cr",
+    "description": "Spacious 2BHK properties in Baner West. Close to high-street areas and schools."
+  },
+  {
+    "location": "Baner",
+    "type": "3BHK",
+    "details": "1.5Cr - 2.0Cr",
+    "description": "Ultra-luxury 3BHK penthouses and apartments in Baner with panoramic views."
+  },
+  {
+    "location": "Kharadi",
+    "type": "Office",
+    "details": "2Cr - 5Cr",
+    "description": "Commercial office spaces in Kharadi EON Free Zone. Ideal for high yield rental income."
+  }
+]

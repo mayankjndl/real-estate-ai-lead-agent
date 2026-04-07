@@ -26,3 +26,9 @@ __pycache__/
 dist/
 build/
 *.egg-info/
+
+# Local Documents
+documentation.md
+
+project_deep_dive.md
+production_report.md

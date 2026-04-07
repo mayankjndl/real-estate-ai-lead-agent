@@ -21,6 +21,17 @@ class Settings(BaseSettings):
     # Model configuration
     GEMINI_MODEL: str = "gemini-2.5-flash"
     
+    # Follow-up system settings
+    FOLLOW_UP_DELAY_MINUTES: int = 120     # Production: 2 hours (set to 1 for testing)
+    FOLLOW_UP_MAX_COUNT: int = 2           # Max follow-ups before closing the session
+    USE_AI_FOLLOWUPS: bool = False          # True = AI-personalized, False = static messages
+    
+    # Twilio API credentials
+    TWILIO_ACCOUNT_SID: str = ""
+    TWILIO_AUTH_TOKEN: str = ""
+    TWILIO_PHONE_NUMBER: str = ""
+    
+    
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 
 settings = Settings()

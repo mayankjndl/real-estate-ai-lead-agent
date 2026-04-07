@@ -11,7 +11,10 @@ class Session(Base):
 
     id = Column(String, primary_key=True, index=True) # Unique UUID for the session
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+    last_activity_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
     client_id = Column(String, index=True, nullable=True) # Scalable tracking for particular clients
+    follow_up_count = Column(Integer, default=0)  # How many follow-ups have been sent (0, 1, or 2)
+    status = Column(String, default="active")  # "active" or "closed"
     
     # Cascade delete messages and lead if session is destroyed
     messages = relationship("Message", back_populates="session", cascade="all, delete-orphan")

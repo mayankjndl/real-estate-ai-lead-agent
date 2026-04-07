@@ -1,4 +1,5 @@
 import json
+import logging
 import google.generativeai as genai
 from config import settings
 from system_prompt import REAL_ESTATE_SYSTEM_PROMPT
@@ -7,6 +8,7 @@ from models import Session, Message, Lead
 
 # 1. Gemini Initialization
 genai.configure(api_key=settings.GEMINI_API_KEY)
+logger = logging.getLogger("agent")
 
 # 4. Structured Tool Calling Definition
 def extract_lead_info(
@@ -50,6 +52,13 @@ def process_chat(session_id: str, user_message: str, db: DBSession, client_id: s
         session = Session(id=session_id, client_id=client_id)
         db.add(session)
         db.commit()
+    
+    # User replied — reset follow-up state and reactivate session
+    from datetime import datetime, timezone
+    session.follow_up_count = 0
+    session.status = "active"
+    session.last_activity_at = datetime.now(timezone.utc)
+    db.commit()
 
     # Save the new user message to the Message table
     db.add(Message(session_id=session_id, role="user", content=user_message))
@@ -64,11 +73,48 @@ def process_chat(session_id: str, user_message: str, db: DBSession, client_id: s
         role = "user" if m.role == "user" else "model"
         formatted_history.append({"role": role, "parts": [m.content]})
 
+    # Fetch RAG Context from the FAQ store
+    from rag import retrieve
+    try:
+        context_items, score = retrieve(user_message)
+        # If score is good (lower is better for L2 distance, embedding-001 L2 distances are usually < 1.0)
+        # Let's just append the context cleanly
+        if score < 0.8 and context_items:
+            context_text = "\n".join([
+                f"- {item['location']} {item['type']}: {item['details']} ({item['description']})"
+                for item in context_items
+            ])
+            # Inject context gracefully into the prompt without saving it to DB history
+            user_message_for_llm = f"Property Context:\n{context_text}\n\nUser Message: {user_message}"
+        else:
+            user_message_for_llm = user_message
+    except Exception as e:
+        logger.warning(f"RAG retrieval failed: {e}")
+        user_message_for_llm = user_message
+
     # Start Gemini Chat with retrieved history
     chat = model.start_chat(history=formatted_history)
 
-    # Send the history + new message to Gemini
-    response = chat.send_message(user_message)
+    # Send the history + new message to Gemini (with retry logic for API reliability)
+    import time
+    max_retries = 3
+    response = None
+    for attempt in range(max_retries):
+        try:
+            response = chat.send_message(user_message_for_llm)
+            break  # Success — exit retry loop
+        except Exception as e:
+            if attempt < max_retries - 1:
+                wait_time = 2 ** attempt  # 1s, 2s, 4s
+                logger.warning(f"Gemini API attempt {attempt + 1} failed: {e}. Retrying in {wait_time}s...")
+                time.sleep(wait_time)
+            else:
+                logger.error(f"Gemini API failed after {max_retries} attempts: {e}")
+                # Save a graceful fallback reply so the user isn't left hanging
+                fallback = "I'm experiencing a brief connectivity issue. Please try again in a moment!"
+                db.add(Message(session_id=session_id, role="assistant", content=fallback))
+                db.commit()
+                return fallback
 
     # 5. Database Commits & Tool Execution Handling
     # Detect if Gemini triggered the lead extraction tool
@@ -92,7 +138,12 @@ def process_chat(session_id: str, user_message: str, db: DBSession, client_id: s
         
         # Update Lead table fields dynamically
         if "name" in args: lead.name = args["name"]
-        if "phone" in args: lead.phone = args["phone"]
+        
+        # Automatically capture WhatsApp number from session context
+        if session_id.startswith("+") and not lead.phone:
+            lead.phone = session_id
+        elif "phone" in args: 
+            lead.phone = args["phone"]
         if "budget" in args: lead.budget = args["budget"]
         if "location" in args: lead.location = args["location"]
         if "intent" in args: lead.intent = args["intent"]
