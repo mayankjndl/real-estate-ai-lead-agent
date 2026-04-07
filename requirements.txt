@@ -6,3 +6,7 @@ pydantic-settings==2.2.1
 google-genai==0.3.0
 google-generativeai==0.7.2
 apscheduler==3.10.4
+python-multipart==0.0.9
+twilio==9.0.4
+numpy==1.26.4
+faiss-cpu==1.8.0
