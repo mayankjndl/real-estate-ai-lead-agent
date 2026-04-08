@@ -1,5 +1,9 @@
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, Depends, HTTPException, Security, status, Request, Form, Response
+import asyncio
+import collections
+import logging
+from fastapi import FastAPI, Depends, HTTPException, Security, status, Request, Form, Response, BackgroundTasks
+from twilio.rest import Client
 from fastapi.responses import StreamingResponse, PlainTextResponse
 from fastapi.security.api_key import APIKeyHeader
 from fastapi.middleware.cors import CORSMiddleware
@@ -17,8 +21,19 @@ from follow_up import check_and_send_followups
 from apscheduler.schedulers.background import BackgroundScheduler
 import models
 
+# Configure Central App Logging
+logging.basicConfig(
+    filename='app.log',
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger("main")
+
 # Automatically orchestrate DB creation on application boot
 Base.metadata.create_all(bind=engine)
+
+# Queueing system: Locks per session_id ensuring linear processing
+session_locks = collections.defaultdict(asyncio.Lock)
 
 # --- Background Scheduler for Follow-Up System ---
 scheduler = BackgroundScheduler()
@@ -85,33 +100,79 @@ def chat_endpoint(session_id: str, message: str, client_id: str = "default", db:
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+async def background_process_and_push(session_id: str, Body: str, client_id: str):
+    """
+    Executes if the LLM exceeds 4.5s. Uses Twilio Client to push the message out-of-band.
+    """
+    db = next(get_db())
+    try:
+        reply_text = await asyncio.to_thread(process_chat, session_id, Body, db, client_id)
+        if settings.TWILIO_ACCOUNT_SID:
+            client = Client(settings.TWILIO_ACCOUNT_SID, settings.TWILIO_AUTH_TOKEN)
+            client.messages.create(
+                from_=settings.TWILIO_PHONE_NUMBER,
+                body=reply_text,
+                to=f"whatsapp:{session_id}"
+            )
+            logger.info(f"Background task pushed response to {session_id}")
+    except Exception as e:
+        logger.error(f"Background task failed for {session_id}: {e}")
+    finally:
+        db.close()
+
 @app.post("/api/v1/whatsapp")
 async def whatsapp_webhook(
+    background_tasks: BackgroundTasks,
+    MessageSid: str = Form(None),
     From: str = Form(...),
     Body: str = Form(...),
     db: DBSession = Depends(get_db)
 ):
     """
     Twilio WhatsApp Webhook.
-    Extracts sender phone number as session_id and processes the message natively in our CRM.
-    Returns TwiML XML format required by Twilio in < 3 seconds.
+    Handles duplicate prevention, queueing, and timeouts.
     """
     try:
-        # 'From' comes format 'whatsapp:+919876543210' - use this as a unique session ID
+        # Task 1: Duplicate Message Protection
+        if MessageSid:
+            existing = db.query(models.WebhookLog).filter(models.WebhookLog.message_sid == MessageSid).first()
+            if existing:
+                logger.info(f"Duplicate message ignored: {MessageSid}")
+                return Response(content="<Response></Response>", media_type="application/xml")
+            
+            # Log the new message
+            db.add(models.WebhookLog(message_sid=MessageSid))
+            db.commit()
+
         session_id = From.replace("whatsapp:", "")
-        client_id = "client_A" # Default assignment for pilot, could route dynamically later
-
-        # Native processing through our optimized, async-capable backend
-        reply_text = process_chat(session_id, Body, db, client_id=client_id)
-
-        # Build TwiML response
-        twiml = MessagingResponse()
-        twiml.message(reply_text)
+        client_id = "client_A"
         
-        return Response(content=str(twiml), media_type="application/xml")
+        # Task 2: Message Queue Handling (Lock per session)
+        async with session_locks[session_id]:
+            # Task 6: Timeout Handling
+            try:
+                # Give LLM 4.5s to finish
+                reply_text = await asyncio.wait_for(
+                    asyncio.to_thread(process_chat, session_id, Body, db, client_id=client_id), 
+                    timeout=4.5
+                )
+                
+                # Finished fast enough, return standard TwiML
+                twiml = MessagingResponse()
+                twiml.message(reply_text)
+                return Response(content=str(twiml), media_type="application/xml")
+            
+            except asyncio.TimeoutError:
+                # Took too long. Dispatch to background and return interim response 
+                logger.info(f"Timeout reached for {session_id}, pushing to background...")
+                background_tasks.add_task(background_process_and_push, session_id, Body, client_id)
+                
+                twiml = MessagingResponse()
+                twiml.message("Just checking that for you...")
+                return Response(content=str(twiml), media_type="application/xml")
     
     except Exception as e:
-        # Fallback ensuring the message doesn't drop
+        logger.error(f"Webhook exception: {e}")
         twiml = MessagingResponse()
         twiml.message("I'm experiencing a brief connectivity issue. Let me connect you with our expert at +91 9876543210.")
         return Response(content=str(twiml), media_type="application/xml")

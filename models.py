@@ -57,3 +57,13 @@ class Lead(Base):
     updated_at = Column(DateTime(timezone=True), onupdate=func.now(), server_default=func.now())
     
     session = relationship("Session", back_populates="lead")
+
+class WebhookLog(Base):
+    """
+    Prevents duplicate message processing from automatic webhook retries.
+    """
+    __tablename__ = "webhook_logs"
+
+    message_sid = Column(String, primary_key=True, index=True) # Twilio's unique message ID
+    processed_at = Column(DateTime(timezone=True), server_default=func.now())
+

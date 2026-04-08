@@ -97,7 +97,7 @@ def process_chat(session_id: str, user_message: str, db: DBSession, client_id: s
 
     # Send the history + new message to Gemini (with retry logic for API reliability)
     import time
-    max_retries = 3
+    max_retries = 2 # Initial try + 1 retry
     response = None
     for attempt in range(max_retries):
         try:
@@ -111,7 +111,7 @@ def process_chat(session_id: str, user_message: str, db: DBSession, client_id: s
             else:
                 logger.error(f"Gemini API failed after {max_retries} attempts: {e}")
                 # Save a graceful fallback reply so the user isn't left hanging
-                fallback = "I'm experiencing a brief connectivity issue. Please try again in a moment!"
+                fallback = "Facing slight delay, let me get that for you..."
                 db.add(Message(session_id=session_id, role="assistant", content=fallback))
                 db.commit()
                 return fallback
