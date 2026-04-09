@@ -64,14 +64,21 @@ def process_chat(session_id: str, user_message: str, db: DBSession, client_id: s
     db.add(Message(session_id=session_id, role="user", content=user_message))
     db.commit()
 
-    # Query all past messages belonging to this session_id up to the current turn
-    past_messages = db.query(Message).filter(Message.session_id == session_id).order_by(Message.id).all()
+    # LIMIT CONTEXT: Query past messages but limit to 20 (last 10 turns) to prevent context inflation
+    past_messages = db.query(Message).filter(Message.session_id == session_id).order_by(Message.id.desc()).limit(20).all()
+    past_messages.reverse()
     
     formatted_history = []
     # Loop over all history EXCEPT the last message we just pushed to the DB 
     for m in past_messages[:-1]: 
         role = "user" if m.role == "user" else "model"
         formatted_history.append({"role": role, "parts": [m.content]})
+        
+    # Anohita Memory Summarization Logic
+    lead_summary = db.query(Lead).filter(Lead.session_id == session_id).first()
+    summary_text = ""
+    if lead_summary:
+        summary_text = f"User: {lead_summary.location or 'unknown'}, Budget: {lead_summary.budget or 'unknown'}, Intent: {lead_summary.intent or 'unknown'}\n"
 
     # Fetch RAG Context from the FAQ store
     from rag import retrieve
@@ -85,9 +92,9 @@ def process_chat(session_id: str, user_message: str, db: DBSession, client_id: s
                 for item in context_items
             ])
             # Inject context gracefully into the prompt without saving it to DB history
-            user_message_for_llm = f"Property Context:\n{context_text}\n\nUser Message: {user_message}"
+            user_message_for_llm = f"Summary: {summary_text}\nProperty Context:\n{context_text}\n\nUser Message: {user_message}"
         else:
-            user_message_for_llm = user_message
+            user_message_for_llm = f"Summary: {summary_text}\nUser Message: {user_message}"
     except Exception as e:
         logger.warning(f"RAG retrieval failed: {e}")
         user_message_for_llm = user_message
@@ -165,6 +172,27 @@ def process_chat(session_id: str, user_message: str, db: DBSession, client_id: s
         final_text = response.text
     except ValueError:
         final_text = "I've noted those details. What else can I help you find today?"
+
+    # Anohita's Conversion Intelligence Logic
+    history_text = " ".join([m.content for m in past_messages if m.role == "user"]).lower() + " " + user_message.lower()
+    calculated_score = "low"
+    if any(x in history_text for x in ["visit", "book", "finalize", "ready"]):
+        calculated_score = "high"
+    elif any(x in history_text for x in ["budget", "options", "compare", "price"]):
+        calculated_score = "medium"
+        
+    lead = db.query(Lead).filter(Lead.session_id == session_id).first()
+    if not lead:
+        lead = Lead(session_id=session_id)
+        db.add(lead)
+    
+    lead.score = calculated_score.capitalize()
+    db.commit()
+
+    if calculated_score == "high":
+        final_text += "\n\nWould you like me to arrange a visit or share details?"
+    elif calculated_score == "medium":
+        final_text += "\n\nI can refine options further if you'd like."
 
     # Save Gemini's textual response to the Message table
     db.add(Message(session_id=session_id, role="assistant", content=final_text))
