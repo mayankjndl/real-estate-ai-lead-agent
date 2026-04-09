@@ -49,7 +49,12 @@ function renderTable(leads) {
     leads.reverse().forEach(lead => {
         const row = document.createElement('tr');
         
-        const date = new Date(lead.updated_at).toLocaleString('en-US', {
+        let dateStr = lead.updated_at;
+        if (!dateStr.endsWith('Z') && !dateStr.includes('+')) {
+            dateStr += 'Z'; // Append UTC timezone marker so JS correctly offsets it to IST
+        }
+        
+        const date = new Date(dateStr).toLocaleString('en-US', {
             month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
         });
 

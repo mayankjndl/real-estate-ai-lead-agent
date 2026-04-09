@@ -5,7 +5,7 @@ import logging
 from fastapi import FastAPI, Depends, HTTPException, Security, status, Request, Form, Response, BackgroundTasks
 from twilio.rest import Client
 from fastapi.responses import StreamingResponse, PlainTextResponse
-from fastapi.security.api_key import APIKeyHeader
+from fastapi.security.api_key import APIKeyHeader, APIKeyQuery
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from twilio.twiml.messaging_response import MessagingResponse
@@ -67,17 +67,25 @@ app.add_middleware(
 # --- Security Dependency ---
 # Only applicable to analytical routing (Chat endpoints must be universally accessible)
 api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
+api_key_query = APIKeyQuery(name="X-API-Key", auto_error=False)
 
-def get_current_client_id(api_key: str = Security(api_key_header)) -> str:
+def get_current_client_id(
+    api_key_h: str = Security(api_key_header),
+    api_key_q: str = Security(api_key_query)
+) -> str:
     """
-    Validates the existence and accuracy of an API Key header against config environment.
+    Validates the existence and accuracy of an API Key against config environment.
+    Supports payload from secure Headers (Swagger/Postman) or secure URL Query Strings (Web Dashboard).
     """
+    api_key = api_key_h or api_key_q
+    
     for client_id, key in settings.CLIENT_KEYS.items():
         if api_key == key:
             return client_id
+            
     raise HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Invalid or missing X-API-Key header",
+        detail="Invalid or missing X-API-Key credentials",
     )
 
 # --- Endpoints ---
@@ -154,7 +162,7 @@ async def whatsapp_webhook(
                 # Give LLM 4.5s to finish
                 reply_text = await asyncio.wait_for(
                     asyncio.to_thread(process_chat, session_id, Body, db, client_id=client_id), 
-                    timeout=4.5
+                    timeout=5.0
                 )
                 
                 # Finished fast enough, return standard TwiML
