@@ -159,10 +159,10 @@ async def whatsapp_webhook(
         async with session_locks[session_id]:
             # Task 6: Timeout Handling
             try:
-                # Give LLM 4.5s to finish
+                # Give LLM 15s to finish to prevent double-charging the Google Free Tier Rate limit
                 reply_text = await asyncio.wait_for(
                     asyncio.to_thread(process_chat, session_id, Body, db, client_id=client_id), 
-                    timeout=5.0
+                    timeout=15.0
                 )
                 
                 # Finished fast enough, return standard TwiML

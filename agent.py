@@ -185,6 +185,10 @@ def process_chat(session_id: str, user_message: str, db: DBSession, client_id: s
     if not lead:
         lead = Lead(session_id=session_id)
         db.add(lead)
+        
+    # Dynamically ensure phone number is correctly parsed even if LLM bypasses function extraction
+    if session_id.startswith("+") and not lead.phone:
+        lead.phone = session_id
     
     lead.score = calculated_score.capitalize()
     db.commit()
