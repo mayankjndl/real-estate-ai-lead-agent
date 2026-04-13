@@ -18,6 +18,10 @@ __pycache__/
 *.db
 *.sqlite3
 
+# Log files
+app.log
+*.log
+
 # IDE settings
 .vscode/
 .idea/
@@ -32,3 +36,17 @@ documentation.md
 
 project_deep_dive.md
 production_report.md
+
+# Test, proof, and simulation scripts (dev-only, not for production repo)
+anohita_test_suite.py
+simulate_load.py
+simulation_data/
+test_advanced_scenarios.py
+test_followup.py
+test_scenarios.py
+comprehensive_load_test.py
+piyush_final_proof.py
+piyush_final_proof_log.txt
+test_results_log.txt
+live_validation_log.txt
+live_validation_suite.py

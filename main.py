@@ -2,6 +2,7 @@ from contextlib import asynccontextmanager
 import asyncio
 import collections
 import logging
+import time
 from fastapi import FastAPI, Depends, HTTPException, Security, status, Request, Form, Response, BackgroundTasks
 from twilio.rest import Client
 from fastapi.responses import StreamingResponse, PlainTextResponse
@@ -21,9 +22,8 @@ from follow_up import check_and_send_followups
 from apscheduler.schedulers.background import BackgroundScheduler
 import models
 
-# Configure Central App Logging
+# Configure Central App Logging (stdout so Render dashboard captures it)
 logging.basicConfig(
-    filename='app.log',
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
@@ -90,6 +90,11 @@ def get_current_client_id(
 
 # --- Endpoints ---
 
+@app.get("/health")
+def health_check():
+    """Render health check and cron-job.org keep-alive ping endpoint."""
+    return {"status": "ok", "service": "Real Estate AI Agent"}
+
 @app.post("/api/v1/chat")
 def chat_endpoint(session_id: str, message: str, client_id: str = "default", db: DBSession = Depends(get_db)):
     """
@@ -140,6 +145,7 @@ async def whatsapp_webhook(
     Twilio WhatsApp Webhook.
     Handles duplicate prevention, queueing, and timeouts.
     """
+    request_start = time.time()
     try:
         # Task 1: Duplicate Message Protection
         if MessageSid:
@@ -165,14 +171,16 @@ async def whatsapp_webhook(
                     timeout=15.0
                 )
                 
-                # Finished fast enough, return standard TwiML
+                # Finished fast enough — log latency and return standard TwiML
+                latency_ms = round((time.time() - request_start) * 1000)
+                logger.info(f"LATENCY | session={session_id} | {latency_ms}ms | status=delivered")
                 twiml = MessagingResponse()
                 twiml.message(reply_text)
                 return Response(content=str(twiml), media_type="application/xml")
             
             except asyncio.TimeoutError:
-                # Took too long. Dispatch to background and return interim response 
-                logger.info(f"Timeout reached for {session_id}, pushing to background...")
+                # Took too long — dispatch to background and return interim response
+                logger.info(f"TIMEOUT | session={session_id} | exceeded=15000ms | action=background_dispatch")
                 background_tasks.add_task(background_process_and_push, session_id, Body, client_id)
                 
                 twiml = MessagingResponse()
@@ -180,7 +188,7 @@ async def whatsapp_webhook(
                 return Response(content=str(twiml), media_type="application/xml")
     
     except Exception as e:
-        logger.error(f"Webhook exception: {e}")
+        logger.warning(f"FALLBACK | session={session_id if 'session_id' in locals() else 'unknown'} | reason={type(e).__name__} | detail={str(e)[:120]}")
         twiml = MessagingResponse()
         twiml.message("I'm experiencing a brief connectivity issue. Let me connect you with our expert at +91 9876543210.")
         return Response(content=str(twiml), media_type="application/xml")
