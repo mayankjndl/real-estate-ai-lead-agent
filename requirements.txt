@@ -10,3 +10,4 @@ python-multipart==0.0.9
 twilio==9.0.4
 numpy==1.26.4
 faiss-cpu==1.8.0
+packaging
