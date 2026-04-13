@@ -23,32 +23,40 @@ def get_query_embedding(text: str):
     )
     return result['embedding']
 
-# Load FAQ data and initialize FAISS index
-faq_path = os.path.join(os.path.dirname(__file__), "data", "faq.json")
-with open(faq_path, "r", encoding="utf-8") as f:
-    data = json.load(f)
+# Load FAQ data and initialize FAISS index (fail-safe for cloud deploys)
+import logging as _rag_log
+_logger = _rag_log.getLogger("rag")
 
-texts = [
-    f"{item['location']} {item['type']} property {item['details']} {item['description']}"
-    for item in data
-]
+RAG_AVAILABLE = False
+data = []
+index = None
 
-# Compute embeddings
-embeddings = np.array([get_embedding(t) for t in texts], dtype=np.float32)
+try:
+    faq_path = os.path.join(os.path.dirname(__file__), "data", "faq.json")
+    with open(faq_path, "r", encoding="utf-8") as f:
+        data = json.load(f)
 
-# Initialize FAISS
-dimension = embeddings.shape[1]
-index = faiss.IndexFlatL2(dimension)
-index.add(embeddings)
+    texts = [
+        f"{item['location']} {item['type']} property {item['details']} {item['description']}"
+        for item in data
+    ]
+
+    # Compute embeddings (may fail on free tier rate limits)
+    embeddings = np.array([get_embedding(t) for t in texts], dtype=np.float32)
+
+    dimension = embeddings.shape[1]
+    index = faiss.IndexFlatL2(dimension)
+    index.add(embeddings)
+    RAG_AVAILABLE = True
+    _logger.info(f"RAG index built with {len(data)} FAQ items.")
+except Exception as _e:
+    _logger.warning(f"RAG index failed to build (degraded mode, no context injection): {_e}")
 
 def retrieve(query: str, k: int = 2):
+    if not RAG_AVAILABLE or index is None:
+        raise RuntimeError("RAG index not available")
     q_emb = np.array([get_query_embedding(query)], dtype=np.float32)
     D, I = index.search(q_emb, k)
-    
     results = [data[i] for i in I[0]]
-    # Lower distance means higher similarity.
-    # Adjust this threshold as needed based on the embedding space.
-    # L2 distance for embedding-001 can vary, let's return the score anyway.
     score = float(D[0][0])
-    
     return results, score
