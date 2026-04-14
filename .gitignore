@@ -50,3 +50,9 @@ piyush_final_proof_log.txt
 test_results_log.txt
 live_validation_log.txt
 live_validation_suite.py
+
+# Dev utility scripts (not part of core production code)
+crm_populate.py
+crm_populate_missing.py
+delivery_proof.py
+inject_leads.py
