@@ -115,7 +115,8 @@ def chat_endpoint(session_id: str, message: str, client_id: str = "default", db:
 
 async def background_process_and_push(session_id: str, Body: str, client_id: str):
     """
-    Executes if the LLM exceeds 4.5s. Uses Twilio Client to push the message out-of-band.
+    Executes if the LLM exceeds 15s timeout. Uses Twilio REST API to push the reply out-of-band.
+    If the LLM still fails in the background, sends a graceful fallback so the user is never left with no response.
     """
     db = next(get_db())
     try:
@@ -130,6 +131,18 @@ async def background_process_and_push(session_id: str, Body: str, client_id: str
             logger.info(f"Background task pushed response to {session_id}")
     except Exception as e:
         logger.error(f"Background task failed for {session_id}: {e}")
+        # Always guarantee the user gets a response — send fallback via Twilio REST
+        try:
+            if settings.TWILIO_ACCOUNT_SID:
+                fallback_client = Client(settings.TWILIO_ACCOUNT_SID, settings.TWILIO_AUTH_TOKEN)
+                fallback_client.messages.create(
+                    from_=settings.TWILIO_PHONE_NUMBER,
+                    body="I'm experiencing a brief connectivity issue. Please try again in a moment, or reach our team directly at +91 9876543210.",
+                    to=f"whatsapp:{session_id}"
+                )
+                logger.warning(f"FALLBACK | session={session_id} | reason=background_task_failure | detail=graceful_fallback_sent_via_twilio")
+        except Exception as fallback_err:
+            logger.error(f"FALLBACK push also failed for {session_id}: {fallback_err}")
     finally:
         db.close()
 
