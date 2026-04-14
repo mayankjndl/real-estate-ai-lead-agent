@@ -120,7 +120,7 @@ async def background_process_and_push(session_id: str, Body: str, client_id: str
     """
     db = next(get_db())
     try:
-        reply_text = await asyncio.to_thread(process_chat, session_id, Body, db, client_id)
+        reply_text = await asyncio.to_thread(process_chat, session_id, Body, db, client_id, True)
         if settings.TWILIO_ACCOUNT_SID:
             client = Client(settings.TWILIO_ACCOUNT_SID, settings.TWILIO_AUTH_TOKEN)
             client.messages.create(

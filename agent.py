@@ -40,11 +40,17 @@ model = genai.GenerativeModel(
 )
 
 # 3. Stateful Memory Function
-def process_chat(session_id: str, user_message: str, db: DBSession, client_id: str = "default") -> str:
+def process_chat(session_id: str, user_message: str, db: DBSession, client_id: str = "default", is_background: bool = False) -> str:
     """
     Main orchestrator for user input. Fetches memory, injects context to the LLM, 
     extracts function calls for lead generation, and commits all data to DB.
     """
+    # DEMO ONLY — force timeout so background dispatch can be demonstrated
+    # Remove this block after recording the proof screenshot
+    import time as _time
+    if not is_background:
+        logger.info(f"[DEMO] Sleeping 16s to force timeout for session={session_id}")
+        _time.sleep(16)
     
     # Ensure session exists in the database
     session = db.query(Session).filter(Session.id == session_id).first()
