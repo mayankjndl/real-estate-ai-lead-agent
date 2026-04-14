@@ -295,9 +295,8 @@ Key settings in `config.py`:
 
 ---
 
-## License
-
-MIT License. See `LICENSE` for details.
+## Author
+Mayank Jindal | AI/ML Engineer
 
 ---
 
