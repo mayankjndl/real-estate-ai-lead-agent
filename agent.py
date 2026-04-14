@@ -117,8 +117,12 @@ def process_chat(session_id: str, user_message: str, db: DBSession, client_id: s
                 time.sleep(wait_time)
             else:
                 logger.error(f"Gemini API failed after {max_retries} attempts: {e}")
-                # Save a graceful fallback reply so the user isn't left hanging
-                fallback = "Facing slight delay, let me get that for you..."
+                # Proper closure — no false promise, offer human support immediately
+                fallback = (
+                    "I'm currently experiencing a technical issue and couldn't process your request. "
+                    "Our team is here to help — please reach us directly at *+91 9876543210* "
+                    "or try again in a few minutes. Apologies for the inconvenience! 🙏"
+                )
                 db.add(Message(session_id=session_id, role="assistant", content=fallback))
                 db.commit()
                 return fallback
