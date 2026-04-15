@@ -56,3 +56,4 @@ crm_populate.py
 crm_populate_missing.py
 delivery_proof.py
 inject_leads.py
+test_duplicate.py
