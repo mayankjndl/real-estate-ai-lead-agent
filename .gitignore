@@ -57,3 +57,12 @@ crm_populate_missing.py
 delivery_proof.py
 inject_leads.py
 test_duplicate.py
+proof_stability.py
+proof_rapid_fire.py
+proof_full_flow.py
+proof_failure_modes.py
+stability_log*.txt
+stability_log*.json
+rapid_fire_log*.txt
+full_flow_log*.txt
+failure_modes_log*.txt

@@ -88,12 +88,6 @@ def get_current_client_id(
         detail="Invalid or missing X-API-Key credentials",
     )
 
-# --- Endpoints ---
-
-@app.get("/health")
-def health_check():
-    """Render health check and cron-job.org keep-alive ping endpoint."""
-    return {"status": "ok", "service": "Real Estate AI Agent"}
 
 @app.post("/api/v1/chat")
 def chat_endpoint(session_id: str, message: str, client_id: str = "default", db: DBSession = Depends(get_db)):
