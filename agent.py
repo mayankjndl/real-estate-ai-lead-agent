@@ -52,12 +52,23 @@ def process_chat(session_id: str, user_message: str, db: DBSession, client_id: s
         session = Session(id=session_id, client_id=client_id)
         db.add(session)
         db.commit()
-    
-    # User replied — reset follow-up state and reactivate session
+    # User replied — reset follow-up state
     from datetime import datetime, timezone
     session.follow_up_count = 0
-    session.status = "active"
     session.last_activity_at = datetime.now(timezone.utc)
+    
+    # Detect if user is naturally closing the conversation
+    msg_lower = user_message.lower().strip()
+    # Remove punctuation
+    import string
+    msg_clean = msg_lower.translate(str.maketrans('', '', string.punctuation))
+    closing_phrases = ["thanks", "thank you", "bye", "goodbye", "ok thanks", "perfect thanks", "done", "great thanks", "thanks a lot"]
+    
+    if any(msg_clean == p for p in closing_phrases) or msg_clean.endswith(" bye") or msg_clean.endswith(" thanks"):
+        session.status = "closed"
+        logger.info(f"Session {session_id} marked as CLOSED (user concluded conversation).")
+    else:
+        session.status = "active"
     db.commit()
 
     # Save the new user message to the Message table
