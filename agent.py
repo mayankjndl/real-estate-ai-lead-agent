@@ -1,10 +1,14 @@
 import json
 import logging
+import string
+import time
+from datetime import datetime, timezone
 import google.generativeai as genai
 from config import settings
 from system_prompt import REAL_ESTATE_SYSTEM_PROMPT
 from sqlalchemy.orm import Session as DBSession
 from models import Session, Message, Lead
+from rag import retrieve
 
 # 1. Gemini Initialization
 genai.configure(api_key=settings.GEMINI_API_KEY)
@@ -53,14 +57,12 @@ def process_chat(session_id: str, user_message: str, db: DBSession, client_id: s
         db.add(session)
         db.commit()
     # User replied — reset follow-up state
-    from datetime import datetime, timezone
     session.follow_up_count = 0
     session.last_activity_at = datetime.now(timezone.utc)
     
     # Detect if user is naturally closing the conversation
     msg_lower = user_message.lower().strip()
     # Remove punctuation
-    import string
     msg_clean = msg_lower.translate(str.maketrans('', '', string.punctuation))
     closing_phrases = ["thanks", "thank you", "bye", "goodbye", "ok thanks", "perfect thanks", "done", "great thanks", "thanks a lot"]
     
@@ -107,7 +109,6 @@ def process_chat(session_id: str, user_message: str, db: DBSession, client_id: s
     is_property_query = any(w.strip(".,!?") in PROPERTY_KEYWORDS for w in words)
 
     # Fetch RAG Context from the FAQ store (only for property-related queries)
-    from rag import retrieve
     user_message_for_llm = f"Summary: {summary_text}\nUser Message: {user_message}"
     if is_property_query:
         try:
@@ -127,8 +128,7 @@ def process_chat(session_id: str, user_message: str, db: DBSession, client_id: s
     chat = model.start_chat(history=formatted_history)
 
     # Send the history + new message to Gemini (with retry logic for API reliability)
-    import time
-    max_retries = 2 # Initial try + 1 retry
+    max_retries = 2
     response = None
     for attempt in range(max_retries):
         try:
@@ -136,7 +136,7 @@ def process_chat(session_id: str, user_message: str, db: DBSession, client_id: s
             break  # Success — exit retry loop
         except Exception as e:
             if attempt < max_retries - 1:
-                wait_time = 2 ** attempt  # 1s, 2s, 4s
+                wait_time = 0.5  # flat short wait — 2 attempts only, no need for full backoff
                 logger.warning(f"Gemini API attempt {attempt + 1} failed: {e}. Retrying in {wait_time}s...")
                 time.sleep(wait_time)
             else:
