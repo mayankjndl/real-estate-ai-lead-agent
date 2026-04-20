@@ -77,6 +77,26 @@ def process_chat(session_id: str, user_message: str, db: DBSession, client_id: s
     db.add(Message(session_id=session_id, role="user", content=user_message))
     db.commit()
 
+    # PERFORMANCE: Instant-Reply Intercept
+    # Bypasses Gemini completely for basic generic texts to deliver 0ms backend latency
+    INSTANT_REPLIES = {
+        "hi": "Hello! How can I help you with your property search today?",
+        "hello": "Hi there! Are you looking to buy or rent a property?",
+        "hey": "Hello! What kind of property are you looking for?",
+        "ok": "Got it! Let me know if you have any other questions.",
+        "okay": "Got it! Let me know if you have any other questions.",
+        "thanks": "You're welcome! Feel free to ask if you need anything else.",
+        "thank you": "You're welcome! Feel free to ask if you need anything else."
+    }
+    
+    if msg_clean in INSTANT_REPLIES:
+        instant_reply = INSTANT_REPLIES[msg_clean]
+        db.add(Message(session_id=session_id, role="assistant", content=instant_reply))
+        db.commit()
+        logger.info(f"INSTANT_INTERCEPT | session={session_id} | bypassed LLM")
+        return instant_reply
+
+
     # LIMIT CONTEXT: last 6 turns (12 messages) — enough for natural conversation,
     # small enough to keep the Gemini payload fast and reduce first-token latency.
     past_messages = db.query(Message).filter(Message.session_id == session_id).order_by(Message.id.desc()).limit(12).all()
