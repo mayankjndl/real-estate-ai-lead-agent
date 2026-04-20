@@ -75,15 +75,17 @@ def process_chat(session_id: str, user_message: str, db: DBSession, client_id: s
     db.add(Message(session_id=session_id, role="user", content=user_message))
     db.commit()
 
-    # LIMIT CONTEXT: Query past messages but limit to 20 (last 10 turns) to prevent context inflation
-    past_messages = db.query(Message).filter(Message.session_id == session_id).order_by(Message.id.desc()).limit(20).all()
+    # LIMIT CONTEXT: last 15 turns (30 messages) for richer multi-turn memory
+    past_messages = db.query(Message).filter(Message.session_id == session_id).order_by(Message.id.desc()).limit(30).all()
     past_messages.reverse()
-    
+
     formatted_history = []
-    # Loop over all history EXCEPT the last message we just pushed to the DB 
-    for m in past_messages[:-1]: 
+    # Build history excluding the just-saved user message.
+    # Strip [AUTO FOLLOW-UP] prefix so follow-up messages don't inflate token count.
+    for m in past_messages[:-1]:
         role = "user" if m.role == "user" else "model"
-        formatted_history.append({"role": role, "parts": [m.content]})
+        clean_content = m.content.replace("[AUTO FOLLOW-UP] ", "")
+        formatted_history.append({"role": role, "parts": [clean_content]})
         
     # Anohita Memory Summarization Logic
     lead_summary = db.query(Lead).filter(Lead.session_id == session_id).first()
@@ -91,24 +93,34 @@ def process_chat(session_id: str, user_message: str, db: DBSession, client_id: s
     if lead_summary:
         summary_text = f"User: {lead_summary.location or 'unknown'}, Budget: {lead_summary.budget or 'unknown'}, Intent: {lead_summary.intent or 'unknown'}\n"
 
-    # Fetch RAG Context from the FAQ store
+    # Keyword gateway: only call RAG (Gemini Embedding API) for property-related queries.
+    # Greetings, acks, and short responses skip the embedding call, saving 1-4s per message.
+    PROPERTY_KEYWORDS = {
+        "flat", "bhk", "rent", "buy", "invest", "area", "location", "baner", "wakad",
+        "hinjewadi", "price", "budget", "property", "apartment", "villa", "plot",
+        "2bhk", "3bhk", "1bhk", "pune", "noida", "mumbai", "sqft", "furnish",
+        "visit", "book", "schedule", "bedroom", "floor", "tower", "society",
+        "possession", "ready", "availability", "cheap", "affordable", "luxury",
+    }
+    words = user_message.lower().split()
+    is_property_query = any(w.strip(".,!?") in PROPERTY_KEYWORDS for w in words)
+
+    # Fetch RAG Context from the FAQ store (only for property-related queries)
     from rag import retrieve
-    try:
-        context_items, score = retrieve(user_message)
-        # If score is good (lower is better for L2 distance, embedding-001 L2 distances are usually < 1.0)
-        # Let's just append the context cleanly
-        if score < 0.8 and context_items:
-            context_text = "\n".join([
-                f"- {item['location']} {item['type']}: {item['details']} ({item['description']})"
-                for item in context_items
-            ])
-            # Inject context gracefully into the prompt without saving it to DB history
-            user_message_for_llm = f"Summary: {summary_text}\nProperty Context:\n{context_text}\n\nUser Message: {user_message}"
-        else:
-            user_message_for_llm = f"Summary: {summary_text}\nUser Message: {user_message}"
-    except Exception as e:
-        logger.warning(f"RAG retrieval failed: {e}")
-        user_message_for_llm = user_message
+    user_message_for_llm = f"Summary: {summary_text}\nUser Message: {user_message}"
+    if is_property_query:
+        try:
+            context_items, score = retrieve(user_message)
+            if score < 0.8 and context_items:
+                context_text = "\n".join([
+                    f"- {item['location']} {item['type']}: {item['details']} ({item['description']})"
+                    for item in context_items
+                ])
+                user_message_for_llm = f"Summary: {summary_text}\nProperty Context:\n{context_text}\n\nUser Message: {user_message}"
+        except Exception as e:
+            logger.warning(f"RAG retrieval failed: {e}")
+    else:
+        logger.info(f"RAG skipped (non-property query) for session={session_id}")
 
     # Start Gemini Chat with retrieved history
     chat = model.start_chat(history=formatted_history)

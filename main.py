@@ -32,8 +32,14 @@ logger = logging.getLogger("main")
 # Automatically orchestrate DB creation on application boot
 Base.metadata.create_all(bind=engine)
 
-# Queueing system: Locks per session_id ensuring linear processing
+# Queueing system: Locks per session_id ensuring linear processing.
+# NOTE: These locks are per-process. In a multi-worker deployment, use Redis-based
+# distributed locks instead. Current Render setup uses WEB_CONCURRENCY=1 (safe).
 session_locks = collections.defaultdict(asyncio.Lock)
+
+# Track server start time for uptime reporting in /health
+import datetime as _dt
+APP_START_TIME = _dt.datetime.now(_dt.timezone.utc)
 
 # --- Background Scheduler for Follow-Up System ---
 scheduler = BackgroundScheduler()
@@ -43,10 +49,10 @@ scheduler.add_job(check_and_send_followups, "interval", minutes=1, id="follow_up
 async def lifespan(app):
     """Start the follow-up scheduler when the server boots, stop it on shutdown."""
     scheduler.start()
-    print("✅ Follow-up scheduler started (checking every 1 minute)")
+    logger.info("Follow-up scheduler started (checking every 1 minute)")
     yield
     scheduler.shutdown()
-    print("🛑 Follow-up scheduler stopped")
+    logger.info("Follow-up scheduler stopped")
 
 app = FastAPI(
     title="Real Estate AI Lead Agent",
@@ -293,22 +299,27 @@ def export_leads(
 @app.get("/health")
 def health_check(db: DBSession = Depends(get_db)):
     """
-    Simple health check endpoint for monitoring and load balancers.
-    Verifies that the server, database, and scheduler are all operational.
+    Health check endpoint for monitoring, load balancers, and cron-job.org keep-alive.
+    Returns DB status, scheduler state, and uptime for operational observability.
     """
-    # Test database connectivity
+    import datetime as _dt
     try:
         db.execute(models.Session.__table__.select().limit(1))
         db_status = "connected"
     except Exception:
         db_status = "error"
-    
+
+    uptime_seconds = round((_dt.datetime.now(_dt.timezone.utc) - APP_START_TIME).total_seconds())
+
     return {
         "status": "healthy",
+        "version": "1.0.0",
         "database": db_status,
         "scheduler": "running" if scheduler.running else "stopped",
+        "uptime_seconds": uptime_seconds,
+        "worker_mode": "single-worker",
         "follow_up_delay_minutes": settings.FOLLOW_UP_DELAY_MINUTES,
-        "ai_followups_enabled": settings.USE_AI_FOLLOWUPS
+        "ai_followups_enabled": settings.USE_AI_FOLLOWUPS,
     }
 
 # Mount static files for the Dashboard

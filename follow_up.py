@@ -77,14 +77,16 @@ def check_and_send_followups():
         now = datetime.now(timezone.utc)
         delay = timedelta(minutes=settings.FOLLOW_UP_DELAY_MINUTES)
         cutoff_time = now - delay
-        
+
         # Find all active sessions where last activity is older than the delay
         stale_sessions = db.query(Session).filter(
             Session.status == "active",
             Session.last_activity_at < cutoff_time,
             Session.follow_up_count < settings.FOLLOW_UP_MAX_COUNT
         ).all()
-        
+
+        logger.info(f"SCHEDULER_HEARTBEAT | checked stale sessions: {len(stale_sessions)}")
+
         for session in stale_sessions:
             # Check that the last message was from the assistant (user hasn't replied)
             last_msg = db.query(Message).filter(
