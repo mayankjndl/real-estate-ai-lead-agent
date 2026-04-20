@@ -20,9 +20,9 @@ class Settings(BaseSettings):
     # Database Settings
     DATABASE_URL: str = "sqlite:///./real_estate_agent.db"
 
-    # Model configuration — gemini-2.0-flash-lite is optimised for low latency (~1s first token).
-    # Override via GEMINI_MODEL env var on Render if a higher-quality model is needed.
-    GEMINI_MODEL: str = "gemini-2.0-flash-lite"
+    # Model configuration — gemini-2.5-flash is the production model.
+    # Supports function calling, tool use, and multi-turn context reliably.
+    GEMINI_MODEL: str = "gemini-2.5-flash"
 
     # Follow-up system settings
     FOLLOW_UP_DELAY_MINUTES: int = 3
