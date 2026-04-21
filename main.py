@@ -283,13 +283,13 @@ def export_leads(
     
     stream = StringIO()
     writer = csv.writer(stream)
-    writer.writerow(["Session ID", "Name", "Phone", "Budget", "Location", "Intent", "Score", "Updated At"])
+    writer.writerow(["Session ID", "Name", "Phone", "Budget", "Location", "Intent", "Score", "Visit Date", "Updated At"])
     
     for lead in leads:
         writer.writerow([
             lead.session_id, lead.name or "N/A", lead.phone or "N/A",
             lead.budget or "N/A", lead.location or "N/A", lead.intent or "N/A",
-            lead.score or "Low", str(lead.updated_at)
+            lead.score or "Low", lead.visit_date or "N/A", str(lead.updated_at)
         ])
     
     response = StreamingResponse(iter([stream.getvalue()]), media_type="text/csv")

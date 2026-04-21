@@ -1,87 +1,169 @@
-const API_KEY = "secret-client-key-123";
+/* ==============================================
+   ABC Properties — AI CRM Dashboard Script
+   ============================================== */
+
+const API_KEY  = "secret-client-key-123";
 const API_BASE = "https://real-estate-ai-lead-agent-1.onrender.com/api/v1";
+const HEADERS  = { "X-API-Key": API_KEY, "Content-Type": "application/json" };
 
-const headers = {
-    "X-API-Key": API_KEY,
-    "Content-Type": "application/json"
-};
-
-async function fetchStats() {
-    try {
-        const response = await fetch(`${API_BASE}/analytics`, { headers });
-        const result = await response.json();
-        
-        if (result.status === "success") {
-            const data = result.data;
-            document.getElementById('total-sessions').textContent = data.total_sessions;
-            document.getElementById('total-leads').textContent = data.total_leads_captured;
-            document.getElementById('conversion-rate').textContent = `${data.conversion_rate}%`;
-        }
-    } catch (error) {
-        console.error("Error fetching stats:", error);
-    }
+/* ---- Theme Toggle ---- */
+function toggleTheme() {
+    const html  = document.documentElement;
+    const icon  = document.getElementById("theme-icon");
+    const isDark = html.getAttribute("data-theme") === "dark";
+    html.setAttribute("data-theme", isDark ? "light" : "dark");
+    icon.setAttribute("data-lucide", isDark ? "moon" : "sun");
+    lucide.createIcons();
+    localStorage.setItem("crm-theme", isDark ? "light" : "dark");
 }
 
-async function fetchLeads() {
-    const intent = document.getElementById('intent-filter').value;
-    const score = document.getElementById('score-filter').value;
-    
-    let url = `${API_BASE}/leads?`;
-    if (intent) url += `intent=${intent}&`;
-    if (score) url += `score=${score}`;
-
-    try {
-        const response = await fetch(url, { headers });
-        const result = await response.json();
-        
-        if (result.status === "success") {
-            renderTable(result.leads);
+// Restore saved theme on load
+(function() {
+    const saved = localStorage.getItem("crm-theme") || "dark";
+    document.documentElement.setAttribute("data-theme", saved);
+    window.addEventListener("DOMContentLoaded", () => {
+        const icon = document.getElementById("theme-icon");
+        if (icon) {
+            icon.setAttribute("data-lucide", saved === "dark" ? "sun" : "moon");
+            lucide.createIcons();
         }
-    } catch (error) {
-        console.error("Error fetching leads:", error);
-    }
-}
+    });
+})();
 
-function renderTable(leads) {
-    const tbody = document.getElementById('leads-body');
-    tbody.innerHTML = '';
-
-    leads.reverse().forEach(lead => {
-        const row = document.createElement('tr');
-        
-        let dateStr = lead.updated_at;
-        if (!dateStr.endsWith('Z') && !dateStr.includes('+')) {
-            dateStr += 'Z'; // Append UTC timezone marker so JS correctly offsets it to IST
-        }
-        
-        const date = new Date(dateStr).toLocaleString('en-US', {
-            month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
-        });
-
-        row.innerHTML = `
-            <td><strong>${lead.name || 'Unknown'}</strong></td>
-            <td>${lead.phone || 'N/A'}</td>
-            <td>${lead.location || 'N/A'}</td>
-            <td>${lead.budget || 'N/A'}</td>
-            <td><span class="badge intent">${lead.intent || 'Unknown'}</span></td>
-            <td><span class="badge score-${(lead.score || 'low').toLowerCase()}">${lead.score || 'Low'}</span></td>
-            <td style="color: var(--text-muted)">${date}</td>
-        `;
-        
-        tbody.appendChild(row);
+/* ---- Helpers ---- */
+function fmtDate(raw) {
+    if (!raw) return "—";
+    const str = raw.endsWith("Z") || raw.includes("+") ? raw : raw + "Z";
+    return new Date(str).toLocaleString("en-IN", {
+        month: "short", day: "numeric",
+        hour: "2-digit", minute: "2-digit"
     });
 }
 
-function exportLeads() {
-    window.open(`${API_BASE}/leads/export?X-API-Key=${API_KEY}`, '_blank');
+function setEl(id, val) {
+    const el = document.getElementById(id);
+    if (el) el.textContent = val;
 }
 
-// Initial load
-fetchStats();
-fetchLeads();
+/* ---- Fetch Analytics ---- */
+async function fetchStats() {
+    try {
+        const res  = await fetch(`${API_BASE}/analytics`, { headers: HEADERS });
+        const json = await res.json();
+        if (json.status !== "success") return;
 
-// Refresh every 30 seconds
-setInterval(() => {
-    fetchStats();
-    fetchLeads();
-}, 30000);
+        const d = json.data;
+        setEl("total-sessions",  d.total_sessions   ?? "--");
+        setEl("total-leads",     d.total_leads_captured ?? "--");
+        setEl("conversion-rate", `${d.conversion_rate ?? "--"}%`);
+
+        // Intent counts
+        const breakdown = d.intent_breakdown || {};
+        setEl("count-buy",        breakdown.buy        ?? 0);
+        setEl("count-rent",       breakdown.rent       ?? 0);
+        setEl("count-investment",  breakdown.investment ?? 0);
+        setEl("count-browsing",   breakdown.browsing   ?? 0);
+    } catch (e) {
+        console.error("fetchStats:", e);
+    }
+}
+
+/* ---- Fetch Leads & Visits Booked ---- */
+async function fetchLeads() {
+    const intent = document.getElementById("intent-filter")?.value ?? "";
+    const score  = document.getElementById("score-filter")?.value  ?? "";
+
+    let url = `${API_BASE}/leads?`;
+    if (intent) url += `intent=${encodeURIComponent(intent)}&`;
+    if (score)  url += `score=${encodeURIComponent(score)}`;
+
+    try {
+        const res  = await fetch(url, { headers: HEADERS });
+        const json = await res.json();
+        if (json.status !== "success") return;
+
+        renderTable(json.leads || []);
+
+        // Count visits booked from the full unfiltered leads for the stat card
+        const visitsCount = (json.leads || []).filter(l => l.visit_date).length;
+        setEl("visits-booked", visitsCount);
+    } catch (e) {
+        console.error("fetchLeads:", e);
+    }
+}
+
+/* ---- Render Table ---- */
+function renderTable(leads) {
+    const tbody = document.getElementById("leads-body");
+    if (!tbody) return;
+
+    if (!leads.length) {
+        tbody.innerHTML = '<tr><td colspan="8" class="empty-row">No leads found matching the selected filters.</td></tr>';
+        return;
+    }
+
+    const sorted = [...leads].reverse();
+    tbody.innerHTML = sorted.map(lead => {
+        const intent = (lead.intent || "unknown").toLowerCase();
+        const score  = (lead.score  || "low").toLowerCase();
+
+        const visitCell = lead.visit_date
+            ? `<span class="visit-chip">📅 ${lead.visit_date}</span>`
+            : `<span style="color:var(--text-muted)">—</span>`;
+
+        return `
+        <tr>
+            <td><strong>${lead.name || "—"}</strong></td>
+            <td style="color:var(--text-secondary)">${lead.phone || "—"}</td>
+            <td>${lead.location || "—"}</td>
+            <td style="font-weight:600">${lead.budget || "—"}</td>
+            <td><span class="badge badge-intent ${intent}">${lead.intent || "unknown"}</span></td>
+            <td><span class="badge score-${score}">${lead.score || "Low"}</span></td>
+            <td>${visitCell}</td>
+            <td style="color:var(--text-muted);font-size:0.78rem">${fmtDate(lead.updated_at)}</td>
+        </tr>`;
+    }).join("");
+}
+
+/* ---- Export ---- */
+function exportLeads() {
+    window.open(`${API_BASE}/leads/export?X-API-Key=${API_KEY}`, "_blank");
+}
+
+/* ---- System Health ---- */
+async function openHealth() {
+    try {
+        const res  = await fetch("https://real-estate-ai-lead-agent-1.onrender.com/health");
+        const json = await res.json();
+        const dot  = document.getElementById("health-dot");
+        if (dot) {
+            dot.style.background = json.status === "healthy" ? "var(--neon-green)" : "var(--neon-red)";
+        }
+        alert(
+            `System Health\n\n` +
+            `Status:    ${json.status}\n` +
+            `DB:        ${json.database}\n` +
+            `Scheduler: ${json.scheduler}\n` +
+            `Uptime:    ${Math.floor(json.uptime_seconds / 3600)}h ${Math.floor((json.uptime_seconds % 3600)/60)}m\n` +
+            `Version:   ${json.version}\n` +
+            `Workers:   ${json.worker_mode}`
+        );
+    } catch (e) {
+        alert("Could not reach health endpoint. Server may be offline.");
+    }
+}
+
+/* ---- Last Updated ---- */
+function updateTimestamp() {
+    const el = document.getElementById("last-updated");
+    if (el) el.textContent = "Updated " + new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" });
+}
+
+/* ---- Initial Load & Auto-Refresh ---- */
+async function refresh() {
+    await Promise.all([fetchStats(), fetchLeads()]);
+    updateTimestamp();
+}
+
+refresh();
+setInterval(refresh, 30_000);

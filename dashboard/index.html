@@ -1,124 +1,192 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI CRM Dashboard | ABC Properties</title>
+    <meta name="description" content="ABC Properties AI CRM — Real-time WhatsApp lead intelligence dashboard">
+    <title>AI CRM | ABC Properties</title>
     <link rel="stylesheet" href="styles.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/lucide@latest"></script>
 </head>
 <body>
-    <div class="dashboard-container">
+    <div class="layout">
+
         <!-- Sidebar -->
-        <aside class="sidebar">
-            <div class="logo">
-                <i data-lucide="building-2"></i>
-                <span>ABC Properties</span>
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-brand">
+                <div class="brand-icon">
+                    <i data-lucide="building-2"></i>
+                </div>
+                <div class="brand-text">
+                    <span class="brand-name">ABC Properties</span>
+                    <span class="brand-sub">AI Lead Intelligence</span>
+                </div>
             </div>
-            <nav>
-                <a href="#" class="active"><i data-lucide="layout-dashboard"></i> Overview</a>
-                <a href="#"><i data-lucide="message-square"></i> Live Chats</a>
-                <a href="#"><i data-lucide="users"></i> Leads Directory</a>
-                <a href="#"><i data-lucide="settings"></i> Settings</a>
+
+            <nav class="sidebar-nav">
+                <span class="nav-label">Main</span>
+                <a href="#" class="nav-item active" id="nav-overview">
+                    <i data-lucide="layout-dashboard"></i>
+                    <span>Overview</span>
+                </a>
+                <a href="#" class="nav-item" id="nav-leads">
+                    <i data-lucide="users"></i>
+                    <span>Lead Directory</span>
+                </a>
+                <span class="nav-label">System</span>
+                <a href="#" class="nav-item" id="nav-health" onclick="openHealth()">
+                    <i data-lucide="activity"></i>
+                    <span>System Health</span>
+                    <span class="status-dot" id="health-dot"></span>
+                </a>
             </nav>
-            <div class="user-profile">
-                <div class="avatar">M</div>
-                <div class="info">
-                    <strong>Mayank Jindal</strong>
-                    <span>System Admin</span>
+
+            <div class="sidebar-footer">
+                <div class="user-card">
+                    <div class="user-avatar">A</div>
+                    <div class="user-info">
+                        <strong>Admin</strong>
+                        <span>System Administrator</span>
+                    </div>
                 </div>
             </div>
         </aside>
 
         <!-- Main Content -->
-        <main class="main-content">
-            <header>
-                <div>
-                    <h1>AI Lead CRM</h1>
-                    <p>Real-time insights from across your WhatsApp and Web channels.</p>
+        <main class="main">
+
+            <!-- Top Bar -->
+            <header class="topbar">
+                <div class="topbar-left">
+                    <h1 id="page-title">Overview</h1>
+                    <span class="live-badge">
+                        <span class="pulse"></span>
+                        Live
+                    </span>
                 </div>
-                <button class="export-btn" onclick="exportLeads()">
-                    <i data-lucide="download"></i> Export CSV
-                </button>
+                <div class="topbar-right">
+                    <span class="last-updated" id="last-updated">Refreshing...</span>
+                    <button class="icon-btn" id="theme-toggle" onclick="toggleTheme()" title="Toggle theme">
+                        <i data-lucide="sun" id="theme-icon"></i>
+                    </button>
+                    <button class="btn-primary" onclick="exportLeads()">
+                        <i data-lucide="download"></i>
+                        Export CSV
+                    </button>
+                </div>
             </header>
 
-            <!-- Stats Overview -->
-            <section class="stats-grid">
-                <div class="stat-card">
-                    <i data-lucide="message-circle" class="icon blue"></i>
-                    <div>
-                        <p>Total Sessions</p>
-                        <h2 id="total-sessions">--</h2>
+            <!-- Overview Section -->
+            <section id="section-overview">
+
+                <!-- Stat Cards -->
+                <div class="stats-grid">
+                    <div class="stat-card" data-color="blue">
+                        <div class="stat-icon blue"><i data-lucide="message-circle"></i></div>
+                        <div class="stat-body">
+                            <span class="stat-label">Total Sessions</span>
+                            <span class="stat-value" id="total-sessions">--</span>
+                        </div>
+                    </div>
+                    <div class="stat-card" data-color="green">
+                        <div class="stat-icon green"><i data-lucide="user-check"></i></div>
+                        <div class="stat-body">
+                            <span class="stat-label">Leads Captured</span>
+                            <span class="stat-value" id="total-leads">--</span>
+                        </div>
+                    </div>
+                    <div class="stat-card" data-color="purple">
+                        <div class="stat-icon purple"><i data-lucide="percent"></i></div>
+                        <div class="stat-body">
+                            <span class="stat-label">Conversion Rate</span>
+                            <span class="stat-value" id="conversion-rate">--%</span>
+                        </div>
+                    </div>
+                    <div class="stat-card" data-color="amber">
+                        <div class="stat-icon amber"><i data-lucide="calendar-check"></i></div>
+                        <div class="stat-body">
+                            <span class="stat-label">Visits Booked</span>
+                            <span class="stat-value" id="visits-booked">--</span>
+                        </div>
                     </div>
                 </div>
-                <div class="stat-card">
-                    <i data-lucide="user-check" class="icon green"></i>
-                    <div>
-                        <p>Leads Captured</p>
-                        <h2 id="total-leads">--</h2>
+
+                <!-- Intent Breakdown -->
+                <div class="panel">
+                    <div class="panel-header">
+                        <h2>Intent Breakdown</h2>
+                        <span class="panel-sub">Distribution of all captured leads by goal</span>
+                    </div>
+                    <div class="intent-grid" id="intent-grid">
+                        <div class="intent-pill" data-intent="buy">
+                            <i data-lucide="home"></i>
+                            <span class="intent-name">Buy</span>
+                            <span class="intent-count" id="count-buy">--</span>
+                        </div>
+                        <div class="intent-pill" data-intent="rent">
+                            <i data-lucide="key"></i>
+                            <span class="intent-name">Rent</span>
+                            <span class="intent-count" id="count-rent">--</span>
+                        </div>
+                        <div class="intent-pill" data-intent="investment">
+                            <i data-lucide="trending-up"></i>
+                            <span class="intent-name">Investment</span>
+                            <span class="intent-count" id="count-investment">--</span>
+                        </div>
+                        <div class="intent-pill" data-intent="browsing">
+                            <i data-lucide="search"></i>
+                            <span class="intent-name">Browsing</span>
+                            <span class="intent-count" id="count-browsing">--</span>
+                        </div>
                     </div>
                 </div>
-                <div class="stat-card">
-                    <i data-lucide="percent" class="icon purple"></i>
-                    <div>
-                        <p>Conversion Rate</p>
-                        <h2 id="conversion-rate">--%</h2>
+
+                <!-- Recent Leads Table -->
+                <div class="panel">
+                    <div class="panel-header">
+                        <h2>Recent Leads</h2>
+                        <div class="filters">
+                            <select id="intent-filter" onchange="fetchLeads()">
+                                <option value="">All Intents</option>
+                                <option value="buy">Buy</option>
+                                <option value="rent">Rent</option>
+                                <option value="investment">Investment</option>
+                            </select>
+                            <select id="score-filter" onchange="fetchLeads()">
+                                <option value="">All Scores</option>
+                                <option value="High">High</option>
+                                <option value="Medium">Medium</option>
+                                <option value="Low">Low</option>
+                            </select>
+                        </div>
                     </div>
-                </div>
-                <div class="stat-card">
-                    <i data-lucide="smartphone" class="icon orange"></i>
-                    <div>
-                        <p>AI Follow-ups</p>
-                        <h2 id="follow-ups">Active</h2>
+                    <div class="table-wrap">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Phone</th>
+                                    <th>Location</th>
+                                    <th>Budget</th>
+                                    <th>Intent</th>
+                                    <th>Score</th>
+                                    <th>Visit Date</th>
+                                    <th>Updated</th>
+                                </tr>
+                            </thead>
+                            <tbody id="leads-body">
+                                <tr><td colspan="8" class="empty-row">Loading leads...</td></tr>
+                            </tbody>
+                        </table>
                     </div>
                 </div>
             </section>
 
-            <!-- Lead Table -->
-            <section class="leads-section">
-                <div class="section-header">
-                    <h2>Recent High-Intent Leads</h2>
-                    <div class="filters">
-                        <select id="intent-filter" onchange="fetchLeads()">
-                            <option value="">All Intents</option>
-                            <option value="buy">Buy</option>
-                            <option value="rent">Rent</option>
-                            <option value="investment">Invest</option>
-                        </select>
-                        <select id="score-filter" onchange="fetchLeads()">
-                            <option value="">All Scores</option>
-                            <option value="High">High</option>
-                            <option value="Medium">Medium</option>
-                            <option value="Low">Low</option>
-                        </select>
-                    </div>
-                </div>
-                <div class="table-container">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Name</th>
-                                <th>Phone</th>
-                                <th>Location</th>
-                                <th>Budget</th>
-                                <th>Intent</th>
-                                <th>Score</th>
-                                <th>Last Updated</th>
-                            </tr>
-                        </thead>
-                        <tbody id="leads-body">
-                            <!-- Populated by JS -->
-                        </tbody>
-                    </table>
-                </div>
-            </section>
         </main>
     </div>
-    
+
     <script src="script.js"></script>
-    <script>
-        lucide.createIcons();
-    </script>
+    <script>lucide.createIcons();</script>
 </body>
 </html>

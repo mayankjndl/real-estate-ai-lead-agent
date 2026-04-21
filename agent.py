@@ -16,15 +16,18 @@ logger = logging.getLogger("agent")
 
 # 4. Structured Tool Calling Definition
 def extract_lead_info(
-    name: str = None, 
-    phone: str = None, 
-    budget: str = None, 
-    location: str = None, 
-    intent: str = None, 
-    score: str = None
+    name: str = None,
+    phone: str = None,
+    budget: str = None,
+    location: str = None,
+    intent: str = None,
+    score: str = None,
+    visit_date: str = None
 ):
     """
-    Saves or updates the lead's information in the database. Use this tool silently when the user shares their budget, location, intent (buy/rent/investment), name, or phone number.
+    Saves or updates the lead's information in the database. Use this tool silently when the
+    user shares their budget, location, intent (buy/rent/investment), name, phone number,
+    or a requested visit date/time.
 
     Args:
         name: The name of the client.
@@ -33,8 +36,9 @@ def extract_lead_info(
         location: The area they are looking in (e.g., 'Hinjewadi', 'Pune').
         intent: The goal (e.g., 'buy', 'rent', 'investment', 'browsing').
         score: Your internal lead scoring evaluation (High, Medium, Low).
+        visit_date: The user's requested visit date/time (e.g., 'Tuesday 2pm', 'Saturday morning').
     """
-    pass # This function is a schema definition for Gemini. Execution is handled manually in process_chat.
+    pass  # Schema definition only. Execution is handled in process_chat.
 
 # Initialize the generative model with Anohita's system instruction and the extraction tool
 model = genai.GenerativeModel(
@@ -115,10 +119,21 @@ def process_chat(session_id: str, user_message: str, db: DBSession, client_id: s
         formatted_history.append({"role": role, "parts": [clean_content]})
         
     # Anohita Memory Summarization Logic
+    # Inject the FULL persisted lead state so the LLM always knows what was captured,
+    # even if the original extraction message has rolled out of the 12-message window.
     lead_summary = db.query(Lead).filter(Lead.session_id == session_id).first()
     summary_text = ""
     if lead_summary:
-        summary_text = f"User: {lead_summary.location or 'unknown'}, Budget: {lead_summary.budget or 'unknown'}, Intent: {lead_summary.intent or 'unknown'}\n"
+        summary_parts = [
+            f"Location: {lead_summary.location}" if lead_summary.location else None,
+            f"Budget: {lead_summary.budget}" if lead_summary.budget else None,
+            f"Intent: {lead_summary.intent}" if lead_summary.intent else None,
+            f"Name: {lead_summary.name}" if lead_summary.name else None,
+            f"Visit scheduled: {lead_summary.visit_date}" if lead_summary.visit_date else None,
+        ]
+        parts = [p for p in summary_parts if p]
+        if parts:
+            summary_text = "Known about this user: " + ", ".join(parts) + ".\n"
 
     # Keyword gateway: only call RAG (Gemini Embedding API) for property-related queries.
     # Greetings, acks, and short responses skip the embedding call, saving 1-4s per message.
@@ -207,6 +222,8 @@ def process_chat(session_id: str, user_message: str, db: DBSession, client_id: s
         if "location" in args: lead.location = args["location"]
         if "intent" in args: lead.intent = args["intent"]
         if "score" in args: lead.score = args["score"]
+        if "visit_date" in args: lead.visit_date = args["visit_date"]
+
         
         db.commit()
 
