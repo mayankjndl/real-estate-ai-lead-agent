@@ -255,20 +255,14 @@ def process_chat(session_id: str, user_message: str, db: DBSession, client_id: s
                 f"Do NOT ask any more questions — the conversation is complete."
             )
         else:
-            # Determine what is still missing to avoid re-asking what we already have
-            missing = []
-            if full_lead:
-                if not full_lead.name:       missing.append("name")
-                if not full_lead.phone:      missing.append("phone number")
-                if not full_lead.visit_date: missing.append("preferred visit date/time")
-            next_ask = missing[0] if missing else "any other preference"
-
             mini_prompt = (
                 f"You are a friendly real estate assistant. "
                 f"The user just said: \"{user_message}\". "
-                f"You already know: {known_str}. "
-                f"Write ONE warm sentence acknowledging what they said, then ask ONLY for their {next_ask} "
-                f"(do not ask for anything else — you already have the rest). Keep it under 2 lines."
+                f"You already know these details about them: {known_str}. "
+                f"Write ONE warm sentence acknowledging what they said. "
+                f"Then, ask exactly ONE logical follow-up question for the most important MISSING piece of information. "
+                f"Priority of missing info to ask for: 1. Budget 2. Location 3. Property Type/Intent 4. Visit Date 5. Name/Contact. "
+                f"Do NOT ask for anything that is already in the 'already know' list! Keep it under 2 lines."
             )
 
         try:
