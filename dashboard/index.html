@@ -1,192 +1,181 @@
 <!DOCTYPE html>
 <html lang="en" data-theme="dark">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="ABC Properties AI CRM — Real-time WhatsApp lead intelligence dashboard">
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="ABC Properties AI CRM — Real-time lead intelligence" />
     <title>AI CRM | ABC Properties</title>
-    <link rel="stylesheet" href="styles.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-    <script src="https://unpkg.com/lucide@latest"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-    <div class="layout">
 
-        <!-- Sidebar -->
-        <aside class="sidebar" id="sidebar">
-            <div class="sidebar-brand">
-                <div class="brand-icon">
-                    <i data-lucide="building-2"></i>
+<div class="shell">
+
+    <!-- ═══ SIDEBAR ═══ -->
+    <aside class="sidebar">
+        <div class="sb-logo">
+            <div class="sb-logo-icon">🏢</div>
+            <div>
+                <div class="sb-logo-name">ABC Properties</div>
+                <div class="sb-logo-sub">AI Lead Intelligence</div>
+            </div>
+        </div>
+
+        <div class="sb-section-label">Navigation</div>
+        <nav class="sb-nav">
+            <a class="sb-link active" href="#">
+                <span class="sb-link-icon">⊞</span> Overview
+            </a>
+            <a class="sb-link" href="#" onclick="openHealth(); return false;">
+                <span class="sb-link-icon">◎</span> System Health
+                <span class="health-dot" id="health-dot"></span>
+            </a>
+        </nav>
+
+        <div class="sb-spacer"></div>
+
+        <div class="sb-user">
+            <div class="sb-avatar">A</div>
+            <div>
+                <div class="sb-user-name">Admin</div>
+                <div class="sb-user-role">System Administrator</div>
+            </div>
+        </div>
+    </aside>
+
+    <!-- ═══ MAIN ═══ -->
+    <div class="main-wrap">
+
+        <!-- Top Bar -->
+        <header class="topbar">
+            <div class="topbar-left">
+                <h1 class="topbar-title">Lead Intelligence</h1>
+                <div class="live-pill">
+                    <span class="live-dot"></span> Live
                 </div>
-                <div class="brand-text">
-                    <span class="brand-name">ABC Properties</span>
-                    <span class="brand-sub">AI Lead Intelligence</span>
+            </div>
+            <div class="topbar-right">
+                <span class="refresh-label" id="last-updated">Loading...</span>
+                <button class="tb-icon-btn" id="theme-toggle" onclick="toggleTheme()" title="Toggle light/dark">
+                    <span id="theme-icon">☀</span>
+                </button>
+                <button class="export-btn" onclick="exportLeads()">
+                    ↓ Export CSV
+                </button>
+            </div>
+        </header>
+
+        <!-- Scrollable Content -->
+        <div class="content">
+
+            <!-- ── Stat Cards ── -->
+            <div class="stat-row">
+                <div class="stat-card blue">
+                    <div class="stat-card-icon">💬</div>
+                    <div class="stat-card-body">
+                        <div class="stat-card-label">Total Sessions</div>
+                        <div class="stat-card-value" id="total-sessions">—</div>
+                    </div>
+                </div>
+                <div class="stat-card green">
+                    <div class="stat-card-icon">✅</div>
+                    <div class="stat-card-body">
+                        <div class="stat-card-label">Leads Captured</div>
+                        <div class="stat-card-value" id="total-leads">—</div>
+                    </div>
+                </div>
+                <div class="stat-card purple">
+                    <div class="stat-card-icon">%</div>
+                    <div class="stat-card-body">
+                        <div class="stat-card-label">Conversion Rate</div>
+                        <div class="stat-card-value" id="conversion-rate">—%</div>
+                    </div>
+                </div>
+                <div class="stat-card amber">
+                    <div class="stat-card-icon">📅</div>
+                    <div class="stat-card-body">
+                        <div class="stat-card-label">Visits Booked</div>
+                        <div class="stat-card-value" id="visits-booked">—</div>
+                    </div>
                 </div>
             </div>
 
-            <nav class="sidebar-nav">
-                <span class="nav-label">Main</span>
-                <a href="#" class="nav-item active" id="nav-overview">
-                    <i data-lucide="layout-dashboard"></i>
-                    <span>Overview</span>
-                </a>
-                <a href="#" class="nav-item" id="nav-leads">
-                    <i data-lucide="users"></i>
-                    <span>Lead Directory</span>
-                </a>
-                <span class="nav-label">System</span>
-                <a href="#" class="nav-item" id="nav-health" onclick="openHealth()">
-                    <i data-lucide="activity"></i>
-                    <span>System Health</span>
-                    <span class="status-dot" id="health-dot"></span>
-                </a>
-            </nav>
-
-            <div class="sidebar-footer">
-                <div class="user-card">
-                    <div class="user-avatar">A</div>
-                    <div class="user-info">
-                        <strong>Admin</strong>
-                        <span>System Administrator</span>
+            <!-- ── Intent Breakdown ── -->
+            <div class="panel">
+                <div class="panel-head">
+                    <span class="panel-title">Intent Breakdown</span>
+                    <span class="panel-sub">Live distribution of leads by goal</span>
+                </div>
+                <div class="intent-row">
+                    <div class="intent-card" style="--ic:#63b3ed">
+                        <div class="intent-icon" style="background:rgba(99,179,237,.15);color:#63b3ed">🏠</div>
+                        <div class="intent-count" id="count-buy">—</div>
+                        <div class="intent-label">Buy</div>
+                    </div>
+                    <div class="intent-card" style="--ic:#68d391">
+                        <div class="intent-icon" style="background:rgba(104,211,145,.15);color:#68d391">🔑</div>
+                        <div class="intent-count" id="count-rent">—</div>
+                        <div class="intent-label">Rent</div>
+                    </div>
+                    <div class="intent-card" style="--ic:#b794f4">
+                        <div class="intent-icon" style="background:rgba(183,148,244,.15);color:#b794f4">📈</div>
+                        <div class="intent-count" id="count-investment">—</div>
+                        <div class="intent-label">Investment</div>
+                    </div>
+                    <div class="intent-card" style="--ic:#f6ad55">
+                        <div class="intent-icon" style="background:rgba(246,173,85,.15);color:#f6ad55">🔍</div>
+                        <div class="intent-count" id="count-browsing">—</div>
+                        <div class="intent-label">Browsing</div>
                     </div>
                 </div>
             </div>
-        </aside>
 
-        <!-- Main Content -->
-        <main class="main">
-
-            <!-- Top Bar -->
-            <header class="topbar">
-                <div class="topbar-left">
-                    <h1 id="page-title">Overview</h1>
-                    <span class="live-badge">
-                        <span class="pulse"></span>
-                        Live
-                    </span>
-                </div>
-                <div class="topbar-right">
-                    <span class="last-updated" id="last-updated">Refreshing...</span>
-                    <button class="icon-btn" id="theme-toggle" onclick="toggleTheme()" title="Toggle theme">
-                        <i data-lucide="sun" id="theme-icon"></i>
-                    </button>
-                    <button class="btn-primary" onclick="exportLeads()">
-                        <i data-lucide="download"></i>
-                        Export CSV
-                    </button>
-                </div>
-            </header>
-
-            <!-- Overview Section -->
-            <section id="section-overview">
-
-                <!-- Stat Cards -->
-                <div class="stats-grid">
-                    <div class="stat-card" data-color="blue">
-                        <div class="stat-icon blue"><i data-lucide="message-circle"></i></div>
-                        <div class="stat-body">
-                            <span class="stat-label">Total Sessions</span>
-                            <span class="stat-value" id="total-sessions">--</span>
-                        </div>
-                    </div>
-                    <div class="stat-card" data-color="green">
-                        <div class="stat-icon green"><i data-lucide="user-check"></i></div>
-                        <div class="stat-body">
-                            <span class="stat-label">Leads Captured</span>
-                            <span class="stat-value" id="total-leads">--</span>
-                        </div>
-                    </div>
-                    <div class="stat-card" data-color="purple">
-                        <div class="stat-icon purple"><i data-lucide="percent"></i></div>
-                        <div class="stat-body">
-                            <span class="stat-label">Conversion Rate</span>
-                            <span class="stat-value" id="conversion-rate">--%</span>
-                        </div>
-                    </div>
-                    <div class="stat-card" data-color="amber">
-                        <div class="stat-icon amber"><i data-lucide="calendar-check"></i></div>
-                        <div class="stat-body">
-                            <span class="stat-label">Visits Booked</span>
-                            <span class="stat-value" id="visits-booked">--</span>
-                        </div>
+            <!-- ── Leads Table ── -->
+            <div class="panel">
+                <div class="panel-head">
+                    <span class="panel-title">Recent Leads</span>
+                    <div class="filters">
+                        <select id="intent-filter" onchange="fetchLeads()">
+                            <option value="">All Intents</option>
+                            <option value="buy">Buy</option>
+                            <option value="rent">Rent</option>
+                            <option value="investment">Investment</option>
+                        </select>
+                        <select id="score-filter" onchange="fetchLeads()">
+                            <option value="">All Scores</option>
+                            <option value="High">High</option>
+                            <option value="Medium">Medium</option>
+                            <option value="Low">Low</option>
+                        </select>
                     </div>
                 </div>
-
-                <!-- Intent Breakdown -->
-                <div class="panel">
-                    <div class="panel-header">
-                        <h2>Intent Breakdown</h2>
-                        <span class="panel-sub">Distribution of all captured leads by goal</span>
-                    </div>
-                    <div class="intent-grid" id="intent-grid">
-                        <div class="intent-pill" data-intent="buy">
-                            <i data-lucide="home"></i>
-                            <span class="intent-name">Buy</span>
-                            <span class="intent-count" id="count-buy">--</span>
-                        </div>
-                        <div class="intent-pill" data-intent="rent">
-                            <i data-lucide="key"></i>
-                            <span class="intent-name">Rent</span>
-                            <span class="intent-count" id="count-rent">--</span>
-                        </div>
-                        <div class="intent-pill" data-intent="investment">
-                            <i data-lucide="trending-up"></i>
-                            <span class="intent-name">Investment</span>
-                            <span class="intent-count" id="count-investment">--</span>
-                        </div>
-                        <div class="intent-pill" data-intent="browsing">
-                            <i data-lucide="search"></i>
-                            <span class="intent-name">Browsing</span>
-                            <span class="intent-count" id="count-browsing">--</span>
-                        </div>
-                    </div>
+                <div class="table-scroll">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Phone</th>
+                                <th>Location</th>
+                                <th>Budget</th>
+                                <th>Intent</th>
+                                <th>Score</th>
+                                <th>Outcome</th>
+                                <th>Updated</th>
+                            </tr>
+                        </thead>
+                        <tbody id="leads-body">
+                            <tr><td colspan="8" class="tbl-empty">Loading leads...</td></tr>
+                        </tbody>
+                    </table>
                 </div>
+            </div>
 
-                <!-- Recent Leads Table -->
-                <div class="panel">
-                    <div class="panel-header">
-                        <h2>Recent Leads</h2>
-                        <div class="filters">
-                            <select id="intent-filter" onchange="fetchLeads()">
-                                <option value="">All Intents</option>
-                                <option value="buy">Buy</option>
-                                <option value="rent">Rent</option>
-                                <option value="investment">Investment</option>
-                            </select>
-                            <select id="score-filter" onchange="fetchLeads()">
-                                <option value="">All Scores</option>
-                                <option value="High">High</option>
-                                <option value="Medium">Medium</option>
-                                <option value="Low">Low</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div class="table-wrap">
-                        <table>
-                            <thead>
-                                <tr>
-                                    <th>Name</th>
-                                    <th>Phone</th>
-                                    <th>Location</th>
-                                    <th>Budget</th>
-                                    <th>Intent</th>
-                                    <th>Score</th>
-                                    <th>Visit Date</th>
-                                    <th>Updated</th>
-                                </tr>
-                            </thead>
-                            <tbody id="leads-body">
-                                <tr><td colspan="8" class="empty-row">Loading leads...</td></tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </section>
+        </div><!-- /content -->
+    </div><!-- /main-wrap -->
+</div><!-- /shell -->
 
-        </main>
-    </div>
-
-    <script src="script.js"></script>
-    <script>lucide.createIcons();</script>
+<script src="script.js"></script>
 </body>
 </html>
