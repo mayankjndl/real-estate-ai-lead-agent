@@ -105,9 +105,9 @@ def process_chat(session_id: str, user_message: str, db: DBSession, client_id: s
         return instant_reply
 
 
-    # LIMIT CONTEXT: last 6 turns (12 messages) — enough for natural conversation,
-    # small enough to keep the Gemini payload fast and reduce first-token latency.
-    past_messages = db.query(Message).filter(Message.session_id == session_id).order_by(Message.id.desc()).limit(12).all()
+    # LIMIT CONTEXT: last 10 turns (20 messages) — keeps enough history for the full
+    # conversation to remain coherent, including the user's opening requirements.
+    past_messages = db.query(Message).filter(Message.session_id == session_id).order_by(Message.id.desc()).limit(20).all()
     past_messages.reverse()
 
     formatted_history = []
@@ -227,21 +227,50 @@ def process_chat(session_id: str, user_message: str, db: DBSession, client_id: s
         
         db.commit()
 
-        # Generate a natural, context-aware reply using a STATELESS Gemini call.
-        # This is NOT the full chat model — it has no history, no system prompt, no tools.
-        # Input: ~50 tokens. Expected latency: 400-800ms (vs 5000ms for a full chat call).
-        # This is fully LLM-driven — no keyword matching, handles any phrasing correctly.
-        captured_fields = [k for k in ["name", "phone", "budget", "location", "intent"] if k in args]
-        extracted_summary = ", ".join(f"{k}={args[k]}" for k in captured_fields)
+        # Generate a context-aware reply using a STATELESS Gemini call.
+        # Pass the FULL current lead state from DB so it never re-asks for things
+        # that were already captured in an earlier turn.
+        captured_fields = [k for k in ["name", "phone", "budget", "location", "intent", "visit_date"] if k in args]
 
-        mini_prompt = (
-            f"You are a friendly real estate assistant guiding the user toward booking a property visit or sharing contact details. "
-            f"The user just said: \"{user_message}\". "
-            f"You silently noted their details: {extracted_summary}. "
-            f"Write ONE warm, natural sentence acknowledging what they said, then ask the single most relevant next question "
-            f"to move the conversation forward (e.g. preferred visit time, contact number, or specific area). "
-            f"Do NOT repeat the captured fields back verbatim. Keep it under 2 lines."
-        )
+        # Build the full picture of what we already know about this lead from the DB
+        full_lead = db.query(Lead).filter(Lead.session_id == session_id).first()
+        already_known = []
+        if full_lead:
+            if full_lead.name:       already_known.append(f"name={full_lead.name}")
+            if full_lead.phone:      already_known.append(f"phone={full_lead.phone}")
+            if full_lead.budget:     already_known.append(f"budget={full_lead.budget}")
+            if full_lead.location:   already_known.append(f"location={full_lead.location}")
+            if full_lead.intent:     already_known.append(f"intent={full_lead.intent}")
+            if full_lead.visit_date: already_known.append(f"visit_date={full_lead.visit_date}")
+
+        known_str = ", ".join(already_known) if already_known else "nothing yet"
+        visit_concluded = bool(full_lead and full_lead.visit_date and full_lead.phone)
+
+        if visit_concluded:
+            mini_prompt = (
+                f"You are a friendly real estate assistant. "
+                f"The user just said: \"{user_message}\". "
+                f"The visit is fully arranged — you already have: {known_str}. "
+                f"Write ONE warm closing sentence confirming everything is set. "
+                f"Do NOT ask any more questions — the conversation is complete."
+            )
+        else:
+            # Determine what is still missing to avoid re-asking what we already have
+            missing = []
+            if full_lead:
+                if not full_lead.name:       missing.append("name")
+                if not full_lead.phone:      missing.append("phone number")
+                if not full_lead.visit_date: missing.append("preferred visit date/time")
+            next_ask = missing[0] if missing else "any other preference"
+
+            mini_prompt = (
+                f"You are a friendly real estate assistant. "
+                f"The user just said: \"{user_message}\". "
+                f"You already know: {known_str}. "
+                f"Write ONE warm sentence acknowledging what they said, then ask ONLY for their {next_ask} "
+                f"(do not ask for anything else — you already have the rest). Keep it under 2 lines."
+            )
+
         try:
             mini_response = reply_model.generate_content(mini_prompt)
             local_reply = mini_response.text.strip()
@@ -251,7 +280,7 @@ def process_chat(session_id: str, user_message: str, db: DBSession, client_id: s
 
         db.add(Message(session_id=session_id, role="assistant", content=local_reply))
         db.commit()
-        logger.info(f"LEAD_EXTRACT | session={session_id} | fields={captured_fields} | stateless_reply_model")
+        logger.info(f"LEAD_EXTRACT | session={session_id} | fields={captured_fields} | concluded={visit_concluded}")
         return local_reply
 
     # Safely get the final text (handling cases where only a tool call was returned)
