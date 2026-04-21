@@ -36,12 +36,16 @@ def extract_lead_info(
     """
     pass # This function is a schema definition for Gemini. Execution is handled manually in process_chat.
 
-# Initialize the generative model with the Anohita's system instruction and the extraction tool
+# Initialize the generative model with Anohita's system instruction and the extraction tool
 model = genai.GenerativeModel(
     model_name=settings.GEMINI_MODEL,
     system_instruction=REAL_ESTATE_SYSTEM_PROMPT,
     tools=[extract_lead_info]
 )
+
+# Lightweight stateless model used ONLY to generate a natural one-line reply after
+# lead extraction. No system prompt, no tools, no history — keeps it fast (~400-800ms).
+reply_model = genai.GenerativeModel(model_name=settings.GEMINI_MODEL)
 
 # 3. Stateful Memory Function
 def process_chat(session_id: str, user_message: str, db: DBSession, client_id: str = "default", is_background: bool = False) -> str:
@@ -206,52 +210,31 @@ def process_chat(session_id: str, user_message: str, db: DBSession, client_id: s
         
         db.commit()
 
-        # PERFORMANCE: Do NOT send the tool result back to Gemini for a follow-up
-        # response — that would fire a SECOND Gemini API call (~5s extra latency).
-        # Instead, generate a context-aware reply locally based on what was just saved
-        # AND what the user actually said in this message.
+        # Generate a natural, context-aware reply using a STATELESS Gemini call.
+        # This is NOT the full chat model — it has no history, no system prompt, no tools.
+        # Input: ~50 tokens. Expected latency: 400-800ms (vs 5000ms for a full chat call).
+        # This is fully LLM-driven — no keyword matching, handles any phrasing correctly.
         captured_fields = [k for k in ["name", "phone", "budget", "location", "intent"] if k in args]
+        extracted_summary = ", ".join(f"{k}={args[k]}" for k in captured_fields)
 
-        # Check if the user's message contains booking/visit intent — if so, the
-        # "looking for options" template is completely wrong. Acknowledge the visit instead.
-        visit_keywords = ["visit", "book", "schedule", "monday", "tuesday", "wednesday",
-                          "thursday", "friday", "saturday", "sunday", "today", "tomorrow",
-                          "morning", "afternoon", "evening", "am", "pm"]
-        user_lower = user_message.lower()
-        is_booking_message = any(kw in user_lower for kw in visit_keywords)
-
-        if is_booking_message:
-            local_reply = "Perfect, your visit is noted! Our team will confirm the appointment details with you shortly."
-        elif "name" in args:
-            local_reply = f"Got it, {args['name']}! "
-            if "budget" in args and "location" in args:
-                local_reply += f"I'm looking for options in {args['location']} within your budget. What else would you like to know?"
-            elif "budget" in args:
-                local_reply += "I've noted your budget. Which area in Pune are you considering?"
-            elif "location" in args:
-                local_reply += f"Great choice — {args['location']} has some excellent options. What's your budget range?"
-            elif "phone" in args:
-                local_reply += "Our team will reach out to you shortly. Is there anything else I can help you with?"
-            else:
-                local_reply += "I've updated your profile. What else can I help you find today?"
-        else:
-            local_reply = "Got it! "
-            if "budget" in args and "location" in args:
-                local_reply += f"I'm looking for options in {args['location']} within your budget. What else would you like to know?"
-            elif "budget" in args:
-                local_reply += "I've noted your budget. Which area in Pune are you considering?"
-            elif "location" in args:
-                local_reply += f"Great choice — {args['location']} has some excellent options. What's your budget range?"
-            elif "phone" in args:
-                local_reply += "Our team will reach out to you shortly. Is there anything else I can help you with?"
-            else:
-                local_reply += "I've updated your profile. What else can I help you find today?"
+        mini_prompt = (
+            f"You are a friendly real estate assistant. "
+            f"The user just said: \"{user_message}\". "
+            f"You silently captured their details: {extracted_summary}. "
+            f"Reply in exactly ONE warm, natural sentence that acknowledges what they said. "
+            f"Do not ask a question. Do not repeat the captured fields back verbatim."
+        )
+        try:
+            mini_response = reply_model.generate_content(mini_prompt)
+            local_reply = mini_response.text.strip()
+        except Exception as e:
+            logger.warning(f"Mini reply model failed: {e} — using fallback")
+            local_reply = "Got it! I've noted your details and our team will be in touch shortly."
 
         db.add(Message(session_id=session_id, role="assistant", content=local_reply))
         db.commit()
-        logger.info(f"LEAD_EXTRACT | session={session_id} | fields={captured_fields} | booking={is_booking_message} | local_reply (no 2nd Gemini call)")
+        logger.info(f"LEAD_EXTRACT | session={session_id} | fields={captured_fields} | stateless_reply_model")
         return local_reply
-
 
     # Safely get the final text (handling cases where only a tool call was returned)
     try:
