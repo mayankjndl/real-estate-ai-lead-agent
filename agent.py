@@ -235,11 +235,12 @@ def process_chat(session_id: str, user_message: str, db: DBSession, client_id: s
         extracted_summary = ", ".join(f"{k}={args[k]}" for k in captured_fields)
 
         mini_prompt = (
-            f"You are a friendly real estate assistant. "
+            f"You are a friendly real estate assistant guiding the user toward booking a property visit or sharing contact details. "
             f"The user just said: \"{user_message}\". "
-            f"You silently captured their details: {extracted_summary}. "
-            f"Reply in exactly ONE warm, natural sentence that acknowledges what they said. "
-            f"Do not ask a question. Do not repeat the captured fields back verbatim."
+            f"You silently noted their details: {extracted_summary}. "
+            f"Write ONE warm, natural sentence acknowledging what they said, then ask the single most relevant next question "
+            f"to move the conversation forward (e.g. preferred visit time, contact number, or specific area). "
+            f"Do NOT repeat the captured fields back verbatim. Keep it under 2 lines."
         )
         try:
             mini_response = reply_model.generate_content(mini_prompt)
