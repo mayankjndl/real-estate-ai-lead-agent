@@ -20,6 +20,7 @@ def extract_lead_info(
     phone: str = None,
     budget: str = None,
     location: str = None,
+    property_type: str = None,
     intent: str = None,
     score: str = None,
     visit_date: str = None
@@ -34,6 +35,7 @@ def extract_lead_info(
         phone: The phone number of the client.
         budget: The requested budget range (e.g., '80L', '20k', '1Cr').
         location: The area they are looking in (e.g., 'Hinjewadi', 'Pune').
+        property_type: The type of property they want (e.g., '1BHK', '2BHK', 'Villa').
         intent: The goal (e.g., 'buy', 'rent', 'investment', 'browsing').
         score: Your internal lead scoring evaluation (High, Medium, Low).
         visit_date: The user's requested visit date/time (e.g., 'Tuesday 2pm', 'Saturday morning').
@@ -127,6 +129,7 @@ def process_chat(session_id: str, user_message: str, db: DBSession, client_id: s
         summary_parts = [
             f"Location: {lead_summary.location}" if lead_summary.location else None,
             f"Budget: {lead_summary.budget}" if lead_summary.budget else None,
+            f"Property Type: {lead_summary.property_type}" if lead_summary.property_type else None,
             f"Intent: {lead_summary.intent}" if lead_summary.intent else None,
             f"Name: {lead_summary.name}" if lead_summary.name else None,
             f"Visit scheduled: {lead_summary.visit_date}" if lead_summary.visit_date else None,
@@ -220,6 +223,7 @@ def process_chat(session_id: str, user_message: str, db: DBSession, client_id: s
             lead.phone = args["phone"]
         if "budget" in args: lead.budget = args["budget"]
         if "location" in args: lead.location = args["location"]
+        if "property_type" in args: lead.property_type = args["property_type"]
         if "intent" in args: lead.intent = args["intent"]
         if "score" in args: lead.score = args["score"]
         if "visit_date" in args: lead.visit_date = args["visit_date"]
@@ -230,7 +234,7 @@ def process_chat(session_id: str, user_message: str, db: DBSession, client_id: s
         # Generate a context-aware reply using a STATELESS Gemini call.
         # Pass the FULL current lead state from DB so it never re-asks for things
         # that were already captured in an earlier turn.
-        captured_fields = [k for k in ["name", "phone", "budget", "location", "intent", "visit_date"] if k in args]
+        captured_fields = [k for k in ["name", "phone", "budget", "location", "property_type", "intent", "visit_date"] if k in args]
 
         # Build the full picture of what we already know about this lead from the DB
         full_lead = db.query(Lead).filter(Lead.session_id == session_id).first()
@@ -240,6 +244,7 @@ def process_chat(session_id: str, user_message: str, db: DBSession, client_id: s
             if full_lead.phone:      already_known.append(f"phone={full_lead.phone}")
             if full_lead.budget:     already_known.append(f"budget={full_lead.budget}")
             if full_lead.location:   already_known.append(f"location={full_lead.location}")
+            if full_lead.property_type: already_known.append(f"property_type={full_lead.property_type}")
             if full_lead.intent:     already_known.append(f"intent={full_lead.intent}")
             if full_lead.visit_date: already_known.append(f"visit_date={full_lead.visit_date}")
 

@@ -51,6 +51,7 @@ class Lead(Base):
     phone = Column(String, nullable=True)
     budget = Column(String, nullable=True)
     location = Column(String, nullable=True)
+    property_type = Column(String, nullable=True) # e.g. 1BHK, 2BHK, Villa
     intent = Column(String, nullable=True) # buy, rent, investment, browsing
     score = Column(String, default="Low") # internal logic rating (High, Medium, Low)
     visit_date = Column(String, nullable=True) # e.g. "Tuesday 2pm" — persisted so it survives context window rollover
