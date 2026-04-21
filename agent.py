@@ -208,29 +208,50 @@ def process_chat(session_id: str, user_message: str, db: DBSession, client_id: s
 
         # PERFORMANCE: Do NOT send the tool result back to Gemini for a follow-up
         # response — that would fire a SECOND Gemini API call (~5s extra latency).
-        # Instead, generate the continuation reply locally based on what was just saved.
-        # The lead is already in the DB; Gemini's confirmation sentence is cosmetic only.
+        # Instead, generate a context-aware reply locally based on what was just saved
+        # AND what the user actually said in this message.
         captured_fields = [k for k in ["name", "phone", "budget", "location", "intent"] if k in args]
-        if "name" in args:
+
+        # Check if the user's message contains booking/visit intent — if so, the
+        # "looking for options" template is completely wrong. Acknowledge the visit instead.
+        visit_keywords = ["visit", "book", "schedule", "monday", "tuesday", "wednesday",
+                          "thursday", "friday", "saturday", "sunday", "today", "tomorrow",
+                          "morning", "afternoon", "evening", "am", "pm"]
+        user_lower = user_message.lower()
+        is_booking_message = any(kw in user_lower for kw in visit_keywords)
+
+        if is_booking_message:
+            local_reply = "Perfect, your visit is noted! Our team will confirm the appointment details with you shortly."
+        elif "name" in args:
             local_reply = f"Got it, {args['name']}! "
+            if "budget" in args and "location" in args:
+                local_reply += f"I'm looking for options in {args['location']} within your budget. What else would you like to know?"
+            elif "budget" in args:
+                local_reply += "I've noted your budget. Which area in Pune are you considering?"
+            elif "location" in args:
+                local_reply += f"Great choice — {args['location']} has some excellent options. What's your budget range?"
+            elif "phone" in args:
+                local_reply += "Our team will reach out to you shortly. Is there anything else I can help you with?"
+            else:
+                local_reply += "I've updated your profile. What else can I help you find today?"
         else:
             local_reply = "Got it! "
-
-        if "budget" in args and "location" in args:
-            local_reply += f"I'm looking for options in {args['location']} within your budget. What else would you like to know?"
-        elif "budget" in args:
-            local_reply += "I've noted your budget. Which area in Pune are you considering?"
-        elif "location" in args:
-            local_reply += f"Great choice — {args['location']} has some excellent options. What's your budget range?"
-        elif "phone" in args:
-            local_reply += "Our team will reach out to you shortly. Is there anything else I can help you with?"
-        else:
-            local_reply += "I've updated your profile. What else can I help you find today?"
+            if "budget" in args and "location" in args:
+                local_reply += f"I'm looking for options in {args['location']} within your budget. What else would you like to know?"
+            elif "budget" in args:
+                local_reply += "I've noted your budget. Which area in Pune are you considering?"
+            elif "location" in args:
+                local_reply += f"Great choice — {args['location']} has some excellent options. What's your budget range?"
+            elif "phone" in args:
+                local_reply += "Our team will reach out to you shortly. Is there anything else I can help you with?"
+            else:
+                local_reply += "I've updated your profile. What else can I help you find today?"
 
         db.add(Message(session_id=session_id, role="assistant", content=local_reply))
         db.commit()
-        logger.info(f"LEAD_EXTRACT | session={session_id} | fields={captured_fields} | local_reply (no 2nd Gemini call)")
+        logger.info(f"LEAD_EXTRACT | session={session_id} | fields={captured_fields} | booking={is_booking_message} | local_reply (no 2nd Gemini call)")
         return local_reply
+
 
     # Safely get the final text (handling cases where only a tool call was returned)
     try:
