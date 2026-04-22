@@ -174,7 +174,10 @@ def process_chat(session_id: str, user_message: str, db: DBSession, client_id: s
     response = None
     for attempt in range(max_retries):
         try:
-            response = chat.send_message(user_message_for_llm)
+            response = chat.send_message(
+                user_message_for_llm,
+                generation_config=genai.types.GenerationConfig(max_output_tokens=60, temperature=0.2)
+            )
             break  # Success — exit retry loop
         except Exception as e:
             if attempt < max_retries - 1:
@@ -271,7 +274,10 @@ def process_chat(session_id: str, user_message: str, db: DBSession, client_id: s
             )
 
         try:
-            mini_response = reply_model.generate_content(mini_prompt)
+            mini_response = reply_model.generate_content(
+                mini_prompt,
+                generation_config=genai.types.GenerationConfig(max_output_tokens=40, temperature=0.1)
+            )
             local_reply = mini_response.text.strip()
         except Exception as e:
             logger.warning(f"Mini reply model failed: {e} — using fallback")
