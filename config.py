@@ -19,6 +19,7 @@ class Settings(BaseSettings):
 
     # Database Settings
     DATABASE_URL: str = "sqlite:///./real_estate_agent.db"
+    REDIS_URL: str = "redis://localhost:6379/0"
 
     # Model configuration — gemini-2.5-flash is the production model.
     # Supports function calling, tool use, and multi-turn context reliably.

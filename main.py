@@ -2,6 +2,9 @@ from contextlib import asynccontextmanager
 import asyncio
 import collections
 import logging
+import json
+import time
+import redis.asyncio as aioredis
 import time
 from fastapi import FastAPI, Depends, HTTPException, Security, status, Request, Form, Response, BackgroundTasks
 from twilio.rest import Client
@@ -32,10 +35,8 @@ logger = logging.getLogger("main")
 # Automatically orchestrate DB creation on application boot
 Base.metadata.create_all(bind=engine)
 
-# Queueing system: Locks per session_id ensuring linear processing.
-# NOTE: These locks are per-process. In a multi-worker deployment, use Redis-based
-# distributed locks instead. Current Render setup uses WEB_CONCURRENCY=1 (safe).
-session_locks = collections.defaultdict(asyncio.Lock)
+# Redis-based distributed locking for multi-worker concurrency
+redis_client = aioredis.from_url(settings.REDIS_URL, decode_responses=True)
 
 # Track server start time for uptime reporting in /health
 import datetime as _dt
@@ -69,6 +70,37 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# --- Production Monitoring Middleware ---
+@app.middleware("http")
+async def production_monitoring_middleware(request: Request, call_next):
+    start_time = time.time()
+    try:
+        response = await call_next(request)
+        process_time_ms = round((time.time() - start_time) * 1000)
+        
+        # Log clean structured JSON for observability
+        log_data = {
+            "event": "request_completed",
+            "method": request.method,
+            "url": str(request.url.path),
+            "status": response.status_code,
+            "latency_ms": process_time_ms,
+            "client_ip": request.client.host if request.client else "unknown"
+        }
+        logger.info(json.dumps(log_data))
+        return response
+    except Exception as e:
+        process_time_ms = round((time.time() - start_time) * 1000)
+        log_data = {
+            "event": "request_failed",
+            "method": request.method,
+            "url": str(request.url.path),
+            "error": str(type(e).__name__),
+            "latency_ms": process_time_ms
+        }
+        logger.error(json.dumps(log_data))
+        raise
 
 # --- Security Dependency ---
 # Only applicable to analytical routing (Chat endpoints must be universally accessible)
@@ -174,8 +206,8 @@ async def whatsapp_webhook(
         session_id = From.replace("whatsapp:", "")
         client_id = "client_A"
         
-        # Task 2: Message Queue Handling (Lock per session)
-        async with session_locks[session_id]:
+        # Task 2: Message Queue Handling (Lock per session using Redis)
+        async with redis_client.lock(f"session_lock:{session_id}", timeout=20.0, blocking_timeout=30.0):
             # Task 6: Timeout Handling
             try:
                 # Give LLM 15s to finish to prevent double-charging the Google Free Tier Rate limit

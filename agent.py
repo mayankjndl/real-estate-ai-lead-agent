@@ -153,8 +153,11 @@ def process_chat(session_id: str, user_message: str, db: DBSession, client_id: s
     # Fetch RAG Context from the FAQ store (only for property-related queries)
     user_message_for_llm = f"Summary: {summary_text}\nUser Message: {user_message}"
     if is_property_query:
+        rag_start = time.time()
         try:
             context_items, score = retrieve(user_message)
+            rag_time = round((time.time() - rag_start) * 1000)
+            logger.info(json.dumps({"event": "rag_retrieval", "latency_ms": rag_time, "success": True}))
             if score < 0.8 and context_items:
                 context_text = "\n".join([
                     f"- {item['location']} {item['type']}: {item['details']} ({item['description']})"
@@ -162,7 +165,8 @@ def process_chat(session_id: str, user_message: str, db: DBSession, client_id: s
                 ])
                 user_message_for_llm = f"Summary: {summary_text}\nProperty Context:\n{context_text}\n\nUser Message: {user_message}"
         except Exception as e:
-            logger.warning(f"RAG retrieval failed: {e}")
+            rag_time = round((time.time() - rag_start) * 1000)
+            logger.error(json.dumps({"event": "rag_retrieval", "latency_ms": rag_time, "success": False, "error": type(e).__name__}))
     else:
         logger.info(f"RAG skipped (non-property query) for session={session_id}")
 
@@ -170,19 +174,23 @@ def process_chat(session_id: str, user_message: str, db: DBSession, client_id: s
     chat = model.start_chat(history=formatted_history)
 
     # Send the history + new message to Gemini (with retry logic for API reliability)
-    max_retries = 2
+    max_retries = 3
     response = None
     for attempt in range(max_retries):
+        llm_start = time.time()
         try:
             response = chat.send_message(user_message_for_llm)
+            llm_time = round((time.time() - llm_start) * 1000)
+            logger.info(json.dumps({"event": "llm_main_call", "latency_ms": llm_time, "attempt": attempt + 1, "success": True}))
             break  # Success — exit retry loop
         except Exception as e:
+            llm_time = round((time.time() - llm_start) * 1000)
+            logger.warning(json.dumps({"event": "llm_main_call", "latency_ms": llm_time, "attempt": attempt + 1, "success": False, "error": type(e).__name__}))
             if attempt < max_retries - 1:
-                wait_time = 0.5  # flat short wait — 2 attempts only, no need for full backoff
-                logger.warning(f"Gemini API attempt {attempt + 1} failed: {e}. Retrying in {wait_time}s...")
+                wait_time = 0.5 * (2 ** attempt)  # Exponential backoff
                 time.sleep(wait_time)
             else:
-                logger.error(f"Gemini API failed after {max_retries} attempts: {e}")
+                logger.error(json.dumps({"event": "llm_main_fatal", "error": type(e).__name__, "session": session_id}))
                 # Proper closure — no false promise, offer human support immediately
                 fallback = (
                     "I'm currently experiencing a technical issue and couldn't process your request. "
@@ -270,11 +278,15 @@ def process_chat(session_id: str, user_message: str, db: DBSession, client_id: s
                 f"Do NOT ask for anything that is already in the 'already know' list! Keep it under 2 lines."
             )
 
+        reply_start = time.time()
         try:
             mini_response = reply_model.generate_content(mini_prompt)
             local_reply = mini_response.text.strip()
+            reply_time = round((time.time() - reply_start) * 1000)
+            logger.info(json.dumps({"event": "llm_reply_call", "latency_ms": reply_time, "success": True}))
         except Exception as e:
-            logger.warning(f"Mini reply model failed: {e} — using fallback")
+            reply_time = round((time.time() - reply_start) * 1000)
+            logger.warning(json.dumps({"event": "llm_reply_call", "latency_ms": reply_time, "success": False, "error": type(e).__name__}))
             local_reply = "Got it! I've noted your details and our team will be in touch shortly."
 
         db.add(Message(session_id=session_id, role="assistant", content=local_reply))
