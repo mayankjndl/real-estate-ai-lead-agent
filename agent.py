@@ -50,8 +50,8 @@ model = genai.GenerativeModel(
 )
 
 # Lightweight stateless model used ONLY to generate a natural one-line reply after
-# lead extraction. No system prompt, no tools, no history — keeps it fast (~400-800ms).
-reply_model = genai.GenerativeModel(model_name=settings.GEMINI_MODEL)
+# lead extraction. No system prompt, no tools, no history - keeps it fast (~400-800ms).
+reply_model = genai.GenerativeModel(model_name="gemini-2.5-flash-8b")
 
 # 3. Stateful Memory Function
 def process_chat(session_id: str, user_message: str, db: DBSession, client_id: str = "default", is_background: bool = False) -> str:
