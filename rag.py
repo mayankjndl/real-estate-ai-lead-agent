@@ -10,7 +10,7 @@ genai.configure(api_key=settings.GEMINI_API_KEY)
 
 def get_embedding(text: str):
     result = genai.embed_content(
-        model="models/text-embedding-004",
+        model="models/gemini-embedding-001",
         content=text,
         task_type="retrieval_document"
     )
@@ -18,7 +18,7 @@ def get_embedding(text: str):
 
 def get_query_embedding(text: str):
     result = genai.embed_content(
-        model="models/text-embedding-004",
+        model="models/gemini-embedding-001",
         content=text,
         task_type="retrieval_query"
     )
