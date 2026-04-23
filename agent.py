@@ -60,12 +60,18 @@ def process_chat(session_id: str, user_message: str, db: DBSession, client_id: s
     extracts function calls for lead generation, and commits all data to DB.
     """
     
-    # Ensure session exists in the database
+    # Ensure session and lead exist in the database exactly once to prevent redundant queries
     session = db.query(Session).filter(Session.id == session_id).first()
     if not session:
         session = Session(id=session_id, client_id=client_id)
         db.add(session)
-        db.commit()
+        
+    lead = db.query(Lead).filter(Lead.session_id == session_id).first()
+    if not lead:
+        lead = Lead(session_id=session_id)
+        db.add(lead)
+        
+    db.commit()
     # User replied — reset follow-up state
     session.follow_up_count = 0
     session.last_activity_at = datetime.now(timezone.utc)
@@ -123,16 +129,15 @@ def process_chat(session_id: str, user_message: str, db: DBSession, client_id: s
     # Anohita Memory Summarization Logic
     # Inject the FULL persisted lead state so the LLM always knows what was captured,
     # even if the original extraction message has rolled out of the 12-message window.
-    lead_summary = db.query(Lead).filter(Lead.session_id == session_id).first()
     summary_text = ""
-    if lead_summary:
+    if lead:
         summary_parts = [
-            f"Location: {lead_summary.location}" if lead_summary.location else None,
-            f"Budget: {lead_summary.budget}" if lead_summary.budget else None,
-            f"Property Type: {lead_summary.property_type}" if lead_summary.property_type else None,
-            f"Intent: {lead_summary.intent}" if lead_summary.intent else None,
-            f"Name: {lead_summary.name}" if lead_summary.name else None,
-            f"Visit scheduled: {lead_summary.visit_date}" if lead_summary.visit_date else None,
+            f"Location: {lead.location}" if lead.location else None,
+            f"Budget: {lead.budget}" if lead.budget else None,
+            f"Property Type: {lead.property_type}" if lead.property_type else None,
+            f"Intent: {lead.intent}" if lead.intent else None,
+            f"Name: {lead.name}" if lead.name else None,
+            f"Visit scheduled: {lead.visit_date}" if lead.visit_date else None,
         ]
         parts = [p for p in summary_parts if p]
         if parts:
@@ -215,13 +220,7 @@ def process_chat(session_id: str, user_message: str, db: DBSession, client_id: s
         # Extract arguments payload securely
         args = fc.args
         
-        # Fetch existing lead record or create a new one
-        lead = db.query(Lead).filter(Lead.session_id == session_id).first()
-        if not lead:
-            lead = Lead(session_id=session_id)
-            db.add(lead)
-        
-        # Update Lead table fields dynamically
+        # Update Lead table fields dynamically (using the in-memory lead object)
         if "name" in args: lead.name = args["name"]
         
         # Automatically capture WhatsApp number from session context
@@ -244,20 +243,19 @@ def process_chat(session_id: str, user_message: str, db: DBSession, client_id: s
         # that were already captured in an earlier turn.
         captured_fields = [k for k in ["name", "phone", "budget", "location", "property_type", "intent", "visit_date"] if k in args]
 
-        # Build the full picture of what we already know about this lead from the DB
-        full_lead = db.query(Lead).filter(Lead.session_id == session_id).first()
+        # Build the full picture of what we already know about this lead from the DB (using the in-memory lead object)
         already_known = []
-        if full_lead:
-            if full_lead.name:       already_known.append(f"name={full_lead.name}")
-            if full_lead.phone:      already_known.append(f"phone={full_lead.phone}")
-            if full_lead.budget:     already_known.append(f"budget={full_lead.budget}")
-            if full_lead.location:   already_known.append(f"location={full_lead.location}")
-            if full_lead.property_type: already_known.append(f"property_type={full_lead.property_type}")
-            if full_lead.intent:     already_known.append(f"intent={full_lead.intent}")
-            if full_lead.visit_date: already_known.append(f"visit_date={full_lead.visit_date}")
+        if lead:
+            if lead.name:       already_known.append(f"name={lead.name}")
+            if lead.phone:      already_known.append(f"phone={lead.phone}")
+            if lead.budget:     already_known.append(f"budget={lead.budget}")
+            if lead.location:   already_known.append(f"location={lead.location}")
+            if lead.property_type: already_known.append(f"property_type={lead.property_type}")
+            if lead.intent:     already_known.append(f"intent={lead.intent}")
+            if lead.visit_date: already_known.append(f"visit_date={lead.visit_date}")
 
         known_str = ", ".join(already_known) if already_known else "nothing yet"
-        visit_concluded = bool(full_lead and full_lead.visit_date and full_lead.phone)
+        visit_concluded = bool(lead and lead.visit_date and lead.phone)
 
         if visit_concluded:
             mini_prompt = (
@@ -307,11 +305,6 @@ def process_chat(session_id: str, user_message: str, db: DBSession, client_id: s
         calculated_score = "high"
     elif any(x in history_text for x in ["budget", "options", "compare", "price"]):
         calculated_score = "medium"
-        
-    lead = db.query(Lead).filter(Lead.session_id == session_id).first()
-    if not lead:
-        lead = Lead(session_id=session_id)
-        db.add(lead)
         
     # Dynamically ensure phone number is correctly parsed even if LLM bypasses function extraction
     if session_id.startswith("+") and not lead.phone:
