@@ -3,10 +3,12 @@ from sqlalchemy.orm import sessionmaker, declarative_base
 from config import settings
 
 # Engine setup using SQLite as the client-grade base.
-# 'check_same_thread': False is necessary for SQLite and FastAPI concurrent workers.
+# 'check_same_thread': False is only necessary for SQLite.
+connect_args = {"check_same_thread": False} if settings.DATABASE_URL.startswith("sqlite") else {}
+
 engine = create_engine(
     settings.DATABASE_URL, 
-    connect_args={"check_same_thread": False}
+    connect_args=connect_args
 )
 
 # Standard session factory
