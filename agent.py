@@ -14,6 +14,28 @@ from rag import retrieve
 genai.configure(api_key=settings.GEMINI_API_KEY)
 logger = logging.getLogger("agent")
 
+# 2. Lightweight Guardrail Helpers
+def check_topic_drift(query: str) -> bool:
+    """Detects if the user has drifted from real estate topics."""
+    query_lower = query.lower()
+    off_topic = ["weather", "news", "movie", "food", "joke"]
+    re_keywords = ["rent", "buy", "invest", "price", "bhk", "flats", "apartments", "properties", "listings", "available", "options", "villa"]
+    return any(w in query_lower for w in off_topic) and not any(w in query_lower for w in re_keywords)
+
+def is_vague_without_location(query: str, lead) -> bool:
+    """Blocks vague queries if no location is specified or remembered."""
+    query_lower = query.lower()
+    vague_triggers = ["cheap", "affordable", "budget", "options", "listings", "flats", "any available"]
+    
+    if not any(trigger in query_lower for trigger in vague_triggers):
+        return False
+        
+    pune_areas = ["wakad", "hinjewadi", "baner", "kharadi", "kothrud", "hadapsar", "ravet", "pune"]
+    has_loc_now = any(area in query_lower for area in pune_areas)
+    has_loc_mem = lead and lead.location and lead.location.lower() != "unknown"
+    
+    return not has_loc_now and not has_loc_mem
+
 # 4. Structured Tool Calling Definition
 def extract_lead_info(
     name: str = None,
@@ -112,6 +134,21 @@ def process_chat(session_id: str, user_message: str, db: DBSession, client_id: s
         logger.info(f"INSTANT_INTERCEPT | session={session_id} | bypassed LLM")
         return instant_reply
 
+    # -----------------------------------
+    # Anohita's Lightweight Guardrail Intercepts
+    # -----------------------------------
+    guardrail_reply = None
+    
+    if check_topic_drift(user_message):
+        guardrail_reply = "I specialize in Pune real estate. Shall we get back to your property search?"
+    elif is_vague_without_location(user_message, lead):
+        guardrail_reply = "I'd be happy to help! Which specific area in Pune are you looking into? (e.g., Wakad, Kharadi, Baner)"
+        
+    if guardrail_reply:
+        db.add(Message(session_id=session_id, role="assistant", content=guardrail_reply))
+        db.commit()
+        logger.info(f"GUARDRAIL_INTERCEPT | session={session_id} | bypassed LLM")
+        return guardrail_reply
 
     # LIMIT CONTEXT: last 10 turns (20 messages) — keeps enough history for the full
     # conversation to remain coherent, including the user's opening requirements.
