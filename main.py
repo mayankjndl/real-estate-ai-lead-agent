@@ -155,7 +155,8 @@ async def background_process_and_push(session_id: str, Body: str, client_id: str
         reply_text = await asyncio.to_thread(process_chat, session_id, Body, db, client_id, True)
         if settings.TWILIO_ACCOUNT_SID:
             client = Client(settings.TWILIO_ACCOUNT_SID, settings.TWILIO_AUTH_TOKEN)
-            await client.messages.create_async(
+            await asyncio.to_thread(
+                client.messages.create,
                 from_=settings.TWILIO_PHONE_NUMBER,
                 body=reply_text,
                 to=f"whatsapp:{session_id}"
@@ -167,7 +168,8 @@ async def background_process_and_push(session_id: str, Body: str, client_id: str
         try:
             if settings.TWILIO_ACCOUNT_SID:
                 fallback_client = Client(settings.TWILIO_ACCOUNT_SID, settings.TWILIO_AUTH_TOKEN)
-                await fallback_client.messages.create_async(
+                await asyncio.to_thread(
+                    fallback_client.messages.create,
                     from_=settings.TWILIO_PHONE_NUMBER,
                     body="I'm experiencing a brief connectivity issue. Please try again in a moment, or reach our team directly at +91 9876543210.",
                     to=f"whatsapp:{session_id}"
