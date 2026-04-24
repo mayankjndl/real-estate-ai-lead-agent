@@ -37,31 +37,46 @@ def is_vague_without_location(query: str, lead) -> bool:
 
 def normalize_lead_data(args: dict) -> dict:
     """Normalizes fuzzy LLM extractions into clean structured CRM data."""
-    # Normalize Location
-    if "location" in args and args["location"]:
-        loc_lower = str(args["location"]).lower()
-        pune_areas = ["wakad", "hinjewadi", "baner", "kharadi", "kothrud", "hadapsar", "ravet", "pune"]
-        # Find the first matching canonical area
-        canonical_loc = next((area.capitalize() for area in pune_areas if area in loc_lower), None)
-        if canonical_loc:
-            args["location"] = canonical_loc
-        elif " or " in loc_lower or "," in loc_lower:
-            # Take the first word as a fallback if it's fuzzy
-            args["location"] = loc_lower.replace(" or ", ",").split(",")[0].strip().title()
-            
-    # Normalize Intent
-    if "intent" in args and args["intent"]:
-        intent_lower = str(args["intent"]).lower()
-        if "buy" in intent_lower: args["intent"] = "Buy"
-        elif "rent" in intent_lower: args["intent"] = "Rent"
-        elif "invest" in intent_lower: args["intent"] = "Invest"
-        elif "brows" in intent_lower: args["intent"] = "Browsing"
-        else: args["intent"] = str(args["intent"]).title()
-        
-    # Normalize Budget
+    # 1. Normalize Budget
     if "budget" in args and args["budget"]:
         args["budget"] = str(args["budget"]).replace(" ", "").upper()
         
+    # 2. Normalize Intent
+    if "intent" in args and args["intent"]:
+        args["intent"] = str(args["intent"]).title()
+        
+    # 3. Normalize Location with Canonical List and Fallbacks
+    if "location" in args and args["location"]:
+        loc_lower = str(args["location"]).lower()
+        
+        canonical_locations = [
+            "Wakad", "Hinjewadi", "Baner", "Kharadi", "Kothrud", "Hadapsar", 
+            "Ravet", "Balewadi", "Aundh", "Pashan", "Viman Nagar", "Magarpatta", 
+            "Kondhwa", "Undri", "Mundhwa", "Wakad Road", "Punawale", "Tathawade", 
+            "Bavdhan", "Sinhagad Road"
+        ]
+        
+        fallback_mapping = {
+            "punawale": "Wakad or Ravet",
+            "tathawade": "Wakad",
+            "pashan": "Baner or Bavdhan",
+            "mundhwa": "Kharadi or Magarpatta"
+        }
+        
+        # Check for direct or fuzzy match in canonical list
+        canonical_match = next((area for area in canonical_locations if area.lower() in loc_lower), None)
+        
+        if canonical_match:
+            args["location"] = canonical_match
+        else:
+            # Check fallback mapping if missing from canonical list
+            fallback_match = next((fallback for key, fallback in fallback_mapping.items() if key in loc_lower), None)
+            if fallback_match:
+                args["location"] = fallback_match
+            elif " or " in loc_lower or "," in loc_lower:
+                # Basic fallback for multiple unknown locations
+                args["location"] = loc_lower.replace(" or ", ",").split(",")[0].strip().title()
+
     return args
 
 # 4. Structured Tool Calling Definition
