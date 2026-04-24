@@ -33,8 +33,36 @@ def is_vague_without_location(query: str, lead) -> bool:
     pune_areas = ["wakad", "hinjewadi", "baner", "kharadi", "kothrud", "hadapsar", "ravet", "pune"]
     has_loc_now = any(area in query_lower for area in pune_areas)
     has_loc_mem = lead and lead.location and lead.location.lower() != "unknown"
-    
     return not has_loc_now and not has_loc_mem
+
+def normalize_lead_data(args: dict) -> dict:
+    """Normalizes fuzzy LLM extractions into clean structured CRM data."""
+    # Normalize Location
+    if "location" in args and args["location"]:
+        loc_lower = str(args["location"]).lower()
+        pune_areas = ["wakad", "hinjewadi", "baner", "kharadi", "kothrud", "hadapsar", "ravet", "pune"]
+        # Find the first matching canonical area
+        canonical_loc = next((area.capitalize() for area in pune_areas if area in loc_lower), None)
+        if canonical_loc:
+            args["location"] = canonical_loc
+        elif " or " in loc_lower or "," in loc_lower:
+            # Take the first word as a fallback if it's fuzzy
+            args["location"] = loc_lower.replace(" or ", ",").split(",")[0].strip().title()
+            
+    # Normalize Intent
+    if "intent" in args and args["intent"]:
+        intent_lower = str(args["intent"]).lower()
+        if "buy" in intent_lower: args["intent"] = "Buy"
+        elif "rent" in intent_lower: args["intent"] = "Rent"
+        elif "invest" in intent_lower: args["intent"] = "Invest"
+        elif "brows" in intent_lower: args["intent"] = "Browsing"
+        else: args["intent"] = str(args["intent"]).title()
+        
+    # Normalize Budget
+    if "budget" in args and args["budget"]:
+        args["budget"] = str(args["budget"]).replace(" ", "").upper()
+        
+    return args
 
 # 4. Structured Tool Calling Definition
 def extract_lead_info(
@@ -254,8 +282,8 @@ def process_chat(session_id: str, user_message: str, db: DBSession, client_id: s
                 break
 
     if fc and fc.name == "extract_lead_info":
-        # Extract arguments payload securely
-        args = fc.args
+        # Extract and normalize arguments payload securely
+        args = normalize_lead_data(dict(fc.args))
         
         # Update Lead table fields dynamically (using the in-memory lead object)
         if "name" in args: lead.name = args["name"]
