@@ -1,0 +1,37 @@
+[20:19:13.456] ================================================================
+[20:19:13.456] FINAL SOAK TEST - 3 CONCURRENT USERS
+[20:19:13.456] Testing PostgreSQL Locks, Redis Queue, and API Rate Limits
+[20:19:13.456] ================================================================
+[20:19:13.458] 🟢 STARTING SESSION: +919900000001
+[20:19:13.459] 🟢 STARTING SESSION: +919900000002
+[20:19:13.459] 🟢 STARTING SESSION: +919900000003
+[20:19:15.329]    [+919900000002] MSG 1/4 | HTTP=200 | "Hello"
+[20:19:16.676]    [+919900000003] MSG 1/4 | HTTP=200 | "Hi there"
+[20:19:16.681]    [+919900000001] MSG 1/4 | HTTP=200 | "Hi, looking for a flat"
+[20:19:21.722]    [+919900000002] MSG 2/4 | HTTP=200 | "Looking to rent an apartment"
+[20:19:25.731]    [+919900000003] MSG 2/4 | HTTP=200 | "I'm searching for a 3BHK to buy"
+[20:19:27.243]    [+919900000001] MSG 2/4 | HTTP=200 | "I want to buy a 2BHK in Wakad"
+[20:19:37.963]    [+919900000001] MSG 3/4 | HTTP=200 | "Budget is around 90L"
+[20:19:40.398]    [+919900000002] MSG 3/4 | HTTP=200 | "Baner area, budget 30k"
+[20:19:41.909]    [+919900000003] MSG 3/4 | HTTP=200 | "Kharadi area, budget is 1.5 Cr"
+[20:19:53.111]    [+919900000002] MSG 4/4 | HTTP=200 | "Can we visit on Sunday?"
+[20:19:56.112] 🔴 ENDED SESSION: +919900000002 (Errors: 0)
+[20:19:56.406]    [+919900000001] MSG 4/4 | HTTP=200 | "Okay, let's schedule a visit for tomorrow"
+[20:19:59.409] 🔴 ENDED SESSION: +919900000001 (Errors: 0)
+[20:20:00.383]    [+919900000003] MSG 4/4 | HTTP=200 | "Yes, please arrange a site visit"
+[20:20:03.384] 🔴 ENDED SESSION: +919900000003 (Errors: 0)
+[20:20:03.385] 
+--- Waiting 15s for background updates before querying CRM ---
+[20:20:18.825] 
+CRM HTTP=200 | Total leads: 5
+[20:20:18.825] ✅ Lead Found: +919900000001 | Budget: 90LAKHS | Intent: Buy
+[20:20:18.825] ✅ Lead Found: +919900000002 | Budget: 30KPERMONTH | Intent: Rent
+[20:20:18.825] ✅ Lead Found: +919900000003 | Budget: 1.5CRORES | Intent: Buy
+[20:20:18.825] 
+================================================================
+[20:20:18.826] SOAK TEST SUMMARY
+[20:20:18.826] ================================================================
+[20:20:18.826]   Concurrent Users  : 3
+[20:20:18.826]   Total Messages    : 12
+[20:20:18.826]   Total Errors      : 0 ✅ PERFECT
+[20:20:18.826] ================================================================
