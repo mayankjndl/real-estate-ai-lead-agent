@@ -131,16 +131,10 @@ def extract_lead_info(
     pass  # Schema definition only. Execution is handled in process_chat.
 
 # Initialize the generative model with Anohita's system instruction and the extraction tool
-model_with_tools = genai.GenerativeModel(
+model = genai.GenerativeModel(
     model_name=settings.GEMINI_MODEL,
     system_instruction=REAL_ESTATE_SYSTEM_PROMPT,
     tools=[extract_lead_info]
-)
-
-# Initialize the generative model WITHOUT tools for blazing fast conversational responses
-model_fast = genai.GenerativeModel(
-    model_name=settings.GEMINI_MODEL,
-    system_instruction=REAL_ESTATE_SYSTEM_PROMPT
 )
 
 # Lightweight stateless model used ONLY to generate a natural one-line reply after
@@ -284,19 +278,8 @@ def process_chat(session_id: str, user_message: str, db: DBSession, client_id: s
     else:
         logger.info(f"RAG skipped (non-property query) for session={session_id}")
 
-    # Dynamic Tool Calling: Only inject heavy extraction tools if keywords/numbers are present
-    EXTRACTION_KEYWORDS = {
-        "budget", "lakhs", "crore", "cr", "thousand", "rent", "buy", "invest", "name", 
-        "bhk", "visit", "tomorrow", "sunday", "monday", "tuesday", "wednesday", "thursday", 
-        "friday", "saturday", "weekend", "morning", "afternoon", "evening", "am", "pm",
-        "schedule", "book", "arrange"
-    }
-    
-    needs_extraction = any(w.strip(".,!?") in EXTRACTION_KEYWORDS for w in words) or any(char.isdigit() for char in user_message)
-    chat_model = model_with_tools if needs_extraction else model_fast
-    
     # Start Gemini Chat with retrieved history
-    chat = chat_model.start_chat(history=formatted_history)
+    chat = model.start_chat(history=formatted_history)
 
     # Send the history + new message to Gemini (with retry logic for API reliability)
     max_retries = 3
