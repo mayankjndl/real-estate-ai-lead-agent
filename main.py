@@ -152,7 +152,7 @@ async def background_process_and_push(session_id: str, Body: str, client_id: str
     """
     db = next(get_db())
     try:
-        reply_text = await asyncio.to_thread(process_chat, session_id, Body, db, client_id, True)
+        reply_text = await process_chat(session_id, Body, db, client_id, True)
         if settings.TWILIO_ACCOUNT_SID:
             client = Client(settings.TWILIO_ACCOUNT_SID, settings.TWILIO_AUTH_TOKEN)
             await asyncio.to_thread(
@@ -213,10 +213,7 @@ async def whatsapp_webhook(
             # Task 6: Timeout Handling
             try:
                 # Give LLM 15s to finish to prevent double-charging the Google Free Tier Rate limit
-                reply_text = await asyncio.wait_for(
-                    asyncio.to_thread(process_chat, session_id, Body, db, client_id=client_id), 
-                    timeout=15.0
-                )
+                reply_text = await process_chat(session_id, Body, db, client_id=client_id)
                 
                 # Finished fast enough — log latency and return standard TwiML
                 latency_ms = round((time.time() - request_start) * 1000)
