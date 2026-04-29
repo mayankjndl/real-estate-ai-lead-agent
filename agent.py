@@ -35,15 +35,38 @@ def is_vague_without_location(query: str, lead) -> bool:
     has_loc_mem = lead and lead.location and lead.location.lower() != "unknown"
     return not has_loc_now and not has_loc_mem
 
-def normalize_lead_data(args: dict) -> dict:
+def normalize_lead_data(args: dict, existing_intent: str = None) -> dict:
     """Normalizes fuzzy LLM extractions into clean structured CRM data."""
-    # 1. Normalize Budget
-    if "budget" in args and args["budget"]:
-        args["budget"] = str(args["budget"]).replace(" ", "").upper()
-        
-    # 2. Normalize Intent
+    import re
+    
+    # 2. Normalize Intent (do this first to use it for budget formatting)
+    intent_val = args.get("intent") or existing_intent or ""
+    intent_val = str(intent_val).title()
+    
     if "intent" in args and args["intent"]:
         args["intent"] = str(args["intent"]).title()
+        
+    # 1. Normalize Budget
+    if "budget" in args and args["budget"]:
+        budget_str = str(args["budget"]).upper().replace(" ", "")
+        
+        # Strip trailing PERMONTH/PM variants for clean parsing
+        budget_str = re.sub(r'(PERMONTH|PM|/MONTH|MONTH|-MONTH)$', '', budget_str)
+        
+        # Format Lakhs
+        if re.search(r'(LAKHS?|L)$', budget_str):
+            budget_str = re.sub(r'(LAKHS?|L)$', '', budget_str) + "LAKHS"
+            
+        # Format Crores
+        elif re.search(r'(CRORES?|CR)$', budget_str):
+            num = re.sub(r'(CRORES?|CR)$', '', budget_str)
+            budget_str = "1CRORE" if num == "1" else num + "CRORES"
+                
+        # Format Rent
+        if intent_val == "Rent":
+            budget_str = budget_str + "PERMONTH"
+            
+        args["budget"] = budget_str
         
     # 3. Normalize Location with Canonical List and Fallbacks
     if "location" in args and args["location"]:
@@ -298,7 +321,7 @@ def process_chat(session_id: str, user_message: str, db: DBSession, client_id: s
 
     if fc and fc.name == "extract_lead_info":
         # Extract and normalize arguments payload securely
-        args = normalize_lead_data(dict(fc.args))
+        args = normalize_lead_data(dict(fc.args), existing_intent=lead.intent)
         
         # Update Lead table fields dynamically (using the in-memory lead object)
         if "name" in args: lead.name = args["name"]

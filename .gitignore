@@ -26,6 +26,9 @@ app.log
 .vscode/
 .idea/
 
+# Reset database
+reset_db.py
+
 # Distribution / Build
 dist/
 build/
