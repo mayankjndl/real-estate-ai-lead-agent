@@ -127,6 +127,19 @@ def extract_lead_info(
         intent: The goal (e.g., 'buy', 'rent', 'investment', 'browsing').
         score: Your internal lead scoring evaluation (High, Medium, Low).
         visit_date: The user's requested visit date/time (e.g., 'Tuesday 2pm', 'Saturday morning').
+    
+    INTENT-BASED BEHAVIOR:
+    - HIGH: Be proactive. Offer a specific next step like shortlisting or a site visit.
+    - MEDIUM: Provide data/description only. Do NOT ask follow-up questions or offer next steps. Answer and STOP.
+    - LOW: Provide general info. Ask one clarifying question (e.g., buy vs. rent) to narrow the search.
+    - CRITICAL: For Medium/Low intent, you are FORBIDDEN from ending with "Would you like to see options?" or "Shall I help you buy?"
+
+    -----------------------------------
+    🔹 TOOL CALL RULE (CRITICAL):
+    - Whenever you call extract_lead_info, you MUST also write a conversational text reply in the SAME response.
+    - The text reply should naturally continue the conversation based on what the user said.
+    - NEVER return a function call without also including a text message.
+    - Do NOT mention data capture, fields, or databases in your text reply.
     """
     pass  # Schema definition only. Execution is handled in process_chat.
 
@@ -136,8 +149,6 @@ model = genai.GenerativeModel(
     system_instruction=REAL_ESTATE_SYSTEM_PROMPT,
     tools=[extract_lead_info]
 )
-
-# Lightweight stateless model is no longer needed — replaced with zero-latency smart templates
 
 # 3. Stateful Memory Function
 async def process_chat(session_id: str, user_message: str, db: DBSession, client_id: str = "default", is_background: bool = False) -> str:
@@ -354,42 +365,56 @@ async def process_chat(session_id: str, user_message: str, db: DBSession, client
                     if "visit_date" in args and args["visit_date"] != prev_visit_date: new_fields.add("visit_date")
                     if "property_type" in args and args["property_type"] != prev_property_type: new_fields.add("property_type")
 
-                    # Zero-latency smart template reply — replaces expensive second LLM call
-                    # Only fires templates based on NEWLY captured fields this turn
+                    # Extract Gemini's own conversational text from this same response.
+                    # When Gemini follows the TOOL CALL RULE in the system prompt, it includes
+                    # text alongside the function call — this text has full conversation awareness.
+                    text_from_response = None
+                    for part in response.candidates[0].content.parts:
+                        if hasattr(part, 'text') and part.text and part.text.strip():
+                            text_from_response = part.text.strip()
+                            break
+
                     visit_concluded = bool(lead and lead.visit_date and lead.phone)
                     captured_fields = [k for k in ["name", "phone", "budget", "location", "property_type", "intent", "visit_date"] if k in args]
 
                     if visit_concluded and "visit_date" in new_fields:
+                        # TEMPLATE 1: Visit fully booked — guaranteed exact wording, zero-latency
                         loc = lead.location or "the property"
                         vdate = lead.visit_date or "your requested time"
                         local_reply = f"Fantastic! Everything is set for your visit to {loc} on {vdate}. Our team will be in touch to confirm. Looking forward to seeing you! 🏡"
+
                     elif "visit_date" in new_fields:
+                        # TEMPLATE 2: Visit date noted — guaranteed exact wording, zero-latency
                         loc = lead.location or "the property"
                         local_reply = f"Great, I've noted your visit request for {lead.visit_date}! Our team will confirm the details shortly. Anything else you'd like to know about {loc}?"
-                    elif "budget" in new_fields and "location" in new_fields:
-                        local_reply = f"Perfect, I've saved your budget of {lead.budget} for a property in {lead.location}. When are you looking to move in, or would you like to schedule a visit?"
-                    elif "budget" in new_fields:
-                        local_reply = f"Got it, budget of {lead.budget} noted! Which area in Pune are you looking at?" if not lead.location else f"Got it, budget of {lead.budget} noted for {lead.location}! Would you like to schedule a visit?"
-                    elif "location" in new_fields and "intent" in new_fields:
-                        intent_str = lead.intent.lower() if lead.intent else "buy"
-                        local_reply = f"Great choice! {lead.location} is a fantastic area to {intent_str}. What's your approximate budget?"
-                    elif "location" in new_fields:
-                        local_reply = f"Noted — {lead.location} is on your list! Are you looking to buy or rent, and what's your budget range?"
-                    elif "property_type" in new_fields:
-                        pt = lead.property_type or "property"
-                        local_reply = f"A {pt} it is! " + (f"Your budget of {lead.budget} should work well for that." if lead.budget else "What's your approximate budget for this?")
-                    elif "name" in new_fields:
-                        local_reply = f"Nice to meet you, {lead.name}! What kind of property are you looking for?" if not lead.property_type else f"Nice to meet you, {lead.name}! I have all your details — shall we schedule a visit?"
+
+                    elif text_from_response:
+                        # PRIMARY PATH: Use Gemini's own text from this same single response.
+                        # Gemini sees the full 20-message conversation history, so it knows
+                        # what was said, handles all context correctly, and produces natural
+                        # replies with zero additional API calls or latency overhead.
+                        local_reply = text_from_response
+
                     else:
-                        # Re-extraction of already-known fields — fall through to the LLM's own text reply
-                        try:
-                            local_reply = response.text.strip()
-                        except Exception:
-                            local_reply = "Got it! Is there anything else you'd like to know?"
+                        # SAFETY FALLBACK: Gemini returned only a function call with no text.
+                        # Should be rare now that system prompt instructs text alongside tool calls.
+                        if "budget" in new_fields and "location" in new_fields:
+                            local_reply = f"Perfect, I've saved your budget of {lead.budget} for a property in {lead.location}. When are you looking to move in, or would you like to schedule a visit?"
+                        elif "budget" in new_fields:
+                            loc_hint = f" for {lead.location}" if lead.location else ""
+                            local_reply = f"Got it, budget of {lead.budget} noted{loc_hint}! Anything else you'd like to know?"
+                        elif "location" in new_fields:
+                            local_reply = f"Noted — {lead.location} is on your list! What's your approximate budget?"
+                        elif "property_type" in new_fields:
+                            local_reply = f"A {lead.property_type} it is! Anything else you'd like to know?"
+                        elif "name" in new_fields:
+                            local_reply = f"Nice to meet you, {lead.name}! How else can I help?"
+                        else:
+                            local_reply = "Got it! How else can I help you with your property search?"
 
                     db.add(Message(session_id=session_id, role="assistant", content=local_reply))
                     db.commit()
-                    logger.info(f"LEAD_EXTRACT | session={session_id} | fields={captured_fields} | new_fields={list(new_fields)} | concluded={visit_concluded}")
+                    logger.info(f"LEAD_EXTRACT | session={session_id} | fields={captured_fields} | new_fields={list(new_fields)} | has_gemini_text={text_from_response is not None} | concluded={visit_concluded}")
                     return local_reply
 
     # Safely get the final text (handling cases where only a tool call was returned)
