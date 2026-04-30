@@ -114,9 +114,25 @@ def extract_lead_info(
     visit_date: str = None
 ):
     """
-    Saves or updates the lead's information in the database. Use this tool silently when the
-    user shares their budget, location, intent (buy/rent/investment), name, phone number,
-    or a requested visit date/time.
+    Saves the lead's property search details to the CRM database.
+
+    ⚠️  WHEN TO CALL THIS TOOL:
+    ONLY call this tool when the user explicitly provides NEW personal search information:
+    - Their name
+    - Their phone number
+    - Their budget (e.g. "80 lakhs", "25k per month", "1.2 crores")
+    - Their preferred location (e.g. "Baner", "Wakad", "Hinjewadi")
+    - Their property type preference (e.g. "2BHK", "3BHK", "Villa")
+    - Their intent (buy / rent / investment)
+    - A requested visit date or time
+
+    ⛔ DO NOT CALL THIS TOOL for:
+    - General property questions ("What are prices in Baner?")
+    - Questions about amenities, connectivity, traffic, schools
+    - Acknowledgements ("Thanks", "Perfect", "Ok", "Got it")
+    - Greetings ("Hi", "Hello", "Hey")
+    - Any message that doesn't contain NEW personal search data
+    For those messages, respond naturally with text only.
 
     Args:
         name: The name of the client.
