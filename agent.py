@@ -315,60 +315,82 @@ async def process_chat(session_id: str, user_message: str, db: DBSession, client
         for part in response.candidates[0].content.parts:
             if part.function_call:
                 fc = part.function_call
-                break
+                if fc and fc.name == "extract_lead_info":
+                    # Extract and normalize arguments payload securely
+                    args = normalize_lead_data(dict(fc.args), existing_intent=lead.intent)
+                    
+                    # Snapshot which fields are GENUINELY NEW in this turn vs already known.
+                    # This prevents re-extracted old data from triggering the same template repeatedly.
+                    prev_budget = lead.budget
+                    prev_location = lead.location
+                    prev_intent = lead.intent
+                    prev_name = lead.name
+                    prev_visit_date = lead.visit_date
+                    prev_property_type = lead.property_type
+                    
+                    # Update Lead table fields dynamically (using the in-memory lead object)
+                    if "name" in args: lead.name = args["name"]
+                    
+                    # Automatically capture WhatsApp number from session context
+                    if session_id.startswith("+") and not lead.phone:
+                        lead.phone = session_id
+                    elif "phone" in args: 
+                        lead.phone = args["phone"]
+                    if "budget" in args: lead.budget = args["budget"]
+                    if "location" in args: lead.location = args["location"]
+                    if "property_type" in args: lead.property_type = args["property_type"]
+                    if "intent" in args: lead.intent = args["intent"]
+                    if "score" in args: lead.score = args["score"]
+                    if "visit_date" in args: lead.visit_date = args["visit_date"]
 
-    if fc and fc.name == "extract_lead_info":
-        # Extract and normalize arguments payload securely
-        args = normalize_lead_data(dict(fc.args), existing_intent=lead.intent)
-        
-        # Update Lead table fields dynamically (using the in-memory lead object)
-        if "name" in args: lead.name = args["name"]
-        
-        # Automatically capture WhatsApp number from session context
-        if session_id.startswith("+") and not lead.phone:
-            lead.phone = session_id
-        elif "phone" in args: 
-            lead.phone = args["phone"]
-        if "budget" in args: lead.budget = args["budget"]
-        if "location" in args: lead.location = args["location"]
-        if "property_type" in args: lead.property_type = args["property_type"]
-        if "intent" in args: lead.intent = args["intent"]
-        if "score" in args: lead.score = args["score"]
-        if "visit_date" in args: lead.visit_date = args["visit_date"]
+                    db.commit()
 
-        
-        db.commit()
+                    # Determine which fields are truly new this turn (value changed or was None before)
+                    new_fields = set()
+                    if "budget" in args and args["budget"] != prev_budget: new_fields.add("budget")
+                    if "location" in args and args["location"] != prev_location: new_fields.add("location")
+                    if "intent" in args and args["intent"] != prev_intent: new_fields.add("intent")
+                    if "name" in args and args["name"] != prev_name: new_fields.add("name")
+                    if "visit_date" in args and args["visit_date"] != prev_visit_date: new_fields.add("visit_date")
+                    if "property_type" in args and args["property_type"] != prev_property_type: new_fields.add("property_type")
 
-        # Zero-latency smart template reply — replaces expensive second LLM call
-        # Saves 5-18s per CRM-update message with no loss in conversational quality
-        visit_concluded = bool(lead and lead.visit_date and lead.phone)
-        captured_fields = [k for k in ["name", "phone", "budget", "location", "property_type", "intent", "visit_date"] if k in args]
+                    # Zero-latency smart template reply — replaces expensive second LLM call
+                    # Only fires templates based on NEWLY captured fields this turn
+                    visit_concluded = bool(lead and lead.visit_date and lead.phone)
+                    captured_fields = [k for k in ["name", "phone", "budget", "location", "property_type", "intent", "visit_date"] if k in args]
 
-        if visit_concluded:
-            loc = lead.location or "the property"
-            vdate = lead.visit_date or "your requested time"
-            local_reply = f"Fantastic! Everything is set for your visit to {loc} on {vdate}. Our team will be in touch to confirm. Looking forward to seeing you! 🏡"
-        elif "visit_date" in args:
-            loc = lead.location or "the property"
-            local_reply = f"Great, I've noted your visit request for {args['visit_date']}! Our team will confirm the details shortly. Anything else you'd like to know about {loc}?"
-        elif "budget" in args and "location" in args:
-            local_reply = f"Perfect, I've saved your budget of {lead.budget} for a property in {lead.location}. When are you looking to move in, or would you like to schedule a visit?"
-        elif "budget" in args:
-            local_reply = f"Got it, budget of {lead.budget} noted! Which area in Pune are you looking at?"
-        elif "location" in args and "intent" in args:
-            intent_str = lead.intent.lower() if lead.intent else "buy"
-            local_reply = f"Great choice! {lead.location} is a fantastic area to {intent_str}. What's your approximate budget?"
-        elif "location" in args:
-            local_reply = f"Noted — {lead.location} is on your list! Are you looking to buy or rent, and what's your budget range?"
-        elif "name" in args:
-            local_reply = f"Nice to meet you, {lead.name}! What kind of property are you looking for?"
-        else:
-            local_reply = "Got it, I've noted your details! What else can I help you find?"
+                    if visit_concluded and "visit_date" in new_fields:
+                        loc = lead.location or "the property"
+                        vdate = lead.visit_date or "your requested time"
+                        local_reply = f"Fantastic! Everything is set for your visit to {loc} on {vdate}. Our team will be in touch to confirm. Looking forward to seeing you! 🏡"
+                    elif "visit_date" in new_fields:
+                        loc = lead.location or "the property"
+                        local_reply = f"Great, I've noted your visit request for {lead.visit_date}! Our team will confirm the details shortly. Anything else you'd like to know about {loc}?"
+                    elif "budget" in new_fields and "location" in new_fields:
+                        local_reply = f"Perfect, I've saved your budget of {lead.budget} for a property in {lead.location}. When are you looking to move in, or would you like to schedule a visit?"
+                    elif "budget" in new_fields:
+                        local_reply = f"Got it, budget of {lead.budget} noted! Which area in Pune are you looking at?" if not lead.location else f"Got it, budget of {lead.budget} noted for {lead.location}! Would you like to schedule a visit?"
+                    elif "location" in new_fields and "intent" in new_fields:
+                        intent_str = lead.intent.lower() if lead.intent else "buy"
+                        local_reply = f"Great choice! {lead.location} is a fantastic area to {intent_str}. What's your approximate budget?"
+                    elif "location" in new_fields:
+                        local_reply = f"Noted — {lead.location} is on your list! Are you looking to buy or rent, and what's your budget range?"
+                    elif "property_type" in new_fields:
+                        pt = lead.property_type or "property"
+                        local_reply = f"A {pt} it is! " + (f"Your budget of {lead.budget} should work well for that." if lead.budget else "What's your approximate budget for this?")
+                    elif "name" in new_fields:
+                        local_reply = f"Nice to meet you, {lead.name}! What kind of property are you looking for?" if not lead.property_type else f"Nice to meet you, {lead.name}! I have all your details — shall we schedule a visit?"
+                    else:
+                        # Re-extraction of already-known fields — fall through to the LLM's own text reply
+                        try:
+                            local_reply = response.text.strip()
+                        except Exception:
+                            local_reply = "Got it! Is there anything else you'd like to know?"
 
-        db.add(Message(session_id=session_id, role="assistant", content=local_reply))
-        db.commit()
-        logger.info(f"LEAD_EXTRACT | session={session_id} | fields={captured_fields} | concluded={visit_concluded}")
-        return local_reply
+                    db.add(Message(session_id=session_id, role="assistant", content=local_reply))
+                    db.commit()
+                    logger.info(f"LEAD_EXTRACT | session={session_id} | fields={captured_fields} | new_fields={list(new_fields)} | concluded={visit_concluded}")
+                    return local_reply
 
     # Safely get the final text (handling cases where only a tool call was returned)
     try:
