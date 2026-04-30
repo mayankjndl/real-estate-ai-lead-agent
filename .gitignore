@@ -69,3 +69,12 @@ stability_log*.json
 rapid_fire_log*.txt
 full_flow_log*.txt
 failure_modes_log*.txt
+
+# Current sprint test & report files (dev-only)
+proof_rapid_fire_2.py
+quality_check.py
+final_soak_test.py
+quality_validation_test.py
+final_soak_test_log*.txt
+final_soak_test_report.txt
+quality_validation_report*.txt

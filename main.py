@@ -128,14 +128,14 @@ def get_current_client_id(
 
 
 @app.post("/api/v1/chat")
-def chat_endpoint(session_id: str, message: str, client_id: str = "default", db: DBSession = Depends(get_db)):
+async def chat_endpoint(session_id: str, message: str, client_id: str = "default", db: DBSession = Depends(get_db)):
     """
     Public AI chat interface.
     Receives user utterance and a session ID to keep multi-turn context.
     Orchestrates Gemini response generation and silent lead data capture.
     """
     try:
-        reply = process_chat(session_id, message, db, client_id=client_id)
+        reply = await process_chat(session_id, message, db, client_id=client_id)
         return {
             "status": "success",
             "session_id": session_id,
