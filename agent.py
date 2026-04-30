@@ -25,7 +25,7 @@ def check_topic_drift(query: str) -> bool:
 def is_vague_without_location(query: str, lead) -> bool:
     """Blocks vague queries if no location is specified or remembered."""
     query_lower = query.lower()
-    vague_triggers = ["cheap", "affordable", "budget", "options", "listings", "flats", "any available"]
+    vague_triggers = ["cheap", "affordable", "any available"]
     
     if not any(trigger in query_lower for trigger in vague_triggers):
         return False
