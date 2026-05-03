@@ -62,7 +62,7 @@ try:
 except Exception as _e:
     _logger.warning(f"RAG index failed to build (degraded mode, no context injection): {_e}")
 
-def retrieve(query: str, k: int = 2):
+def retrieve(query: str, k: int = 1):
     if not RAG_AVAILABLE or index is None:
         raise RuntimeError("RAG index not available")
     # Use cached embedding — avoids network call for repeated/similar queries

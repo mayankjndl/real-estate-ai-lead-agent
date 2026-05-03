@@ -241,9 +241,10 @@ async def process_chat(session_id: str, user_message: str, db: DBSession, client
         logger.info(f"GUARDRAIL_INTERCEPT | session={session_id} | bypassed LLM")
         return guardrail_reply
 
-    # LIMIT CONTEXT: last 10 turns (20 messages) — keeps enough history for the full
-    # conversation to remain coherent, including the user's opening requirements.
-    past_messages = db.query(Message).filter(Message.session_id == session_id).order_by(Message.id.desc()).limit(20).all()
+    # LIMIT CONTEXT: last 7 turns (14 messages) — keeps enough history for the full
+    # conversation to remain coherent. CRM fields are always protected by the DB summary
+    # so they are never lost even if the extraction turn scrolls out of the window.
+    past_messages = db.query(Message).filter(Message.session_id == session_id).order_by(Message.id.desc()).limit(14).all()
     past_messages.reverse()
 
     formatted_history = []
@@ -292,10 +293,15 @@ async def process_chat(session_id: str, user_message: str, db: DBSession, client
             rag_time = round((time.time() - rag_start) * 1000)
             logger.info(json.dumps({"event": "rag_retrieval", "latency_ms": rag_time, "success": True}))
             if score < 0.8 and context_items:
-                context_text = "\n".join([
-                    f"- {item['location']} {item['type']}: {item['details']} ({item['description']})"
-                    for item in context_items
-                ])
+                # Trim RAG context: flatten to a compact string, max 280 chars per item.
+                # Nested dicts in faq.json can be verbose; we only need the key facts.
+                def _fmt_item(item):
+                    det = item.get('details', '')
+                    if isinstance(det, dict):
+                        det = ', '.join(f"{k}: {v}" for k, v in det.items())
+                    raw = f"{item['location']} ({item.get('type','')}) — {det}. {item.get('description','')}"
+                    return raw[:280]
+                context_text = "\n".join(_fmt_item(i) for i in context_items)
                 user_message_for_llm = f"Summary: {summary_text}\nProperty Context:\n{context_text}\n\nUser Message: {user_message}"
         except Exception as e:
             rag_time = round((time.time() - rag_start) * 1000)
