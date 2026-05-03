@@ -432,6 +432,8 @@ async def process_chat(session_id: str, user_message: str, db: DBSession, client
                             local_reply = f"Noted — {lead.location} added to your search."
                         elif "property_type" in new_fields:
                             local_reply = f"Noted — {lead.property_type} it is."
+                        elif "intent" in new_fields and lead.intent and "visit" in lead.intent.lower():
+                            local_reply = "I'd be happy to arrange a site visit! What day or time works best for you?"
                         elif "name" in new_fields:
                             local_reply = f"Nice to meet you, {lead.name}!"
                         else:
@@ -446,7 +448,8 @@ async def process_chat(session_id: str, user_message: str, db: DBSession, client
     try:
         final_text = response.text
     except ValueError:
-        final_text = "I've noted those details. What else can I help you find today?"
+        # If Gemini returned no text and no function call, ask a gentle conversational question
+        final_text = "I understand. Is there anything specific you'd like to know about the properties, or would you like to schedule a visit?"
 
     # Anohita's Conversion Intelligence Logic
     history_text = " ".join([m.content for m in past_messages if m.role == "user"]).lower() + " " + user_message.lower()
