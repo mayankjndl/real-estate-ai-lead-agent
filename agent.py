@@ -409,8 +409,7 @@ async def process_chat(session_id: str, user_message: str, db: DBSession, client
 
                     elif "visit_date" in new_fields:
                         # TEMPLATE 2: Visit date noted — guaranteed exact wording, zero-latency
-                        loc = lead.location or "the property"
-                        local_reply = f"Great, I've noted your visit request for {lead.visit_date}! Our team will confirm the details shortly. Anything else you'd like to know about {loc}?"
+                        local_reply = f"Great, I've noted your visit request for {lead.visit_date}! Our team will confirm the details shortly. Looking forward to it!"
 
                     elif text_from_response:
                         # PRIMARY PATH: Use Gemini's own text from this same single response.
@@ -446,10 +445,15 @@ async def process_chat(session_id: str, user_message: str, db: DBSession, client
 
     # Safely get the final text (handling cases where only a tool call was returned)
     try:
-        final_text = response.text
+        if not response.candidates or not response.candidates[0].content.parts:
+            final_text = "I'm sorry, I couldn't process that. Could you please rephrase?"
+            logger.warning(f"Empty response from Gemini. finish_reason: {response.candidates[0].finish_reason if response.candidates else 'None'}")
+        else:
+            final_text = response.text
     except ValueError:
-        # If Gemini returned no text and no function call, ask a gentle conversational question
-        final_text = "I understand. Is there anything specific you'd like to know about the properties, or would you like to schedule a visit?"
+        # If Gemini returned a function call but we somehow missed it, or if it returned no text
+        logger.warning(f"ValueError accessing response.text. Parts: {response.candidates[0].content.parts}")
+        final_text = "Got it. Let me know if you need anything else or want to schedule a visit."
 
     # Anohita's Conversion Intelligence Logic
     history_text = " ".join([m.content for m in past_messages if m.role == "user"]).lower() + " " + user_message.lower()
