@@ -323,7 +323,14 @@ async def process_chat(session_id: str, user_message: str, db: DBSession, client
     for attempt in range(max_retries):
         llm_start = time.time()
         try:
-            response = await chat.send_message_async(user_message_for_llm)
+            from google.generativeai.types import HarmCategory, HarmBlockThreshold
+            safety_settings = {
+                HarmCategory.HARM_CATEGORY_HARASSMENT: HarmBlockThreshold.BLOCK_NONE,
+                HarmCategory.HARM_CATEGORY_HATE_SPEECH: HarmBlockThreshold.BLOCK_NONE,
+                HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT: HarmBlockThreshold.BLOCK_NONE,
+                HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: HarmBlockThreshold.BLOCK_NONE,
+            }
+            response = await chat.send_message_async(user_message_for_llm, safety_settings=safety_settings)
             llm_time = round((time.time() - llm_start) * 1000)
             logger.info(json.dumps({"event": "llm_main_call", "latency_ms": llm_time, "attempt": attempt + 1, "success": True}))
             break  # Success — exit retry loop
