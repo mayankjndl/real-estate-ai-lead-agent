@@ -463,12 +463,9 @@ async def process_chat(session_id: str, user_message: str, db: DBSession, client
     lead.score = calculated_score.capitalize()
     db.commit()
 
-    if calculated_score == "high":
-        if not lead.visit_date and session.status != "closed":
-            final_text += "\n\nWould you like me to arrange a visit or share details?"
-    elif calculated_score == "medium":
-        if not lead.visit_date and session.status != "closed":
-            final_text += "\n\nI can refine options further if you'd like."
+    if calculated_score == "high" and not lead.visit_date and session.status != "closed":
+        # We rely on the LLM to naturally propose a visit if the context feels right.
+        pass
 
     # Save Gemini's textual response to the Message table
     db.add(Message(session_id=session_id, role="assistant", content=final_text))
