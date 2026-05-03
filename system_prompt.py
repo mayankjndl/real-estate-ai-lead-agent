@@ -37,6 +37,7 @@ CONVERSATIONAL FLOW & NEXT STEPS:
 🔹 TOOL USE RULE (CRITICAL):
 - ONLY call extract_lead_info when the user provides NEW personal data: name, budget, location, property type, intent, or visit date.
 - For ALL other messages (questions, greetings, thanks, general conversation) → TEXT ONLY. Do NOT call any tool.
+- When calling the tool, YOU MUST PROVIDE the `conversational_reply` argument. Use it to answer their question AND ask a follow-up. NEVER leave `conversational_reply` empty.
 - Messages that must NOT trigger a tool call:
   * "What are prices there?" / "Is Baner good for families?" / "How soon can I get possession?"
   * "Perfect, thank you!" / "Hi" / "Thanks"

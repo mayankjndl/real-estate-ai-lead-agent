@@ -111,7 +111,8 @@ def extract_lead_info(
     property_type: str = None,
     intent: str = None,
     score: str = None,
-    visit_date: str = None
+    visit_date: str = None,
+    conversational_reply: str = None
 ):
     """
     Saves the lead's property search details to the CRM database.
@@ -143,6 +144,7 @@ def extract_lead_info(
         intent: The goal (e.g., 'buy', 'rent', 'investment', 'browsing').
         score: Your internal lead scoring evaluation (High, Medium, Low).
         visit_date: The user's requested visit date/time (e.g., 'Tuesday 2pm', 'Saturday morning').
+        conversational_reply: Your natural, conversational response to the user's message. MUST BE PROVIDED.
     
     INTENT-BASED BEHAVIOR:
     - HIGH: Be proactive. Offer a specific next step like shortlisting or a site visit.
@@ -280,6 +282,7 @@ async def process_chat(session_id: str, user_message: str, db: DBSession, client
         "2bhk", "3bhk", "1bhk", "pune", "noida", "mumbai", "sqft", "furnish",
         "visit", "book", "schedule", "bedroom", "floor", "tower", "society",
         "possession", "ready", "availability", "cheap", "affordable", "luxury",
+        "options", "available"
     }
     words = user_message.lower().split()
     is_property_query = any(w.strip(".,!?") in PROPERTY_KEYWORDS for w in words)
@@ -390,13 +393,12 @@ async def process_chat(session_id: str, user_message: str, db: DBSession, client
                     if "property_type" in args and args["property_type"] != prev_property_type: new_fields.add("property_type")
 
                     # Extract Gemini's own conversational text from this same response.
-                    # When Gemini follows the TOOL CALL RULE in the system prompt, it includes
-                    # text alongside the function call — this text has full conversation awareness.
-                    text_from_response = None
-                    for part in response.candidates[0].content.parts:
-                        if hasattr(part, 'text') and part.text and part.text.strip():
-                            text_from_response = part.text.strip()
-                            break
+                    text_from_response = args.get("conversational_reply", None)
+                    if not text_from_response:
+                        for part in response.candidates[0].content.parts:
+                            if hasattr(part, 'text') and part.text and part.text.strip():
+                                text_from_response = part.text.strip()
+                                break
 
                     visit_concluded = bool(lead and lead.visit_date and lead.phone)
                     captured_fields = [k for k in ["name", "phone", "budget", "location", "property_type", "intent", "visit_date"] if k in args]
