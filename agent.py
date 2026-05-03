@@ -289,7 +289,9 @@ async def process_chat(session_id: str, user_message: str, db: DBSession, client
     if is_property_query:
         rag_start = time.time()
         try:
-            context_items, score = retrieve(user_message)
+            # Contextualize RAG query with known location to resolve pronouns like "there"
+            rag_query = f"{lead.location} {user_message}" if (lead and lead.location) else user_message
+            context_items, score = retrieve(rag_query)
             rag_time = round((time.time() - rag_start) * 1000)
             logger.info(json.dumps({"event": "rag_retrieval", "latency_ms": rag_time, "success": True}))
             if score < 0.8 and context_items:
