@@ -414,19 +414,20 @@ async def process_chat(session_id: str, user_message: str, db: DBSession, client
                     else:
                         # SAFETY FALLBACK: Gemini returned only a function call with no text.
                         # Should be rare now that system prompt instructs text alongside tool calls.
+                        # No CTAs in fallbacks — just clean, concise acknowledgements.
                         if "budget" in new_fields and "location" in new_fields:
-                            local_reply = f"Perfect, I've saved your budget of {lead.budget} for a property in {lead.location}. When are you looking to move in, or would you like to schedule a visit?"
+                            local_reply = f"Got it — budget of {lead.budget} for {lead.location} noted."
                         elif "budget" in new_fields:
                             loc_hint = f" for {lead.location}" if lead.location else ""
-                            local_reply = f"Got it, budget of {lead.budget} noted{loc_hint}! Anything else you'd like to know?"
+                            local_reply = f"Got it — budget of {lead.budget} noted{loc_hint}."
                         elif "location" in new_fields:
-                            local_reply = f"Noted — {lead.location} is on your list! What's your approximate budget?"
+                            local_reply = f"Noted — {lead.location} added to your search."
                         elif "property_type" in new_fields:
-                            local_reply = f"A {lead.property_type} it is! Anything else you'd like to know?"
+                            local_reply = f"Noted — {lead.property_type} it is."
                         elif "name" in new_fields:
-                            local_reply = f"Nice to meet you, {lead.name}! How else can I help?"
+                            local_reply = f"Nice to meet you, {lead.name}!"
                         else:
-                            local_reply = "Got it! How else can I help you with your property search?"
+                            local_reply = "Got it, noted."
 
                     db.add(Message(session_id=session_id, role="assistant", content=local_reply))
                     db.commit()
