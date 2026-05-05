@@ -78,3 +78,12 @@ quality_validation_test.py
 final_soak_test_log*.txt
 final_soak_test_report.txt
 quality_validation_report*.txt
+
+# Production certification scripts & outputs (dev-only, never push to main)
+latency_certification_test.py
+crm_integrity_test.py
+failure_simulation_test.py
+latency_cert_*.txt
+crm_integrity_report_*.txt
+failure_simulation_report_*.txt
+production_certification_report*.txt

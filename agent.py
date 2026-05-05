@@ -136,7 +136,7 @@ def extract_lead_info(
     For those messages, respond naturally with text only.
 
     Args:
-        name: The name of the client.
+        name: The name of the client (VERY IMPORTANT to capture).
         phone: The phone number of the client.
         budget: The requested budget range (e.g., '80L', '20k', '1Cr').
         location: The area they are looking in (e.g., 'Hinjewadi', 'Pune').

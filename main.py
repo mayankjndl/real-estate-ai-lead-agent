@@ -16,6 +16,7 @@ from twilio.twiml.messaging_response import MessagingResponse
 from sqlalchemy.orm import Session as DBSession
 from sqlalchemy import func
 from typing import Optional
+from pydantic import BaseModel
 import csv
 from io import StringIO
 from config import settings
@@ -152,7 +153,13 @@ async def background_process_and_push(session_id: str, Body: str, client_id: str
     """
     db = next(get_db())
     try:
-        reply_text = await process_chat(session_id, Body, db, client_id, True)
+        payload = LeadIngestionPayload(
+            session_id=session_id,
+            source="whatsapp",
+            message=Body,
+            whatsapp_opt_in=True
+        )
+        reply_text = await process_unified_lead(payload, db, client_id, background=True)
         if settings.TWILIO_ACCOUNT_SID:
             client = Client(settings.TWILIO_ACCOUNT_SID, settings.TWILIO_AUTH_TOKEN)
             await asyncio.to_thread(
@@ -179,6 +186,121 @@ async def background_process_and_push(session_id: str, Body: str, client_id: str
             logger.error(f"FALLBACK push also failed for {session_id}: {fallback_err}")
     finally:
         db.close()
+
+class LeadIngestionPayload(BaseModel):
+    session_id: str
+    source: str
+    name: Optional[str] = None
+    phone: Optional[str] = None
+    message: Optional[str] = None
+    intent: Optional[str] = None
+    budget: Optional[str] = None
+    location: Optional[str] = None
+    property_type: Optional[str] = None
+    whatsapp_opt_in: bool = False
+
+async def process_unified_lead(payload: LeadIngestionPayload, db: DBSession, client_id: str = "default", background: bool = False):
+    # 1. Ensure Session exists
+    session = db.query(models.Session).filter(models.Session.id == payload.session_id).first()
+    if not session:
+        session = models.Session(id=payload.session_id, client_id=client_id)
+        db.add(session)
+        db.commit()
+    
+    # 2. Ensure Lead exists, preventing duplicates by session_id
+    lead = db.query(models.Lead).filter(models.Lead.session_id == payload.session_id).first()
+    is_new_lead = False
+    if not lead:
+        lead = models.Lead(
+            session_id=payload.session_id,
+            source=payload.source,
+            whatsapp_opt_in=payload.whatsapp_opt_in
+        )
+        db.add(lead)
+        is_new_lead = True
+    
+    # Update fields if provided
+    if payload.name: lead.name = payload.name
+    if payload.phone: lead.phone = payload.phone
+    if payload.intent: lead.intent = payload.intent
+    if payload.budget: lead.budget = payload.budget
+    if payload.location: lead.location = payload.location
+    if payload.property_type: lead.property_type = payload.property_type
+    
+    db.commit()
+
+    if is_new_lead:
+        db.add(models.EventLog(session_id=payload.session_id, event_type="lead_created"))
+        db.commit()
+
+    # 3. Handle Initial Outbound Message for Passive Sources
+    if is_new_lead and payload.source != "whatsapp" and payload.whatsapp_opt_in:
+        outbound_text = f"Hi {lead.name or 'there'}, thanks for your interest! I'm Anohita, the AI assistant for ABC Properties. Are you looking to buy or rent?"
+        if settings.TWILIO_ACCOUNT_SID and lead.phone:
+            try:
+                client = Client(settings.TWILIO_ACCOUNT_SID, settings.TWILIO_AUTH_TOKEN)
+                client.messages.create(
+                    from_=settings.TWILIO_PHONE_NUMBER,
+                    body=outbound_text,
+                    to=f"whatsapp:{lead.phone}"
+                )
+                db.add(models.EventLog(session_id=payload.session_id, event_type="message_sent"))
+                db.add(models.Message(session_id=payload.session_id, role="assistant", content=outbound_text))
+                db.commit()
+            except Exception as e:
+                logger.error(f"Failed to send outbound to {lead.phone}: {e}")
+
+    # 4. If a message was sent, process via AI
+    if payload.message:
+        reply_text = await process_chat(payload.session_id, payload.message, db, client_id=client_id, background=background)
+        return reply_text
+    
+    return "Lead processed successfully."
+
+@app.post("/api/v1/ingest")
+async def ingest_lead(payload: LeadIngestionPayload, db: DBSession = Depends(get_db)):
+    """Unified API for processing leads from custom website forms or frontends."""
+    try:
+        result = await process_unified_lead(payload, db)
+        return {"status": "success", "result": result}
+    except Exception as e:
+        logger.error(f"Ingest failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/v1/webhook/meta")
+async def meta_webhook(payload: dict, db: DBSession = Depends(get_db)):
+    """Webhook for Facebook and Instagram Lead Ads."""
+    try:
+        # Example naive parsing. Real implementation would parse Facebook Graph API response.
+        parsed = LeadIngestionPayload(
+            session_id=payload.get("lead_id", str(time.time())),
+            source="facebook",
+            name=payload.get("full_name"),
+            phone=payload.get("phone_number"),
+            whatsapp_opt_in=payload.get("opt_in", False)
+        )
+        await process_unified_lead(parsed, db)
+        return {"status": "success"}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.post("/api/v1/webhook/portals")
+async def portals_webhook(payload: dict, db: DBSession = Depends(get_db)):
+    """Webhook for Magicbricks / 99acres."""
+    try:
+        parsed = LeadIngestionPayload(
+            session_id=payload.get("lead_id", str(time.time())),
+            source=payload.get("portal", "portal"),
+            name=payload.get("name"),
+            phone=payload.get("phone"),
+            intent=payload.get("intent"),
+            location=payload.get("location"),
+            whatsapp_opt_in=payload.get("whatsapp_opt_in", False)
+        )
+        await process_unified_lead(parsed, db)
+        return {"status": "success"}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 @app.post("/api/v1/whatsapp")
 async def whatsapp_webhook(
@@ -213,7 +335,13 @@ async def whatsapp_webhook(
             # Task 6: Timeout Handling
             try:
                 # Give LLM 15s to finish to prevent double-charging the Google Free Tier Rate limit
-                reply_text = await process_chat(session_id, Body, db, client_id=client_id)
+                payload = LeadIngestionPayload(
+                    session_id=session_id,
+                    source="whatsapp",
+                    message=Body,
+                    whatsapp_opt_in=True
+                )
+                reply_text = await process_unified_lead(payload, db, client_id=client_id)
                 
                 # Finished fast enough — log latency and return standard TwiML
                 latency_ms = round((time.time() - request_start) * 1000)

@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Text
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Text, Boolean
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from database import Base
@@ -19,6 +19,7 @@ class Session(Base):
     # Cascade delete messages and lead if session is destroyed
     messages = relationship("Message", back_populates="session", cascade="all, delete-orphan")
     lead = relationship("Lead", back_populates="session", uselist=False, cascade="all, delete-orphan")
+    events = relationship("EventLog", back_populates="session", cascade="all, delete-orphan")
 
 
 class Message(Base):
@@ -56,9 +57,27 @@ class Lead(Base):
     score = Column(String, default="Low") # internal logic rating (High, Medium, Low)
     visit_date = Column(String, nullable=True) # e.g. "Tuesday 2pm" — persisted so it survives context window rollover
     
+    # Multi-channel integration fields
+    source = Column(String, default="whatsapp") # 'whatsapp', 'facebook', 'instagram', 'website', 'magicbricks'
+    whatsapp_opt_in = Column(Boolean, default=False) # MUST BE TRUE to send outbound WhatsApp messages
+    
     updated_at = Column(DateTime(timezone=True), onupdate=func.now(), server_default=func.now())
     
     session = relationship("Session", back_populates="lead")
+
+class EventLog(Base):
+    """
+    Tracks lifecycle events for leads across all channels.
+    Events: lead_created, lead_qualified, message_sent, follow_up_sent, appointment_booked, deal_closed
+    """
+    __tablename__ = "event_logs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    session_id = Column(String, ForeignKey("sessions.id", ondelete="CASCADE"), nullable=False, index=True)
+    event_type = Column(String, nullable=False)
+    timestamp = Column(DateTime(timezone=True), server_default=func.now())
+
+    session = relationship("Session", back_populates="events")
 
 class WebhookLog(Base):
     """
