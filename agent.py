@@ -144,7 +144,7 @@ def extract_lead_info(
         intent: The goal (e.g., 'buy', 'rent', 'investment', 'browsing').
         score: Your internal lead scoring evaluation (High, Medium, Low).
         visit_date: The user's requested visit date/time (e.g., 'Tuesday 2pm', 'Saturday morning').
-        conversational_reply: Your natural, conversational response to the user's message. MUST BE PROVIDED.
+        conversational_reply: Your natural, conversational response to the user's message. MUST NOT BE EMPTY.
     
     INTENT-BASED BEHAVIOR:
     - HIGH: Be proactive. Offer a specific next step like shortlisting or a site visit.
