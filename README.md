@@ -72,7 +72,7 @@ APScheduler (every 60s)
 ### 🤖 AI Conversation Engine
 - Powered by **Google Gemini 2.5 Flash** for fast, accurate, contextual responses
 - Full conversation memory within a session — the AI understands context changes ("actually, I want to rent instead")
-- Persona-driven: acts as a professional real estate advisor named "Anohita" from ABC Properties
+- Persona-driven: acts as a professional real estate advisor from ABC Properties
 - Operates within a defined scope — politely declines out-of-area requests (e.g., Delhi when only serving Pune)
 
 ### 📚 RAG (Retrieval-Augmented Generation)

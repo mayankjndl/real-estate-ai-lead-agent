@@ -161,7 +161,7 @@ def extract_lead_info(
     """
     pass  # Schema definition only. Execution is handled in process_chat.
 
-# Initialize the generative model with Anohita's system instruction and the extraction tool
+# Initialize the generative model with the AI's system instruction and the extraction tool
 model = genai.GenerativeModel(
     model_name=settings.GEMINI_MODEL,
     system_instruction=REAL_ESTATE_SYSTEM_PROMPT,
@@ -228,7 +228,7 @@ async def process_chat(session_id: str, user_message: str, db: DBSession, client
         return instant_reply
 
     # -----------------------------------
-    # Anohita's Lightweight Guardrail Intercepts
+    # AI Lightweight Guardrail Intercepts
     # -----------------------------------
     guardrail_reply = None
     
@@ -257,7 +257,7 @@ async def process_chat(session_id: str, user_message: str, db: DBSession, client
         clean_content = m.content.replace("[AUTO FOLLOW-UP] ", "")
         formatted_history.append({"role": role, "parts": [clean_content]})
         
-    # Anohita Memory Summarization Logic
+    # Agent Memory Summarization Logic
     # Inject the FULL persisted lead state so the LLM always knows what was captured,
     # even if the original extraction message has rolled out of the 12-message window.
     summary_text = ""
@@ -464,7 +464,7 @@ async def process_chat(session_id: str, user_message: str, db: DBSession, client
         logger.warning(f"ValueError accessing response.text. Parts: {response.candidates[0].content.parts}")
         final_text = "Got it. Let me know if you need anything else or want to schedule a visit."
 
-    # Anohita's Conversion Intelligence Logic
+    # AI Conversion Intelligence Logic
     history_text = " ".join([m.content for m in past_messages if m.role == "user"]).lower() + " " + user_message.lower()
     calculated_score = "low"
     if any(x in history_text for x in ["visit", "book", "finalize", "ready"]):

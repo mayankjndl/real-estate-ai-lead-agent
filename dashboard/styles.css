@@ -283,7 +283,7 @@ tr:hover td {
     background-color: rgba(255, 255, 255, 0.02);
 }
 
-/* Outcome chip — only addition to Anohita's original styles */
+/* Outcome chip — only addition to original styles */
 .outcome-visit {
     display: inline-flex;
     align-items: center;

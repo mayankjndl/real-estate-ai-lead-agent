@@ -47,7 +47,7 @@ class Lead(Base):
     id = Column(Integer, primary_key=True, index=True)
     session_id = Column(String, ForeignKey("sessions.id", ondelete="CASCADE"), nullable=False, unique=True)
     
-    # Anohita's requested fields
+    # Core requested fields
     name = Column(String, nullable=True)
     phone = Column(String, nullable=True)
     budget = Column(String, nullable=True)

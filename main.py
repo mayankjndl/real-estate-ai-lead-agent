@@ -235,7 +235,7 @@ async def process_unified_lead(payload: LeadIngestionPayload, db: DBSession, cli
 
     # 3. Handle Initial Outbound Message for Passive Sources
     if is_new_lead and payload.source != "whatsapp" and payload.whatsapp_opt_in:
-        outbound_text = f"Hi {lead.name or 'there'}, thanks for your interest! I'm Anohita, the AI assistant for ABC Properties. Are you looking to buy or rent?"
+        outbound_text = f"Hi {lead.name or 'there'}, thanks for your interest! I'm the AI assistant for ABC Properties. Are you looking to buy or rent?"
         if settings.TWILIO_ACCOUNT_SID and lead.phone:
             try:
                 client = Client(settings.TWILIO_ACCOUNT_SID, settings.TWILIO_AUTH_TOKEN)
