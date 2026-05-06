@@ -282,6 +282,12 @@ td {
     text-transform: capitalize;
 }
 
+.badge.source-portal {
+    background-color: rgba(245, 158, 11, 0.1);
+    color: var(--accent-orange);
+    text-transform: capitalize;
+}
+
 .badge.source-unknown {
     background-color: rgba(148, 163, 184, 0.1);
     color: var(--text-muted);
