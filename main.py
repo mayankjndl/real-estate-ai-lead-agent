@@ -252,7 +252,7 @@ async def process_unified_lead(payload: LeadIngestionPayload, db: DBSession, cli
 
     # 4. If a message was sent, process via AI
     if payload.message:
-        reply_text = await process_chat(payload.session_id, payload.message, db, client_id=client_id, background=background)
+        reply_text = await process_chat(payload.session_id, payload.message, db, client_id=client_id, is_background=background)
         return reply_text
     
     return "Lead processed successfully."
