@@ -199,7 +199,7 @@ class LeadIngestionPayload(BaseModel):
     property_type: Optional[str] = None
     whatsapp_opt_in: bool = False
 
-async def process_unified_lead(payload: LeadIngestionPayload, db: DBSession, client_id: str = "default", background: bool = False):
+async def process_unified_lead(payload: LeadIngestionPayload, db: DBSession, client_id: str = "client_A", background: bool = False):
     # 1. Ensure Session exists
     session = db.query(models.Session).filter(models.Session.id == payload.session_id).first()
     if not session:
