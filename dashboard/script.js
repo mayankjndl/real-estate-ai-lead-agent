@@ -74,6 +74,7 @@ function renderTable(leads) {
         row.innerHTML = `
             <td><strong>${lead.name || 'Unknown'}</strong></td>
             <td>${lead.phone || 'N/A'}</td>
+            <td><span class="badge source-${lead.source || 'unknown'}">${lead.source || 'Unknown'}</span></td>
             <td>${lead.location || 'N/A'}</td>
             <td>${lead.budget || 'N/A'}</td>
             <td><span class="badge intent">${lead.intent || 'Unknown'}</span></td>

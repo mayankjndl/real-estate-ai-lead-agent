@@ -264,6 +264,30 @@ td {
     text-transform: capitalize;
 }
 
+.badge.source-whatsapp {
+    background-color: rgba(37, 211, 102, 0.1);
+    color: #25D366;
+    text-transform: capitalize;
+}
+
+.badge.source-facebook, .badge.source-instagram {
+    background-color: rgba(24, 119, 242, 0.1);
+    color: #1877F2;
+    text-transform: capitalize;
+}
+
+.badge.source-website {
+    background-color: rgba(139, 92, 246, 0.1);
+    color: var(--accent-purple);
+    text-transform: capitalize;
+}
+
+.badge.source-unknown {
+    background-color: rgba(148, 163, 184, 0.1);
+    color: var(--text-muted);
+    text-transform: capitalize;
+}
+
 .badge.score-high {
     background-color: rgba(16, 185, 129, 0.1);
     color: var(--accent-green);
