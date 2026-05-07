@@ -256,7 +256,19 @@ async def process_chat(session_id: str, user_message: str, db: DBSession, client
         role = "user" if m.role == "user" else "model"
         clean_content = m.content.replace("[AUTO FOLLOW-UP] ", "")
         formatted_history.append({"role": role, "parts": [clean_content]})
-        
+
+    # SAFETY: Gemini API rejects history with consecutive same-role messages (InvalidArgument).
+    # This can occur after an API failure where a fallback is saved, then the follow-up
+    # scheduler also fires — producing two consecutive 'assistant' entries.
+    # This loop merges them silently. In a clean conversation it is a no-op.
+    sanitized_history = []
+    for msg in formatted_history:
+        if sanitized_history and sanitized_history[-1]["role"] == msg["role"]:
+            sanitized_history[-1]["parts"][0] += " " + msg["parts"][0]
+        else:
+            sanitized_history.append(msg)
+    formatted_history = sanitized_history
+
     # Agent Memory Summarization Logic
     # Inject the FULL persisted lead state so the LLM always knows what was captured,
     # even if the original extraction message has rolled out of the 12-message window.
