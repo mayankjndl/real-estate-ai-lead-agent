@@ -1,5 +1,5 @@
 const API_KEY = "secret-client-key-123";
-const API_BASE = "https://real-estate-ai-lead-agent-1.onrender.com/api/v1";
+const API_BASE = "https://real-estate-ai-lead-agent-2.onrender.com/api/v1";
 
 const headers = {
     "X-API-Key": API_KEY,
@@ -10,7 +10,7 @@ async function fetchStats() {
     try {
         const response = await fetch(`${API_BASE}/analytics`, { headers });
         const result = await response.json();
-        
+
         if (result.status === "success") {
             const data = result.data;
             document.getElementById('total-sessions').textContent = data.total_sessions;
@@ -25,7 +25,7 @@ async function fetchStats() {
 async function fetchLeads() {
     const intent = document.getElementById('intent-filter').value;
     const score = document.getElementById('score-filter').value;
-    
+
     let url = `${API_BASE}/leads?`;
     if (intent) url += `intent=${intent}&`;
     if (score) url += `score=${score}`;
@@ -33,7 +33,7 @@ async function fetchLeads() {
     try {
         const response = await fetch(url, { headers });
         const result = await response.json();
-        
+
         if (result.status === "success") {
             renderTable(result.leads);
         }
@@ -61,12 +61,12 @@ function renderTable(leads) {
 
     leads.reverse().forEach(lead => {
         const row = document.createElement('tr');
-        
+
         let dateStr = lead.updated_at;
         if (!dateStr.endsWith('Z') && !dateStr.includes('+')) {
             dateStr += 'Z'; // Append UTC timezone marker so JS correctly offsets it to IST
         }
-        
+
         const date = new Date(dateStr).toLocaleString('en-US', {
             month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
         });
@@ -82,7 +82,7 @@ function renderTable(leads) {
             <td>${outcomeCell(lead)}</td>
             <td style="color: var(--text-muted)">${date}</td>
         `;
-        
+
         tbody.appendChild(row);
     });
 }
