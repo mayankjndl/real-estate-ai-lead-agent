@@ -341,12 +341,12 @@ async def process_chat(session_id: str, user_message: str, db: DBSession, client
             break  # Success — exit retry loop
         except Exception as e:
             llm_time = round((time.time() - llm_start) * 1000)
-            logger.warning(json.dumps({"event": "llm_main_call", "latency_ms": llm_time, "attempt": attempt + 1, "success": False, "error": type(e).__name__}))
+            logger.warning(json.dumps({"event": "llm_main_call", "latency_ms": llm_time, "attempt": attempt + 1, "success": False, "error": type(e).__name__, "detail": str(e)[:200]}))
             if attempt < max_retries - 1:
                 wait_time = 0.5 * (2 ** attempt)  # Exponential backoff
                 time.sleep(wait_time)
             else:
-                logger.error(json.dumps({"event": "llm_main_fatal", "error": type(e).__name__, "session": session_id}))
+                logger.error(json.dumps({"event": "llm_main_fatal", "error": type(e).__name__, "detail": str(e)[:200], "session": session_id}))
                 # Proper closure — no false promise, offer human support immediately
                 fallback = (
                     "I'm currently experiencing a technical issue and couldn't process your request. "
