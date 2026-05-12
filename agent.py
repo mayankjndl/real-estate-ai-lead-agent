@@ -243,10 +243,10 @@ async def process_chat(session_id: str, user_message: str, db: DBSession, client
         logger.info(f"GUARDRAIL_INTERCEPT | session={session_id} | bypassed LLM")
         return guardrail_reply
 
-    # LIMIT CONTEXT: last 7 turns (14 messages) — keeps enough history for the full
+    # LIMIT CONTEXT: last 6 turns (12 messages) — keeps enough history for the full
     # conversation to remain coherent. CRM fields are always protected by the DB summary
     # so they are never lost even if the extraction turn scrolls out of the window.
-    past_messages = db.query(Message).filter(Message.session_id == session_id).order_by(Message.id.desc()).limit(14).all()
+    past_messages = db.query(Message).filter(Message.session_id == session_id).order_by(Message.id.desc()).limit(12).all()
     past_messages.reverse()
 
     formatted_history = []
@@ -326,6 +326,27 @@ async def process_chat(session_id: str, user_message: str, db: DBSession, client
     else:
         logger.info(f"RAG skipped (non-property query) for session={session_id}")
 
+    # 2c: Dynamic Pre-LLM Name Interceptor (Robust, no hardcoded examples)
+    # If the user's name is unknown and they give a short response, dynamically extract it
+    # to guarantee capture even if the main conversational call fails to use the tool.
+    if not lead.name and len(user_message.split()) <= 6 and not is_property_query:
+        try:
+            name_model = genai.GenerativeModel(model_name=settings.GEMINI_MODEL)
+            name_resp = await name_model.generate_content_async(
+                f"Extract the person's name from this message. Return ONLY the extracted name, or 'NONE' if no name is present. Message: '{user_message}'"
+            )
+            extracted_name = name_resp.text.strip()
+            if extracted_name and extracted_name.upper() != "NONE":
+                lead.name = extracted_name
+                db.commit()
+                # Inject into summary so the main LLM call knows the name immediately
+                summary_text = f"Known about this user: Name: {extracted_name}. " + summary_text
+                # Update the payload that goes to the main LLM
+                user_message_for_llm = f"Summary: {summary_text}\nUser Message: {user_message}"
+                logger.info(f"PRE_LLM_NAME_INTERCEPT | session={session_id} | name={extracted_name}")
+        except Exception as e:
+            logger.warning(f"Fast name extraction failed: {e}")
+
     # Start Gemini Chat with retrieved history
     chat = model.start_chat(history=formatted_history)
 
@@ -350,7 +371,7 @@ async def process_chat(session_id: str, user_message: str, db: DBSession, client
                 # Proper closure — no false promise, offer human support immediately
                 fallback = (
                     "I'm currently experiencing a technical issue and couldn't process your request. "
-                    "Our team is here to help — please reach us directly at *+91 9876543210* "
+                    "Our team is here to help — please reach us directly at *+91 [CLIENT_SUPPORT_NUMBER]* "
                     "or try again in a few minutes. Apologies for the inconvenience! 🙏"
                 )
                 db.add(Message(session_id=session_id, role="assistant", content=fallback))
@@ -448,7 +469,7 @@ async def process_chat(session_id: str, user_message: str, db: DBSession, client
                         elif "intent" in new_fields and lead.intent and "visit" in lead.intent.lower():
                             local_reply = "I'd be happy to arrange a site visit! What day or time works best for you?"
                         elif "name" in new_fields:
-                            local_reply = f"Nice to meet you, {lead.name}!"
+                            local_reply = f"Got it, {lead.name}. Thanks for sharing!"
                         else:
                             local_reply = "Got it, noted."
 
