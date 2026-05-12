@@ -326,29 +326,20 @@ async def process_chat(session_id: str, user_message: str, db: DBSession, client
     else:
         logger.info(f"RAG skipped (non-property query) for session={session_id}")
 
-    # 2c: Dynamic Pre-LLM Name Interceptor (Robust, no hardcoded examples)
-    # If the user's name is unknown and they give a short response, dynamically extract it
-    # to guarantee capture even if the main conversational call fails to use the tool.
-    if not lead.name and len(user_message.split()) <= 6 and not is_property_query:
-        try:
-            name_model = genai.GenerativeModel(model_name=settings.GEMINI_MODEL)
-            name_resp = await name_model.generate_content_async(
-                f"Extract the person's name from this message. Return ONLY the extracted name, or 'NONE' if no name is present. Message: '{user_message}'"
-            )
-            extracted_name = name_resp.text.strip()
-            if extracted_name and extracted_name.upper() != "NONE":
-                lead.name = extracted_name
-                db.commit()
-                # Inject into summary so the main LLM call knows the name immediately
-                summary_text = f"Known about this user: Name: {extracted_name}. " + summary_text
-                # Update the payload that goes to the main LLM
-                user_message_for_llm = f"Summary: {summary_text}\nUser Message: {user_message}"
-                logger.info(f"PRE_LLM_NAME_INTERCEPT | session={session_id} | name={extracted_name}")
-        except Exception as e:
-            logger.warning(f"Fast name extraction failed: {e}")
-
     # Start Gemini Chat with retrieved history
     chat = model.start_chat(history=formatted_history)
+
+    # 2c: Dynamic Name Interceptor (Concurrent, no hardcoded examples)
+    # If the user's name is unknown and they give a short response, dynamically extract it
+    # concurrently to guarantee capture without adding ANY sequential latency.
+    name_extraction_task = None
+    if not lead.name and len(user_message.split()) <= 6 and not is_property_query:
+        name_model = genai.GenerativeModel(model_name=settings.GEMINI_MODEL)
+        name_extraction_task = asyncio.create_task(
+            name_model.generate_content_async(
+                f"Extract the person's name from this message. Return ONLY the extracted name, or 'NONE' if no name is present. Message: '{user_message}'"
+            )
+        )
 
     # Send the history + new message to Gemini (with retry logic for API reliability)
     max_retries = 3
@@ -356,7 +347,23 @@ async def process_chat(session_id: str, user_message: str, db: DBSession, client
     for attempt in range(max_retries):
         llm_start = time.time()
         try:
-            response = await chat.send_message_async(user_message_for_llm)
+            if attempt == 0 and name_extraction_task:
+                # Run the main chat and the name extraction concurrently on the first attempt
+                response, name_resp = await asyncio.gather(
+                    chat.send_message_async(user_message_for_llm),
+                    name_extraction_task
+                )
+                try:
+                    extracted_name = name_resp.text.strip()
+                    if extracted_name and extracted_name.upper() != "NONE":
+                        lead.name = extracted_name
+                        db.commit()
+                        logger.info(f"CONCURRENT_NAME_INTERCEPT | session={session_id} | name={extracted_name}")
+                except Exception as e:
+                    logger.warning(f"Fast name extraction failed: {e}")
+            else:
+                response = await chat.send_message_async(user_message_for_llm)
+                
             llm_time = round((time.time() - llm_start) * 1000)
             logger.info(json.dumps({"event": "llm_main_call", "latency_ms": llm_time, "attempt": attempt + 1, "success": True}))
             break  # Success — exit retry loop
