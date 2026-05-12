@@ -287,6 +287,15 @@ async def process_chat(session_id: str, user_message: str, db: DBSession, client
         if parts:
             summary_text = "Known about this user: " + ", ".join(parts) + ".\n"
 
+    # Dynamic Repetition Prevention
+    # Check if the agent already proactively asked for the name in recent history.
+    # If so, forcefully instruct the LLM not to ask again to prevent an endless loop.
+    if not lead.name:
+        for m in past_messages[:-1]:
+            if m.role == "assistant" and any(ph in m.content.lower() for ph in ["name", "speaking with", "who is this", "know you as"]):
+                summary_text += "SYSTEM NOTE: You have already asked for their name in a previous message. DO NOT ask for their name again. Focus ONLY on their property requirements.\n"
+                break
+
     # Keyword gateway: only call RAG (Gemini Embedding API) for property-related queries.
     # Greetings, acks, and short responses skip the embedding call, saving 1-4s per message.
     PROPERTY_KEYWORDS = {
