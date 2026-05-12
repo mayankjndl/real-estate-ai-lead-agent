@@ -2,6 +2,7 @@ import json
 import logging
 import string
 import time
+import asyncio
 from datetime import datetime, timezone
 import google.generativeai as genai
 from config import settings
