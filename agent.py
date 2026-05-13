@@ -339,15 +339,18 @@ async def process_chat(session_id: str, user_message: str, db: DBSession, client
     # Start Gemini Chat with retrieved history
     chat = model.start_chat(history=formatted_history)
 
-    # 2c: Dynamic Name Interceptor (Concurrent, no hardcoded examples)
-    # If the user's name is unknown and they give a short response, dynamically extract it
-    # concurrently to guarantee capture without adding ANY sequential latency.
+    # 2c: Dynamic Name Interceptor (Concurrent, strict timeout)
+    # If the user's name is unknown and they give a short response, dynamically extract it.
+    # Wrapped in a 2-second timeout to guarantee it NEVER causes latency spikes.
     name_extraction_task = None
     if not lead.name and len(user_message.split()) <= 6 and not is_property_query:
         name_model = genai.GenerativeModel(model_name=settings.GEMINI_MODEL)
         name_extraction_task = asyncio.create_task(
-            name_model.generate_content_async(
-                f"Extract the person's name from this message. Return ONLY the extracted name, or 'NONE' if no name is present. Message: '{user_message}'"
+            asyncio.wait_for(
+                name_model.generate_content_async(
+                    f"Extract the person's name from this message. Return ONLY the extracted name, or 'NONE' if no name is present. Message: '{user_message}'"
+                ),
+                timeout=2.0
             )
         )
 
@@ -358,19 +361,29 @@ async def process_chat(session_id: str, user_message: str, db: DBSession, client
         llm_start = time.time()
         try:
             if attempt == 0 and name_extraction_task:
-                # Run the main chat and the name extraction concurrently on the first attempt
-                response, name_resp = await asyncio.gather(
+                # Run the main chat and the name extraction concurrently.
+                # return_exceptions=True prevents the 2s timeout from crashing the main chat.
+                results = await asyncio.gather(
                     chat.send_message_async(user_message_for_llm),
-                    name_extraction_task
+                    name_extraction_task,
+                    return_exceptions=True
                 )
-                try:
-                    extracted_name = name_resp.text.strip()
-                    if extracted_name and extracted_name.upper() != "NONE":
-                        lead.name = extracted_name
-                        db.commit()
-                        logger.info(f"CONCURRENT_NAME_INTERCEPT | session={session_id} | name={extracted_name}")
-                except Exception as e:
-                    logger.warning(f"Fast name extraction failed: {e}")
+                response = results[0]
+                name_resp = results[1]
+                
+                # If the main chat failed, manually raise so the retry loop catches it
+                if isinstance(response, Exception):
+                    raise response
+                    
+                if not isinstance(name_resp, Exception):
+                    try:
+                        extracted_name = name_resp.text.strip()
+                        if extracted_name and extracted_name.upper() != "NONE":
+                            lead.name = extracted_name
+                            db.commit()
+                            logger.info(f"CONCURRENT_NAME_INTERCEPT | session={session_id} | name={extracted_name}")
+                    except Exception as e:
+                        logger.warning(f"Fast name extraction text parsing failed: {e}")
             else:
                 response = await chat.send_message_async(user_message_for_llm)
                 
@@ -382,7 +395,7 @@ async def process_chat(session_id: str, user_message: str, db: DBSession, client
             logger.warning(json.dumps({"event": "llm_main_call", "latency_ms": llm_time, "attempt": attempt + 1, "success": False, "error": type(e).__name__, "detail": str(e)[:200]}))
             if attempt < max_retries - 1:
                 wait_time = 0.5 * (2 ** attempt)  # Exponential backoff
-                time.sleep(wait_time)
+                await asyncio.sleep(wait_time)
             else:
                 logger.error(json.dumps({"event": "llm_main_fatal", "error": type(e).__name__, "detail": str(e)[:200], "session": session_id}))
                 # Proper closure — no false promise, offer human support immediately
