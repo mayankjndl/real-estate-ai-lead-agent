@@ -195,6 +195,7 @@ async def process_chat(session_id: str, user_message: str, db: DBSession, client
     Main orchestrator for user input. Fetches memory, injects context to the LLM, 
     extracts function calls for lead generation, and commits all data to DB.
     """
+    start_time = time.time()
     
     # Ensure session and lead exist in the database exactly once to prevent redundant queries
     session = db.query(Session).filter(Session.id == session_id).first()
