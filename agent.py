@@ -8,14 +8,34 @@ import google.generativeai as genai
 from config import settings
 from system_prompt import REAL_ESTATE_SYSTEM_PROMPT
 from sqlalchemy.orm import Session as DBSession
-from models import Session, Message, Lead
+from models import Session, Message, Lead, EventLog
 from rag import retrieve
 
 # 1. Gemini Initialization
 genai.configure(api_key=settings.GEMINI_API_KEY)
 logger = logging.getLogger("agent")
 
-# 2. Lightweight Guardrail Helpers
+# 2. Lightweight Guardrail & Tracking Helpers
+async def log_event_async(session_id: str, action_type: str, latency_ms: int = None, agent_type: str = "AI"):
+    """Highly asynchronous background tracking so core response latency remains 0ms."""
+    from database import SessionLocal
+    # We must use a fresh DB session for the background task
+    db = SessionLocal()
+    try:
+        event = EventLog(
+            session_id=session_id,
+            event_type="tracking",
+            action_type=action_type,
+            latency_ms=latency_ms,
+            agent_type=agent_type
+        )
+        db.add(event)
+        db.commit()
+    except Exception as e:
+        logger.error(f"Failed to log event {action_type}: {e}")
+    finally:
+        db.close()
+
 def check_topic_drift(query: str) -> bool:
     """Detects if the user has drifted from real estate topics."""
     query_lower = query.lower()
@@ -186,6 +206,8 @@ async def process_chat(session_id: str, user_message: str, db: DBSession, client
     if not lead:
         lead = Lead(session_id=session_id)
         db.add(lead)
+        # Track lead creation event asynchronously
+        asyncio.create_task(log_event_async(session_id, "lead_created"))
         
     db.commit()
     # User replied — reset follow-up state
@@ -222,11 +244,16 @@ async def process_chat(session_id: str, user_message: str, db: DBSession, client
     }
     
     if msg_clean in INSTANT_REPLIES:
-        instant_reply = INSTANT_REPLIES[msg_clean]
-        db.add(Message(session_id=session_id, role="assistant", content=instant_reply))
+        local_reply = INSTANT_REPLIES[msg_clean]
+        db.add(Message(session_id=session_id, role="assistant", content=local_reply))
         db.commit()
+
+        # Log the response speed for the ROI dashboard
+        total_latency_ms = round((time.time() - start_time) * 1000)
+        asyncio.create_task(log_event_async(session_id, "message_sent", latency_ms=total_latency_ms, agent_type="AI"))
+        
         logger.info(f"INSTANT_INTERCEPT | session={session_id} | bypassed LLM")
-        return instant_reply
+        return local_reply
 
     # -----------------------------------
     # AI Lightweight Guardrail Intercepts
@@ -455,6 +482,13 @@ async def process_chat(session_id: str, user_message: str, db: DBSession, client
                     if "visit_date" in args and args["visit_date"] != prev_visit_date: new_fields.add("visit_date")
                     if "property_type" in args and args["property_type"] != prev_property_type: new_fields.add("property_type")
 
+                    # Fire highly-asynchronous funnel events based on new data
+                    if any(k in new_fields for k in ["budget", "location", "intent", "property_type"]):
+                        asyncio.create_task(log_event_async(session_id, "qualified"))
+                        
+                    if "visit_date" in new_fields:
+                        asyncio.create_task(log_event_async(session_id, "appointment_booked"))
+
                     # Extract Gemini's own conversational text from this same response.
                     text_from_response = args.get("conversational_reply", None)
                     if not text_from_response:
@@ -542,6 +576,10 @@ async def process_chat(session_id: str, user_message: str, db: DBSession, client
     # Save Gemini's textual response to the Message table
     db.add(Message(session_id=session_id, role="assistant", content=final_text))
     db.commit()
+    
+    # Log the response speed for the ROI dashboard
+    total_latency_ms = round((time.time() - start_time) * 1000)
+    asyncio.create_task(log_event_async(session_id, "message_sent", latency_ms=total_latency_ms, agent_type="AI"))
     
     # Return the text response isolated from tool calls
     return final_text

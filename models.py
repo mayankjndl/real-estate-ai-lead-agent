@@ -63,6 +63,17 @@ class Lead(Base):
     
     updated_at = Column(DateTime(timezone=True), onupdate=func.now(), server_default=func.now())
     
+    # Revenue-Phase Intelligence Fields
+    conversion_probability = Column(Integer, default=0)
+    expected_closure_days = Column(Integer, default=0)
+    lead_temperature = Column(String, default='cold')
+    engagement_score = Column(Integer, default=0)
+    urgency_level = Column(String, default='low')
+    assigned_agent = Column(String, nullable=True)
+    conversion_status = Column(String, default='open')
+    followup_stage = Column(String, default='new')
+    best_performing_script = Column(Text, nullable=True)
+
     session = relationship("Session", back_populates="lead")
 
 class EventLog(Base):
@@ -75,6 +86,9 @@ class EventLog(Base):
     id = Column(Integer, primary_key=True, index=True)
     session_id = Column(String, ForeignKey("sessions.id", ondelete="CASCADE"), nullable=False, index=True)
     event_type = Column(String, nullable=False)
+    action_type = Column(String, nullable=True) # lead_created, qualified, appointment_booked, etc.
+    latency_ms = Column(Integer, nullable=True)
+    agent_type = Column(String, default="AI") # 'AI' vs 'Human'
     timestamp = Column(DateTime(timezone=True), server_default=func.now())
 
     session = relationship("Session", back_populates="events")

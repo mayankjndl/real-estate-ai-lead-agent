@@ -25,6 +25,20 @@ from agent import process_chat
 from follow_up import check_and_send_followups
 from apscheduler.schedulers.background import BackgroundScheduler
 import models
+import os
+
+# Admin Security for Revenue Phase
+ADMIN_API_KEY_NAME = "X-Admin-Token"
+admin_api_key_header = APIKeyHeader(name=ADMIN_API_KEY_NAME, auto_error=True)
+
+def verify_admin_key(api_key: str = Security(admin_api_key_header)):
+    # Simple admin check. In production, this would be an environment variable.
+    admin_key = os.getenv("ADMIN_API_KEY", "real-estate-super-secret-key")
+    if api_key != admin_key:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Invalid or missing Admin API Key"
+        )
+    return api_key
 
 # Configure Central App Logging (stdout so Render dashboard captures it)
 logging.basicConfig(
@@ -364,6 +378,76 @@ async def whatsapp_webhook(
         twiml = MessagingResponse()
         twiml.message("I'm experiencing a brief connectivity issue. Let me connect you with our expert at +91 9876543210.")
         return Response(content=str(twiml), media_type="application/xml")
+
+# =====================================================================
+# REVENUE PHASE: ROI & Funnel Dashboards
+# =====================================================================
+
+@app.get("/api/v1/roi/funnel_metrics", dependencies=[Depends(verify_admin_key)])
+async def get_funnel_metrics(db: DBSession = Depends(get_db)):
+    """Total Leads, Qualified, Appt Booked, Site Visits, Deal Closed"""
+    from models import EventLog, Lead
+    # Total leads
+    total_leads = db.query(Lead).count()
+    # Qualified: has budget, location, or intent
+    qualified = db.query(Lead).filter((Lead.budget.isnot(None)) | (Lead.intent.isnot(None))).count()
+    # Appt Booked: has visit_date
+    appointments = db.query(Lead).filter(Lead.visit_date.isnot(None)).count()
+    
+    # We can also track from EventLog for deal_closed and site_visit_done if added later by Anohita
+    site_visits = db.query(EventLog).filter(EventLog.action_type == "site_visit_done").count()
+    deal_closed = db.query(EventLog).filter(EventLog.action_type == "deal_closed").count()
+    
+    return {
+        "funnel": {
+            "total_leads": total_leads,
+            "qualified": qualified,
+            "appointment_booked": appointments,
+            "site_visit_done": site_visits,
+            "deal_closed": deal_closed
+        },
+        "conversion_rates": {
+            "lead_to_qualified": round((qualified / total_leads * 100), 2) if total_leads else 0,
+            "qualified_to_appt": round((appointments / qualified * 100), 2) if qualified else 0
+        }
+    }
+
+@app.get("/api/v1/roi/speed_intelligence", dependencies=[Depends(verify_admin_key)])
+async def get_speed_intelligence(db: DBSession = Depends(get_db)):
+    from models import EventLog
+    # Average response time for AI (message_sent logs)
+    avg_ai = db.query(func.avg(EventLog.latency_ms)).filter(EventLog.agent_type == 'AI', EventLog.latency_ms.isnot(None)).scalar() or 0
+    # Average response time for Human (if any)
+    avg_human = db.query(func.avg(EventLog.latency_ms)).filter(EventLog.agent_type == 'Human', EventLog.latency_ms.isnot(None)).scalar() or 0
+    
+    return {
+        "average_latency_ms": {
+            "AI": round(avg_ai, 2),
+            "Human": round(avg_human, 2)
+        }
+    }
+
+@app.get("/api/v1/roi/source_attribution", dependencies=[Depends(verify_admin_key)])
+async def get_source_attribution(db: DBSession = Depends(get_db)):
+    from models import Lead
+    # Group by source
+    sources = db.query(Lead.source, func.count(Lead.id)).group_by(Lead.source).all()
+    
+    # How many appointments per source
+    appointments = db.query(Lead.source, func.count(Lead.id)).filter(Lead.visit_date.isnot(None)).group_by(Lead.source).all()
+    appt_dict = {k: v for k, v in appointments}
+    
+    results = []
+    for source, count in sources:
+        appt_count = appt_dict.get(source, 0)
+        results.append({
+            "source": source,
+            "total_leads": count,
+            "appointments_booked": appt_count,
+            "conversion_rate": round((appt_count / count * 100), 2) if count else 0
+        })
+        
+    return {"sources": results}
 
 @app.get("/api/v1/analytics")
 def get_analytics(client_id: str = Depends(get_current_client_id), db: DBSession = Depends(get_db)):
