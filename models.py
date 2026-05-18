@@ -20,6 +20,7 @@ class Session(Base):
     messages = relationship("Message", back_populates="session", cascade="all, delete-orphan")
     lead = relationship("Lead", back_populates="session", uselist=False, cascade="all, delete-orphan")
     events = relationship("EventLog", back_populates="session", cascade="all, delete-orphan")
+    followup_state = relationship("FollowUpState", back_populates="session", uselist=False, cascade="all, delete-orphan")
 
 
 class Message(Base):
@@ -92,6 +93,28 @@ class EventLog(Base):
     timestamp = Column(DateTime(timezone=True), server_default=func.now())
 
     session = relationship("Session", back_populates="events")
+
+class FollowUpState(Base):
+    """
+    Dedicated state machine table for the scalable backend Follow-Up Scheduler.
+    Tracks precise timestamps and next action windows without bloating CRM tables.
+    """
+    __tablename__ = "follow_up_states"
+
+    id = Column(Integer, primary_key=True, index=True)
+    session_id = Column(String, ForeignKey("sessions.id", ondelete="CASCADE"), nullable=False, unique=True)
+    
+    last_user_reply_timestamp = Column(DateTime(timezone=True), server_default=func.now())
+    last_ai_reply_timestamp = Column(DateTime(timezone=True), server_default=func.now())
+    
+    follow_up_stage = Column(String, default="Day 0") # Day 0, Day 1, Day 3, Day 7
+    follow_up_sent_at = Column(DateTime(timezone=True), nullable=True)
+    next_follow_up_at = Column(DateTime(timezone=True), nullable=True)
+    
+    follow_up_status = Column(String, default="active") # active, paused, stopped, completed
+    inactivity_score = Column(Integer, default=0)
+
+    session = relationship("Session", back_populates="followup_state")
 
 class WebhookLog(Base):
     """

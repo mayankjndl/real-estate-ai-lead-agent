@@ -211,9 +211,25 @@ async def process_chat(session_id: str, user_message: str, db: DBSession, client
         asyncio.create_task(log_event_async(session_id, "lead_created"))
         
     db.commit()
-    # User replied — reset follow-up state
+    
+    from models import FollowUpState
+    f_state = db.query(FollowUpState).filter(FollowUpState.session_id == session_id).first()
+    if not f_state:
+        f_state = FollowUpState(session_id=session_id)
+        db.add(f_state)
+    
+    f_state.last_user_reply_timestamp = datetime.now(timezone.utc)
+    
+    # If the user replies while follow-up is active (e.g. Day 1, Day 3), log it and stop follow-ups
+    if f_state.follow_up_status == "active" and f_state.follow_up_stage != "Day 0":
+        asyncio.create_task(log_event_async(session_id, "follow_up_replied"))
+        
+    f_state.follow_up_status = "stopped"  # User replied, so we stop active automated follow-ups for now.
+    
+    # User replied — reset old follow-up state (for backwards compatibility temporarily)
     session.follow_up_count = 0
     session.last_activity_at = datetime.now(timezone.utc)
+    db.commit()
     
     # Detect if user is naturally closing the conversation
     msg_lower = user_message.lower().strip()
@@ -582,5 +598,15 @@ async def process_chat(session_id: str, user_message: str, db: DBSession, client
     total_latency_ms = round((time.time() - start_time) * 1000)
     asyncio.create_task(log_event_async(session_id, "message_sent", latency_ms=total_latency_ms, agent_type="AI"))
     
+    # Re-arm Day 0 follow-up scheduler
+    if f_state:
+        from datetime import timedelta
+        f_state.last_ai_reply_timestamp = datetime.now(timezone.utc)
+        if session.status != "closed" and not lead.visit_date:
+            f_state.follow_up_stage = "Day 0"
+            f_state.follow_up_status = "active"
+            f_state.next_follow_up_at = datetime.now(timezone.utc) + timedelta(minutes=30)
+        db.commit()
+
     # Return the text response isolated from tool calls
     return final_text
