@@ -562,8 +562,23 @@ async def process_chat(session_id: str, user_message: str, db: DBSession, client
     # Safely get the final text (handling cases where only a tool call was returned)
     try:
         if not response.candidates or not response.candidates[0].content.parts:
-            final_text = "I'm sorry, I couldn't process that. Could you please rephrase?"
-            logger.warning(f"Empty response from Gemini. finish_reason: {response.candidates[0].finish_reason if response.candidates else 'None'}")
+            finish = response.candidates[0].finish_reason if response.candidates else 'None'
+            logger.warning(f"Empty response from Gemini. finish_reason: {finish}. Firing recovery call.")
+            # Fire a fast, stateless recovery call — no history needed, just generate a contextual reply
+            recovery_model = genai.GenerativeModel(model_name=settings.GEMINI_MODEL)
+            recovery_prompt = (
+                f"You are a helpful real estate assistant. The user just said: '{user_message}'. "
+                f"They are looking for property in {lead.location or 'Pune'} with budget {lead.budget or 'not specified'}. "
+                "Reply naturally in 1-2 sentences. No filler. No CTA unless it flows naturally."
+            )
+            try:
+                recovery_resp = await asyncio.wait_for(
+                    recovery_model.generate_content_async(recovery_prompt),
+                    timeout=4.0
+                )
+                final_text = recovery_resp.text.strip()
+            except Exception:
+                final_text = "Got it! Could you tell me a bit more about what you're looking for?"
         else:
             final_text = response.text
     except ValueError:
