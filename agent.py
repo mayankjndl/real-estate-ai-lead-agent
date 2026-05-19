@@ -282,6 +282,12 @@ async def process_chat(session_id: str, user_message: str, db: DBSession, client
         "looking for a flat", "looking for an apartment",
         "i need a flat", "i need a property",
         "searching for", "i want a 2bhk", "i want a 3bhk", "i want a 1bhk",
+        # Location-only openers that skip "i'm looking" prefix (common in real usage):
+        "looking to buy in", "looking to rent in", "looking to buy",
+        "looking to rent", "want to buy in", "want to rent in",
+        "buy in ", "rent in ",
+        # Investment intent:
+        "investment property", "invest in",
         # Property qualifier phrases that trigger slow function-call overhead:
         "ready to move", "ready-to-move",
         "under construction", "new launch",
