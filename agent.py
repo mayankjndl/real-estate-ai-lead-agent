@@ -272,6 +272,38 @@ async def process_chat(session_id: str, user_message: str, db: DBSession, client
         logger.info(f"INSTANT_INTERCEPT | session={session_id} | bypassed LLM")
         return local_reply
 
+    # PROPERTY INTENT INTERCEPT — Deterministic zero-latency reply for the most common opener
+    # "I'm looking to buy/rent X in Y" consistently causes Gemini to misfire (function call with no text)
+    # Catching it here guarantees sub-1s response and naturally elicits budget/name.
+    PROPERTY_INTENT_OPENERS = [
+        "i'm looking to buy", "i am looking to buy",
+        "i'm looking to rent", "i am looking to rent",
+        "i want to buy", "i want to rent",
+        "looking for a flat", "looking for an apartment",
+        "i need a flat", "i need a property",
+        "searching for", "i want a 2bhk", "i want a 3bhk", "i want a 1bhk",
+    ]
+    for opener in PROPERTY_INTENT_OPENERS:
+        if opener in msg_clean:
+            # Build a dynamic reply using any location/property_type the user mentioned inline
+            loc_hint = lead.location or ""
+            pt_hint = lead.property_type or ""
+            if loc_hint and pt_hint:
+                local_reply = f"Great choice! {pt_hint} in {loc_hint} is an excellent option. What's your approximate budget? And may I know your name?"
+            elif loc_hint:
+                local_reply = f"Perfect! {loc_hint} has some great options. What's your budget range, and what type of property are you looking for (2BHK, 3BHK, villa)?"
+            elif pt_hint:
+                local_reply = f"Looking for a {pt_hint} — great! Which area in Pune interests you most?"
+            else:
+                local_reply = "Great! To find the best match, could you tell me which area in Pune you're interested in, and your approximate budget?"
+            
+            db.add(Message(session_id=session_id, role="assistant", content=local_reply))
+            db.commit()
+            total_latency_ms = round((time.time() - start_time) * 1000)
+            asyncio.create_task(log_event_async(session_id, "message_sent", latency_ms=total_latency_ms, agent_type="AI"))
+            logger.info(f"INTENT_INTERCEPT | session={session_id} | bypassed LLM")
+            return local_reply
+
     # -----------------------------------
     # AI Lightweight Guardrail Intercepts
     # -----------------------------------
@@ -563,22 +595,19 @@ async def process_chat(session_id: str, user_message: str, db: DBSession, client
     try:
         if not response.candidates or not response.candidates[0].content.parts:
             finish = response.candidates[0].finish_reason if response.candidates else 'None'
-            logger.warning(f"Empty response from Gemini. finish_reason: {finish}. Firing recovery call.")
-            # Fire a fast, stateless recovery call — no history needed, just generate a contextual reply
-            recovery_model = genai.GenerativeModel(model_name=settings.GEMINI_MODEL)
-            recovery_prompt = (
-                f"You are a helpful real estate assistant. The user just said: '{user_message}'. "
-                f"They are looking for property in {lead.location or 'Pune'} with budget {lead.budget or 'not specified'}. "
-                "Reply naturally in 1-2 sentences. No filler. No CTA unless it flows naturally."
-            )
-            try:
-                recovery_resp = await asyncio.wait_for(
-                    recovery_model.generate_content_async(recovery_prompt),
-                    timeout=4.0
-                )
-                final_text = recovery_resp.text.strip()
-            except Exception:
-                final_text = "Got it! Could you tell me a bit more about what you're looking for?"
+            logger.warning(f"Empty response from Gemini. finish_reason: {finish}. Using smart local fallback.")
+            # Smart zero-latency local fallback — no second LLM call, no extra latency
+            msg_l = user_message.lower()
+            if any(k in msg_l for k in ["school", "hospital", "infrastructure", "connectivity", "transport"]):
+                final_text = f"{lead.location or 'That area'} has good infrastructure with reputed schools and hospitals nearby. Would you like to schedule a visit?"
+            elif any(k in msg_l for k in ["safe", "family", "kids", "children"]):
+                final_text = f"{lead.location or 'Baner'} is considered a safe, family-friendly area. Are you looking for a ready-to-move-in flat or under construction?"
+            elif any(k in msg_l for k in ["resale", "investment", "appreciation"]):
+                final_text = f"Properties in {lead.location or 'Pune'} have shown consistent appreciation. Would you like options with good resale value?"
+            elif any(k in msg_l for k in ["gym", "pool", "club", "amenities", "parking"]):
+                final_text = "Most modern societies in that area offer premium amenities including gym, pool, and covered parking. Shall I suggest some specific projects?"
+            else:
+                final_text = f"I'd be happy to help with that! Based on your interest in {lead.location or 'Pune'}, shall we schedule a visit to a property that fits your requirements?"
         else:
             final_text = response.text
     except ValueError:
