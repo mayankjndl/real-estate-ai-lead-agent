@@ -282,13 +282,26 @@ async def process_chat(session_id: str, user_message: str, db: DBSession, client
         "looking for a flat", "looking for an apartment",
         "i need a flat", "i need a property",
         "searching for", "i want a 2bhk", "i want a 3bhk", "i want a 1bhk",
+        # Property qualifier phrases that trigger slow function-call overhead:
+        "ready to move", "ready-to-move",
+        "under construction", "new launch",
+        "i prefer", "we prefer",
+        "resale flat", "resale property",
+        "furnished", "semi-furnished",
     ]
     for opener in PROPERTY_INTENT_OPENERS:
         if opener in msg_clean:
-            # Build a dynamic reply using any location/property_type the user mentioned inline
             loc_hint = lead.location or ""
             pt_hint = lead.property_type or ""
-            if loc_hint and pt_hint:
+            msg_l2 = msg_clean
+            if "ready to move" in msg_l2 or "ready-to-move" in msg_l2:
+                local_reply = f"Great preference! Ready-to-move-in {pt_hint or '2BHK'} flats in {loc_hint or 'Pune'} are available. What is your budget range?"
+            elif "under construction" in msg_l2 or "new launch" in msg_l2:
+                local_reply = f"Noted! New launch projects in {loc_hint or 'Pune'} offer excellent early-bird pricing. What is your target budget?"
+            elif "furnished" in msg_l2:
+                label = "Semi-furnished" if "semi" in msg_l2 else "Fully furnished"
+                local_reply = f"Got it! {label} options in {loc_hint or 'Pune'} are available across multiple societies. What is your budget range?"
+            elif loc_hint and pt_hint:
                 local_reply = f"Great choice! {pt_hint} in {loc_hint} is an excellent option. What's your approximate budget? And may I know your name?"
             elif loc_hint:
                 local_reply = f"Perfect! {loc_hint} has some great options. What's your budget range, and what type of property are you looking for (2BHK, 3BHK, villa)?"
