@@ -409,6 +409,9 @@ async def get_funnel_metrics(db: DBSession = Depends(get_db)):
         "conversion_rates": {
             "lead_to_qualified": round((qualified / total_leads * 100), 2) if total_leads else 0,
             "qualified_to_appt": round((appointments / qualified * 100), 2) if qualified else 0
+        },
+        "financials": {
+            "revenue_generated": 0  # Populated by deal_closed events from Anohita's layer
         }
     }
 
