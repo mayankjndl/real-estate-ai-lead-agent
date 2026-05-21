@@ -73,17 +73,18 @@ def check_and_send_followups():
             if session_id.startswith("+") and settings.TWILIO_ACCOUNT_SID:
                 try:
                     client = Client(settings.TWILIO_ACCOUNT_SID, settings.TWILIO_AUTH_TOKEN)
+                    to_number = f"whatsapp:{session_id}" if lead and lead.source == "whatsapp" else session_id
+                    
                     client.messages.create(
                         from_=settings.TWILIO_PHONE_NUMBER,
                         body=payload,
-                        to=f"whatsapp:{session_id}"
+                        to=to_number
                     )
                     success = True
-                    logger.info(f"Follow-up {current_stage} sent to {session_id}")
+                    logger.info(f"Follow-up {current_stage} sent to {session_id} via {'WhatsApp' if lead and lead.source == 'whatsapp' else 'SMS'}")
                 except Exception as ex:
                     logger.error(f"Follow-up failed for {session_id}: {ex}")
             else:
-                # If not WhatsApp, just log it as a simulation success for now
                 success = True
                 logger.info(f"Simulated follow-up {current_stage} sent to {session_id}")
             

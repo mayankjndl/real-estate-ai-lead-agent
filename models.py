@@ -75,6 +75,11 @@ class Lead(Base):
     followup_stage = Column(String, default='new')
     best_performing_script = Column(Text, nullable=True)
 
+    # Added for Final Client Readiness Phase
+    funnel_stage = Column(String, default="New")
+    external_crm_id = Column(String, nullable=True)
+    crm_sync_status = Column(String, default="pending")
+
     session = relationship("Session", back_populates="lead")
 
 class EventLog(Base):

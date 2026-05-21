@@ -26,6 +26,7 @@ from follow_up import check_and_send_followups
 from apscheduler.schedulers.background import BackgroundScheduler
 import models
 import os
+from crm_sync import sync_lead_to_crm
 
 # Admin Security for Revenue Phase
 ADMIN_API_KEY_NAME = "X-Admin-Token"
@@ -243,8 +244,18 @@ async def process_unified_lead(payload: LeadIngestionPayload, db: DBSession, cli
     
     db.commit()
 
+    db.commit()
+
     if is_new_lead:
+        lead.funnel_stage = "New"
         db.add(models.EventLog(session_id=payload.session_id, event_type="lead_created"))
+        db.commit()
+        # Fire background CRM Sync
+        asyncio.create_task(sync_lead_to_crm(lead.id))
+        
+    # Check for Appointment
+    if lead.visit_date and lead.funnel_stage not in ["Appointment Scheduled", "Closed Won"]:
+        lead.funnel_stage = "Appointment Scheduled"
         db.commit()
 
     # 3. Handle Initial Outbound Message for Passive Sources
@@ -260,6 +271,11 @@ async def process_unified_lead(payload: LeadIngestionPayload, db: DBSession, cli
                 )
                 db.add(models.EventLog(session_id=payload.session_id, event_type="message_sent"))
                 db.add(models.Message(session_id=payload.session_id, role="assistant", content=outbound_text))
+                
+                # Update Funnel Stage
+                if lead.funnel_stage == "New":
+                    lead.funnel_stage = "Contacted"
+                    
                 db.commit()
             except Exception as e:
                 logger.error(f"Failed to send outbound to {lead.phone}: {e}")
@@ -379,9 +395,106 @@ async def whatsapp_webhook(
         twiml.message("I'm experiencing a brief connectivity issue. Let me connect you with our expert at +91 9876543210.")
         return Response(content=str(twiml), media_type="application/xml")
 
+@app.post("/api/v1/incoming_sms")
+async def incoming_sms_webhook(
+    background_tasks: BackgroundTasks,
+    MessageSid: str = Form(None),
+    From: str = Form(...),
+    Body: str = Form(...),
+    db: DBSession = Depends(get_db)
+):
+    """
+    Twilio SMS Webhook.
+    Handles stopping the FollowUpState for standard SMS replies.
+    """
+    request_start = time.time()
+    try:
+        # Task 1: Duplicate Message Protection (Idempotency)
+        if MessageSid:
+            existing = db.query(models.WebhookLog).filter(models.WebhookLog.message_sid == MessageSid).first()
+            if existing:
+                logger.info(f"Duplicate SMS message ignored: {MessageSid}")
+                return Response(content="<Response></Response>", media_type="application/xml")
+            
+            db.add(models.WebhookLog(message_sid=MessageSid))
+            db.commit()
+
+        # Format number correctly if needed, Twilio standard SMS starts with '+', no "whatsapp:" prefix
+        session_id = From
+        
+        # Stop FollowUps
+        follow_up_state = db.query(models.FollowUpState).filter(models.FollowUpState.session_id == session_id).first()
+        if follow_up_state:
+            follow_up_state.follow_up_status = "stopped"
+            follow_up_state.last_user_reply_timestamp = func.now()
+            db.commit()
+            logger.info(f"SMS Webhook: Follow ups stopped for {session_id}")
+
+        # Process as normal Lead Interaction
+        try:
+            async with redis_client.lock(f"session_lock:{session_id}", timeout=20.0, blocking_timeout=30.0):
+                payload = LeadIngestionPayload(
+                    session_id=session_id,
+                    source="sms",
+                    message=Body,
+                    whatsapp_opt_in=False
+                )
+                reply_text = await process_unified_lead(payload, db, client_id="client_A")
+        except Exception as redis_err:
+            logger.warning(f"Redis unavailable or lock failed, proceeding without lock: {redis_err}")
+            payload = LeadIngestionPayload(
+                session_id=session_id,
+                source="sms",
+                message=Body,
+                whatsapp_opt_in=False
+            )
+            reply_text = await process_unified_lead(payload, db, client_id="client_A")
+            
+        twiml = MessagingResponse()
+        twiml.message(reply_text)
+        return Response(content=str(twiml), media_type="application/xml")
+            
+    except Exception as e:
+        logger.error(f"Error in SMS webhook: {e}")
+        twiml = MessagingResponse()
+        return Response(content=str(twiml), media_type="application/xml")
+
 # =====================================================================
 # REVENUE PHASE: ROI & Funnel Dashboards
 # =====================================================================
+
+@app.get("/api/v1/reports/pipeline", dependencies=[Depends(verify_admin_key)])
+async def get_pipeline_report(db: DBSession = Depends(get_db)):
+    """
+    Aggregates funnel_stage data to calculate conversion and qualified rates.
+    """
+    from models import Lead
+    
+    total_leads = db.query(Lead).count()
+    
+    stages = db.query(Lead.funnel_stage, func.count(Lead.id)).group_by(Lead.funnel_stage).all()
+    stage_counts = {stage: count for stage, count in stages}
+    
+    new_leads = stage_counts.get("New", 0)
+    contacted = stage_counts.get("Contacted", 0)
+    scheduled = stage_counts.get("Appointment Scheduled", 0)
+    closed = stage_counts.get("Closed Won", 0)
+    
+    qualified = contacted + scheduled + closed
+    
+    return {
+        "pipeline": {
+            "total_leads": total_leads,
+            "new": new_leads,
+            "contacted": contacted,
+            "appointment_scheduled": scheduled,
+            "closed_won": closed
+        },
+        "rates": {
+            "qualified_rate": round((qualified / total_leads * 100), 2) if total_leads else 0,
+            "conversion_rate": round((closed / total_leads * 100), 2) if total_leads else 0
+        }
+    }
 
 @app.get("/api/v1/roi/funnel_metrics", dependencies=[Depends(verify_admin_key)])
 async def get_funnel_metrics(db: DBSession = Depends(get_db)):
