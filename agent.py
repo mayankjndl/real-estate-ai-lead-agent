@@ -411,7 +411,11 @@ async def process_chat(session_id: str, user_message: str, db: DBSession, client
         try:
             # Contextualize RAG query with known location to resolve pronouns like "there"
             rag_query = f"{lead.location} {user_message}" if (lead and lead.location) else user_message
-            context_items, score = retrieve(rag_query)
+            # Offload synchronous RAG/FAISS to thread to prevent blocking FastAPI event loop
+            context_items, score = await asyncio.wait_for(
+                asyncio.to_thread(retrieve, rag_query),
+                timeout=2.0
+            )
             rag_time = round((time.time() - rag_start) * 1000)
             logger.info(json.dumps({"event": "rag_retrieval", "latency_ms": rag_time, "success": True}))
             if score < 0.8 and context_items:
@@ -458,8 +462,9 @@ async def process_chat(session_id: str, user_message: str, db: DBSession, client
             if attempt == 0 and name_extraction_task:
                 # Run the main chat and the name extraction concurrently.
                 # return_exceptions=True prevents the 2s timeout from crashing the main chat.
+                # Added 6.0s strict timeout to prevent catastrophic 35s latency spikes.
                 results = await asyncio.gather(
-                    chat.send_message_async(user_message_for_llm),
+                    asyncio.wait_for(chat.send_message_async(user_message_for_llm), timeout=6.0),
                     name_extraction_task,
                     return_exceptions=True
                 )
@@ -480,7 +485,7 @@ async def process_chat(session_id: str, user_message: str, db: DBSession, client
                     except Exception as e:
                         logger.warning(f"Fast name extraction text parsing failed: {e}")
             else:
-                response = await chat.send_message_async(user_message_for_llm)
+                response = await asyncio.wait_for(chat.send_message_async(user_message_for_llm), timeout=6.0)
                 
             llm_time = round((time.time() - llm_start) * 1000)
             logger.info(json.dumps({"event": "llm_main_call", "latency_ms": llm_time, "attempt": attempt + 1, "success": True}))
