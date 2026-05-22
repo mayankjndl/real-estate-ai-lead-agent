@@ -1,6 +1,7 @@
 from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Text, Boolean
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
+from sqlalchemy.dialects.postgresql import JSONB
 from database import Base
 
 class Session(Base):
@@ -129,4 +130,17 @@ class WebhookLog(Base):
 
     message_sid = Column(String, primary_key=True, index=True) # Twilio's unique message ID
     processed_at = Column(DateTime(timezone=True), server_default=func.now())
+
+class DLQEvent(Base):
+    """
+    Dead-Letter Queue for failed external integrations (e.g., CRM Sync, Twilio).
+    """
+    __tablename__ = "dlq_events"
+
+    id = Column(Integer, primary_key=True, index=True)
+    target_endpoint = Column(String, nullable=False) # e.g., 'hubspot_crm' or 'twilio_outbound'
+    payload = Column(JSONB, nullable=False)          # PostgreSQL JSONB for queryability
+    error_trace = Column(Text, nullable=True)        # Stack trace or error string
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    status = Column(String, default="pending")       # pending, replayed, resolved
 

@@ -15,6 +15,9 @@ from fastapi.staticfiles import StaticFiles
 from twilio.twiml.messaging_response import MessagingResponse
 from sqlalchemy.orm import Session as DBSession
 from sqlalchemy import func
+from datetime import datetime, timedelta, timezone
+from prometheus_client import Counter, Histogram, generate_latest, CONTENT_TYPE_LATEST
+from fastapi.middleware.httpsredirect import HTTPSRedirectMiddleware
 from typing import Optional
 from pydantic import BaseModel
 import csv
@@ -58,18 +61,39 @@ redis_client = aioredis.from_url(settings.REDIS_URL, decode_responses=True)
 import datetime as _dt
 APP_START_TIME = _dt.datetime.now(_dt.timezone.utc)
 
-# --- Background Scheduler for Follow-Up System ---
+from db_backup import backup_postgres
+
+# --- Background Scheduler for Follow-Up System & Maintenance ---
+def daily_cleanup_job():
+    logger.info("Running daily maintenance cleanup...")
+    db = next(get_db())
+    try:
+        cutoff = datetime.now(timezone.utc) - timedelta(days=90)
+        # Delete old EventLogs
+        deleted_events = db.query(models.EventLog).filter(models.EventLog.timestamp < cutoff).delete()
+        # Sessions and their cascaded dependencies
+        deleted_sessions = db.query(models.Session).filter(models.Session.last_activity_at < cutoff).delete()
+        db.commit()
+        logger.info(f"Cleanup complete. Deleted {deleted_events} EventLogs and {deleted_sessions} Sessions older than 90 days.")
+    except Exception as e:
+        logger.error(f"Cleanup job failed: {e}")
+        db.rollback()
+    finally:
+        db.close()
+
 scheduler = BackgroundScheduler()
 scheduler.add_job(check_and_send_followups, "interval", minutes=1, id="follow_up_checker")
+scheduler.add_job(backup_postgres, "cron", hour=2, minute=0, id="nightly_backup")
+scheduler.add_job(daily_cleanup_job, "cron", hour=3, minute=0, id="nightly_cleanup")
 
 @asynccontextmanager
 async def lifespan(app):
     """Start the follow-up scheduler when the server boots, stop it on shutdown."""
     scheduler.start()
-    logger.info("Follow-up scheduler started (checking every 1 minute)")
+    logger.info("Background scheduler started (follow-ups, backups, cleanup)")
     yield
     scheduler.shutdown()
-    logger.info("Follow-up scheduler stopped")
+    logger.info("Background scheduler stopped")
 
 app = FastAPI(
     title="Real Estate AI Lead Agent",
@@ -77,6 +101,10 @@ app = FastAPI(
     version="1.0.0",
     lifespan=lifespan
 )
+
+# TLS Enforcement (Redirect HTTP to HTTPS)
+if os.getenv("RENDER") or os.getenv("PRODUCTION"):
+    app.add_middleware(HTTPSRedirectMiddleware)
 
 # CORS configuration to allow local Dashboard frontend to access API
 app.add_middleware(
@@ -87,15 +115,39 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# --- Prometheus Metrics ---
+REQUEST_COUNT = Counter(
+    "http_requests_total", 
+    "Total HTTP Requests", 
+    ["method", "endpoint", "http_status"]
+)
+REQUEST_LATENCY = Histogram(
+    "http_request_duration_seconds", 
+    "HTTP Request Latency", 
+    ["method", "endpoint"]
+)
+
 # --- Production Monitoring Middleware ---
 @app.middleware("http")
 async def production_monitoring_middleware(request: Request, call_next):
     start_time = time.time()
     try:
         response = await call_next(request)
-        process_time_ms = round((time.time() - start_time) * 1000)
+        process_time_s = time.time() - start_time
         
+        # Prometheus recording
+        REQUEST_COUNT.labels(
+            method=request.method, 
+            endpoint=request.url.path, 
+            http_status=response.status_code
+        ).inc()
+        REQUEST_LATENCY.labels(
+            method=request.method, 
+            endpoint=request.url.path
+        ).observe(process_time_s)
+
         # Log clean structured JSON for observability
+        process_time_ms = round(process_time_s * 1000)
         log_data = {
             "event": "request_completed",
             "method": request.method,
@@ -107,7 +159,19 @@ async def production_monitoring_middleware(request: Request, call_next):
         logger.info(json.dumps(log_data))
         return response
     except Exception as e:
-        process_time_ms = round((time.time() - start_time) * 1000)
+        process_time_s = time.time() - start_time
+        
+        REQUEST_COUNT.labels(
+            method=request.method, 
+            endpoint=request.url.path, 
+            http_status=500
+        ).inc()
+        REQUEST_LATENCY.labels(
+            method=request.method, 
+            endpoint=request.url.path
+        ).observe(process_time_s)
+
+        process_time_ms = round(process_time_s * 1000)
         log_data = {
             "event": "request_failed",
             "method": request.method,
@@ -117,6 +181,11 @@ async def production_monitoring_middleware(request: Request, call_next):
         }
         logger.error(json.dumps(log_data))
         raise
+
+@app.get("/metrics")
+def get_metrics():
+    """Prometheus metrics endpoint"""
+    return Response(content=generate_latest(), media_type=CONTENT_TYPE_LATEST)
 
 # --- Security Dependency ---
 # Only applicable to analytical routing (Chat endpoints must be universally accessible)
@@ -199,6 +268,20 @@ async def background_process_and_push(session_id: str, Body: str, client_id: str
                 logger.warning(f"FALLBACK | session={session_id} | reason=background_task_failure | detail=graceful_fallback_sent_via_twilio")
         except Exception as fallback_err:
             logger.error(f"FALLBACK push also failed for {session_id}: {fallback_err}")
+            # Phase 2 Hardening: Dead-Letter Queue integration for Twilio outbound
+            payload = {
+                "session_id": session_id,
+                "body": "I'm experiencing a brief connectivity issue. Please try again in a moment, or reach our team directly at +91 9876543210.",
+                "to": f"whatsapp:{session_id}"
+            }
+            dlq_entry = models.DLQEvent(
+                target_endpoint="twilio_outbound",
+                payload=payload,
+                error_trace=str(fallback_err),
+                status="pending"
+            )
+            db.add(dlq_entry)
+            db.commit()
     finally:
         db.close()
 

@@ -1,5 +1,9 @@
 import logging
+import os
+import json
 from pydantic_settings import BaseSettings, SettingsConfigDict
+import boto3
+from botocore.exceptions import ClientError
 
 _cfg_logger = logging.getLogger("config")
 
@@ -35,6 +39,10 @@ class Settings(BaseSettings):
     TWILIO_AUTH_TOKEN: str = ""
     TWILIO_PHONE_NUMBER: str = ""
 
+    # AWS Secrets Manager
+    AWS_REGION: str = ""
+    AWS_SECRET_NAME: str = ""
+
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 
     @property
@@ -48,8 +56,27 @@ class Settings(BaseSettings):
             "client_B": self.CLIENT_KEY_B,
         }
 
+def fetch_aws_secrets(secret_name: str, region_name: str) -> dict:
+    """Fetch secure variables from AWS Secrets Manager."""
+    session = boto3.session.Session()
+    client = session.client(service_name='secretsmanager', region_name=region_name)
+    try:
+        get_secret_value_response = client.get_secret_value(SecretId=secret_name)
+        if 'SecretString' in get_secret_value_response:
+            return json.loads(get_secret_value_response['SecretString'])
+    except ClientError as e:
+        _cfg_logger.error(f"Failed to fetch AWS Secrets: {e}")
+    return {}
 
 settings = Settings()
+
+# Populate from AWS Secrets Manager if configured
+if settings.AWS_REGION and settings.AWS_SECRET_NAME:
+    _cfg_logger.info(f"Loading credentials from AWS Secrets Manager: {settings.AWS_SECRET_NAME}")
+    aws_secrets = fetch_aws_secrets(settings.AWS_SECRET_NAME, settings.AWS_REGION)
+    for key, value in aws_secrets.items():
+        if hasattr(settings, key):
+            setattr(settings, key, value)
 
 # Startup warning so missing secrets are immediately visible in logs
 if not settings.GEMINI_API_KEY:
