@@ -2,11 +2,12 @@ import asyncio
 import httpx
 import time
 import sys
+from datetime import datetime
 from database import SessionLocal
 from models import Session, Lead, FollowUpState, EventLog
 from follow_up import check_and_send_followups
 
-BASE_URL = "http://localhost:8000"
+BASE_URL = "http://127.0.0.1:8000"
 CLIENT_ID = "client_A"
 TEST_SESSION_ID = f"smoke_test_{int(time.time())}"
 
@@ -25,7 +26,7 @@ async def run_smoke_test():
     print("      PRODUCTION DELIVERY SMOKE TEST          ")
     print("==============================================")
 
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(timeout=30.0) as client:
         # Step 1: Lead Ingestion
         print_step("1. Testing Lead Ingestion & Async CRM Write")
         payload = {
@@ -61,7 +62,7 @@ async def run_smoke_test():
 
         # Step 2: Dashboard API Response
         print_step("2. Testing Analytics Dashboard API")
-        headers = {"X-API-Key": "client-a-secret-key"}
+        headers = {"X-API-Key": "secret-client-key-123"}
         resp = await client.get(f"{BASE_URL}/api/v1/analytics", headers=headers)
         if resp.status_code == 200:
             data = resp.json()
@@ -121,7 +122,7 @@ async def run_smoke_test():
         if state_final and state_final.follow_up_status == "stopped":
             print_pass("Follow-up sequence instantly halted on user reply")
         else:
-            print_fail("Follow-up sequence did not halt")
+            print_fail(f"Follow-up sequence did not halt. Current status: {state_final.follow_up_status if state_final else 'None'}")
             
         db.close()
 
