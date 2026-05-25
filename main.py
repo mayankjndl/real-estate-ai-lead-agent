@@ -27,6 +27,7 @@ from database import engine, Base, get_db
 from agent import process_chat
 from follow_up import check_and_send_followups
 from apscheduler.schedulers.background import BackgroundScheduler
+from metrics import BACKGROUND_FAILURE_COUNT
 import models
 import os
 from crm_sync import sync_lead_to_crm
@@ -269,6 +270,7 @@ async def background_process_and_push(session_id: str, Body: str, client_id: str
         except Exception as fallback_err:
             logger.error(f"FALLBACK push also failed for {session_id}: {fallback_err}")
             # Phase 2 Hardening: Dead-Letter Queue integration for Twilio outbound
+            BACKGROUND_FAILURE_COUNT.labels(component="twilio").inc()
             payload = {
                 "session_id": session_id,
                 "body": "I'm experiencing a brief connectivity issue. Please try again in a moment, or reach our team directly at +91 9876543210.",

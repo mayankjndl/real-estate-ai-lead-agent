@@ -13,6 +13,7 @@ from models import Session, Message, Lead, FollowUpState, EventLog, DLQEvent
 
 from app.intelligence.followup_engine import generate_followup_sequence
 from app.intelligence.push_wait_engine import decide_push_vs_wait
+from metrics import BACKGROUND_FAILURE_COUNT
 
 logger = logging.getLogger("follow_up")
 logging.basicConfig(level=logging.INFO)
@@ -439,6 +440,7 @@ def check_and_send_followups():
                     db.commit()
             except Exception as ml_err:
                 logger.error(f"ML Follow-up Engine failed for session {session_id}: {ml_err}")
+                BACKGROUND_FAILURE_COUNT.labels(component="scheduler").inc()
                 
                 # Push to DLQ instead of crashing scheduler
                 try:

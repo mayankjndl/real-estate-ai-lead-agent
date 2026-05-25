@@ -5,6 +5,7 @@ import httpx
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 from database import SessionLocal
 from models import Lead, DLQEvent
+from metrics import BACKGROUND_FAILURE_COUNT
 
 logger = logging.getLogger("crm_sync")
 logging.basicConfig(level=logging.INFO)
@@ -97,6 +98,7 @@ async def sync_lead_to_crm(lead_id: int):
         except Exception as e:
             logger.error(f"CRM Sync permanently failed for Lead {lead_id} after retries: {e}")
             lead.crm_sync_status = "failed"
+            BACKGROUND_FAILURE_COUNT.labels(component="crm").inc()
             
             # Phase 2 Hardening: Dead-Letter Queue integration
             dlq_entry = DLQEvent(

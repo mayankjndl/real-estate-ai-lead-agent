@@ -18,3 +18,12 @@ groups:
         annotations:
           summary: "p95 Latency SLA Breach"
           description: "The 95th percentile latency has exceeded 3000ms (3.0s) for the last 2 minutes."
+
+      - alert: BackgroundTaskFailures
+        expr: increase(background_failures_total[5m]) > 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Background Task Failures Detected"
+          description: "A background task (CRM sync, Twilio Outbound, or Scheduler) has failed and written an event to the Dead-Letter Queue (DLQ)."
