@@ -6,6 +6,7 @@ Now integrated with Anohita's ML Intelligence Layer.
 import logging
 from datetime import datetime, timezone, timedelta
 from twilio.rest import Client
+from tenacity import retry, stop_after_attempt, wait_exponential
 
 from config import settings
 from database import SessionLocal
@@ -384,11 +385,16 @@ def check_and_send_followups():
                         client = Client(settings.TWILIO_ACCOUNT_SID, settings.TWILIO_AUTH_TOKEN)
                         to_number = f"whatsapp:{session_id}" if lead and lead.source == "whatsapp" else session_id
                         
-                        client.messages.create(
-                            from_=settings.TWILIO_PHONE_NUMBER,
-                            body=payload_msg,
-                            to=to_number
-                        )
+                        @retry(stop=stop_after_attempt(5), wait=wait_exponential(multiplier=1, min=2, max=30), reraise=True)
+                        def _send_twilio_msg():
+                            client.messages.create(
+                                from_=settings.TWILIO_PHONE_NUMBER,
+                                body=payload_msg,
+                                to=to_number
+                            )
+                        
+                        _send_twilio_msg()
+                        
                         success = True
                         logger.info(f"Follow-up {current_stage} sent to {session_id} via {'WhatsApp' if lead and lead.source == 'whatsapp' else 'SMS'}")
                     except Exception as ex:
