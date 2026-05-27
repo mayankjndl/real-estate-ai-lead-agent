@@ -16,7 +16,7 @@ genai.configure(api_key=settings.GEMINI_API_KEY)
 logger = logging.getLogger("agent")
 
 # 2. Lightweight Guardrail & Tracking Helpers
-async def log_event_async(session_id: str, action_type: str, latency_ms: int = None, agent_type: str = "AI"):
+async def log_event_async(session_id: str, action_type: str, latency_ms: int = None, agent_type: str = "AI", client_id: int = 1):
     """Highly asynchronous background tracking so core response latency remains 0ms."""
     from database import SessionLocal
     # We must use a fresh DB session for the background task
@@ -27,7 +27,8 @@ async def log_event_async(session_id: str, action_type: str, latency_ms: int = N
             event_type="tracking",
             action_type=action_type,
             latency_ms=latency_ms,
-            agent_type=agent_type
+            agent_type=agent_type,
+            client_id=client_id
         )
         db.add(event)
         db.commit()
@@ -190,7 +191,7 @@ model = genai.GenerativeModel(
 )
 
 # 3. Stateful Memory Function
-async def process_chat(session_id: str, user_message: str, db: DBSession, client_id: str = "default", is_background: bool = False) -> str:
+async def process_chat(session_id: str, user_message: str, db: DBSession, client_id: int = 1, is_background: bool = False) -> str:
     """
     Main orchestrator for user input. Fetches memory, injects context to the LLM, 
     extracts function calls for lead generation, and commits all data to DB.
@@ -205,24 +206,24 @@ async def process_chat(session_id: str, user_message: str, db: DBSession, client
         
     lead = db.query(Lead).filter(Lead.session_id == session_id).first()
     if not lead:
-        lead = Lead(session_id=session_id)
+        lead = Lead(session_id=session_id, client_id=client_id)
         db.add(lead)
         # Track lead creation event asynchronously
-        asyncio.create_task(log_event_async(session_id, "lead_created"))
+        asyncio.create_task(log_event_async(session_id, "lead_created", client_id=client_id))
         
     db.commit()
     
     from models import FollowUpState
     f_state = db.query(FollowUpState).filter(FollowUpState.session_id == session_id).first()
     if not f_state:
-        f_state = FollowUpState(session_id=session_id)
+        f_state = FollowUpState(session_id=session_id, client_id=client_id)
         db.add(f_state)
     
     f_state.last_user_reply_timestamp = datetime.now(timezone.utc)
     
     # If the user replies while follow-up is active (e.g. Day 1, Day 3), log it and stop follow-ups
     if f_state.follow_up_status == "active" and f_state.follow_up_stage != "Day 0":
-        asyncio.create_task(log_event_async(session_id, "follow_up_replied"))
+        asyncio.create_task(log_event_async(session_id, "follow_up_replied", client_id=client_id))
         
     f_state.follow_up_status = "stopped"  # User replied, so we stop active automated follow-ups for now.
     
@@ -246,7 +247,7 @@ async def process_chat(session_id: str, user_message: str, db: DBSession, client
     db.commit()
 
     # Save the new user message to the Message table
-    db.add(Message(session_id=session_id, role="user", content=user_message))
+    db.add(Message(session_id=session_id, client_id=client_id, role="user", content=user_message))
     db.commit()
 
     # PERFORMANCE: Instant-Reply Intercept
@@ -263,12 +264,12 @@ async def process_chat(session_id: str, user_message: str, db: DBSession, client
     
     if msg_clean in INSTANT_REPLIES:
         local_reply = INSTANT_REPLIES[msg_clean]
-        db.add(Message(session_id=session_id, role="assistant", content=local_reply))
+        db.add(Message(session_id=session_id, client_id=client_id, role="assistant", content=local_reply))
         db.commit()
 
         # Log the response speed for the ROI dashboard
         total_latency_ms = round((time.time() - start_time) * 1000)
-        asyncio.create_task(log_event_async(session_id, "message_sent", latency_ms=total_latency_ms, agent_type="AI"))
+        asyncio.create_task(log_event_async(session_id, "message_sent", latency_ms=total_latency_ms, agent_type="AI", client_id=client_id))
         
         logger.info(f"INSTANT_INTERCEPT | session={session_id} | bypassed LLM")
         return local_reply
@@ -317,10 +318,10 @@ async def process_chat(session_id: str, user_message: str, db: DBSession, client
             else:
                 local_reply = "Great! To find the best match, could you tell me which area in Pune you're interested in, and your approximate budget?"
             
-            db.add(Message(session_id=session_id, role="assistant", content=local_reply))
+            db.add(Message(session_id=session_id, client_id=client_id, role="assistant", content=local_reply))
             db.commit()
             total_latency_ms = round((time.time() - start_time) * 1000)
-            asyncio.create_task(log_event_async(session_id, "message_sent", latency_ms=total_latency_ms, agent_type="AI"))
+            asyncio.create_task(log_event_async(session_id, "message_sent", latency_ms=total_latency_ms, agent_type="AI", client_id=client_id))
             logger.info(f"INTENT_INTERCEPT | session={session_id} | bypassed LLM")
             return local_reply
 
@@ -335,7 +336,7 @@ async def process_chat(session_id: str, user_message: str, db: DBSession, client
         guardrail_reply = "I'd be happy to help! Which specific area in Pune are you looking into? (e.g., Wakad, Kharadi, Baner)"
         
     if guardrail_reply:
-        db.add(Message(session_id=session_id, role="assistant", content=guardrail_reply))
+        db.add(Message(session_id=session_id, client_id=client_id, role="assistant", content=guardrail_reply))
         db.commit()
         logger.info(f"GUARDRAIL_INTERCEPT | session={session_id} | bypassed LLM")
         return guardrail_reply
@@ -505,7 +506,7 @@ async def process_chat(session_id: str, user_message: str, db: DBSession, client
                     "Our team is here to help — please reach us directly at *+91 [CLIENT_SUPPORT_NUMBER]* "
                     "or try again in a few minutes. Apologies for the inconvenience! 🙏"
                 )
-                db.add(Message(session_id=session_id, role="assistant", content=fallback))
+                db.add(Message(session_id=session_id, client_id=client_id, role="assistant", content=fallback))
                 db.commit()
                 return fallback
 
@@ -558,10 +559,10 @@ async def process_chat(session_id: str, user_message: str, db: DBSession, client
 
                     # Fire highly-asynchronous funnel events based on new data
                     if any(k in new_fields for k in ["budget", "location", "intent", "property_type"]):
-                        asyncio.create_task(log_event_async(session_id, "qualified"))
+                        asyncio.create_task(log_event_async(session_id, "qualified", client_id=client_id))
                         
                     if "visit_date" in new_fields:
-                        asyncio.create_task(log_event_async(session_id, "appointment_booked"))
+                        asyncio.create_task(log_event_async(session_id, "appointment_booked", client_id=client_id))
 
                     # Extract Gemini's own conversational text from this same response.
                     text_from_response = args.get("conversational_reply", None)
@@ -611,7 +612,7 @@ async def process_chat(session_id: str, user_message: str, db: DBSession, client
                         else:
                             local_reply = "Got it, noted."
 
-                    db.add(Message(session_id=session_id, role="assistant", content=local_reply))
+                    db.add(Message(session_id=session_id, client_id=client_id, role="assistant", content=local_reply))
                     db.commit()
                     logger.info(f"LEAD_EXTRACT | session={session_id} | fields={captured_fields} | new_fields={list(new_fields)} | has_gemini_text={text_from_response is not None} | concluded={visit_concluded}")
                     return local_reply
@@ -660,12 +661,12 @@ async def process_chat(session_id: str, user_message: str, db: DBSession, client
         pass
 
     # Save Gemini's textual response to the Message table
-    db.add(Message(session_id=session_id, role="assistant", content=final_text))
+    db.add(Message(session_id=session_id, client_id=client_id, role="assistant", content=final_text))
     db.commit()
     
     # Log the response speed for the ROI dashboard
     total_latency_ms = round((time.time() - start_time) * 1000)
-    asyncio.create_task(log_event_async(session_id, "message_sent", latency_ms=total_latency_ms, agent_type="AI"))
+    asyncio.create_task(log_event_async(session_id, "message_sent", latency_ms=total_latency_ms, agent_type="AI", client_id=client_id))
     
     # Re-arm Day 0 follow-up scheduler
     if f_state:
