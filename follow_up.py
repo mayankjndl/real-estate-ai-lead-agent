@@ -411,6 +411,7 @@ def check_and_send_followups():
                     # Create EventLog
                     event = EventLog(
                         session_id=session_id,
+                        client_id=state.client_id,
                         event_type="tracking",
                         action_type="follow_up_sent"
                     )
@@ -419,6 +420,7 @@ def check_and_send_followups():
                     # Save as AI Message
                     db.add(Message(
                         session_id=session_id,
+                        client_id=state.client_id,
                         role="assistant",
                         content=f"[AUTO {current_stage.upper()}] {payload_msg}"
                     ))
@@ -439,6 +441,7 @@ def check_and_send_followups():
                         session.status = "closed"
                         db.add(Message(
                             session_id=session_id,
+                            client_id=state.client_id,
                             role="assistant",
                             content="[SESSION CLOSED DUE TO INACTIVITY]"
                         ))

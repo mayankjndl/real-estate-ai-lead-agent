@@ -10,6 +10,8 @@ from fastapi import FastAPI, Depends, HTTPException, Security, status, Request, 
 from twilio.rest import Client
 from fastapi.responses import StreamingResponse, PlainTextResponse
 from fastapi.security.api_key import APIKeyHeader, APIKeyQuery
+from fastapi.security import OAuth2PasswordRequestForm
+import auth
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from twilio.twiml.messaging_response import MessagingResponse
@@ -189,32 +191,24 @@ def get_metrics():
     return Response(content=generate_latest(), media_type=CONTENT_TYPE_LATEST)
 
 # --- Security Dependency ---
-# Only applicable to analytical routing (Chat endpoints must be universally accessible)
-api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
-api_key_query = APIKeyQuery(name="X-API-Key", auto_error=False)
 
-def get_current_client_id(
-    api_key_h: str = Security(api_key_header),
-    api_key_q: str = Security(api_key_query)
-) -> str:
-    """
-    Validates the existence and accuracy of an API Key against config environment.
-    Supports payload from secure Headers (Swagger/Postman) or secure URL Query Strings (Web Dashboard).
-    """
-    api_key = api_key_h or api_key_q
+@app.post("/api/v1/auth/login")
+async def login(form_data: OAuth2PasswordRequestForm = Depends(), db: DBSession = Depends(get_db)):
+    client = db.query(models.Client).filter(models.Client.email == form_data.username).first()
+    if not client or not auth.verify_password(form_data.password, client.hashed_password):
+        raise HTTPException(status_code=401, detail="Incorrect email or password")
     
-    for client_id, key in settings.CLIENT_KEYS.items():
-        if api_key == key:
-            return client_id
-            
-    raise HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Invalid or missing X-API-Key credentials",
+    access_token_expires = timedelta(minutes=auth.ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = auth.create_access_token(
+        data={"sub": str(client.id)}, expires_delta=access_token_expires
     )
+    return {"access_token": access_token, "token_type": "bearer"}
+
 
 
 @app.post("/api/v1/chat")
-async def chat_endpoint(session_id: str, message: str, client_id: str = "default", db: DBSession = Depends(get_db)):
+async def chat_endpoint(session_id: str, message: str, current_client: models.Client = Depends(auth.get_client_by_api_key), db: DBSession = Depends(get_db)):
+    client_id = current_client.id
     """
     Public AI chat interface.
     Receives user utterance and a session ID to keep multi-turn context.
@@ -231,7 +225,7 @@ async def chat_endpoint(session_id: str, message: str, client_id: str = "default
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-async def background_process_and_push(session_id: str, Body: str, client_id: str):
+async def background_process_and_push(session_id: str, Body: str, client_id: int):
     """
     Executes if the LLM exceeds 15s timeout. Uses Twilio REST API to push the reply out-of-band.
     If the LLM still fails in the background, sends a graceful fallback so the user is never left with no response.
@@ -299,7 +293,7 @@ class LeadIngestionPayload(BaseModel):
     property_type: Optional[str] = None
     whatsapp_opt_in: bool = False
 
-async def process_unified_lead(payload: LeadIngestionPayload, db: DBSession, client_id: str = "client_A", background: bool = False):
+async def process_unified_lead(payload: LeadIngestionPayload, db: DBSession, client_id: int, background: bool = False):
     # 1. Ensure Session exists
     session = db.query(models.Session).filter(models.Session.id == payload.session_id).first()
     if not session:
@@ -313,6 +307,7 @@ async def process_unified_lead(payload: LeadIngestionPayload, db: DBSession, cli
     if not lead:
         lead = models.Lead(
             session_id=payload.session_id,
+            client_id=client_id,
             source=payload.source,
             whatsapp_opt_in=payload.whatsapp_opt_in
         )
@@ -333,7 +328,7 @@ async def process_unified_lead(payload: LeadIngestionPayload, db: DBSession, cli
 
     if is_new_lead:
         lead.funnel_stage = "New"
-        db.add(models.EventLog(session_id=payload.session_id, event_type="lead_created"))
+        db.add(models.EventLog(session_id=payload.session_id, client_id=client_id, event_type="lead_created"))
         db.commit()
         # Fire background CRM Sync
         asyncio.create_task(sync_lead_to_crm(lead.id))
@@ -354,8 +349,8 @@ async def process_unified_lead(payload: LeadIngestionPayload, db: DBSession, cli
                     body=outbound_text,
                     to=f"whatsapp:{lead.phone}"
                 )
-                db.add(models.EventLog(session_id=payload.session_id, event_type="message_sent"))
-                db.add(models.Message(session_id=payload.session_id, role="assistant", content=outbound_text))
+                db.add(models.EventLog(session_id=payload.session_id, client_id=client_id, event_type="message_sent"))
+                db.add(models.Message(session_id=payload.session_id, client_id=client_id, role="assistant", content=outbound_text))
                 
                 # Update Funnel Stage
                 if lead.funnel_stage == "New":
@@ -373,17 +368,17 @@ async def process_unified_lead(payload: LeadIngestionPayload, db: DBSession, cli
     return "Lead processed successfully."
 
 @app.post("/api/v1/ingest")
-async def ingest_lead(payload: LeadIngestionPayload, db: DBSession = Depends(get_db)):
+async def ingest_lead(payload: LeadIngestionPayload, current_client: models.Client = Depends(auth.get_client_by_api_key), db: DBSession = Depends(get_db)):
     """Unified API for processing leads from custom website forms or frontends."""
     try:
-        result = await process_unified_lead(payload, db)
+        result = await process_unified_lead(payload, db, client_id=current_client.id)
         return {"status": "success", "result": result}
     except Exception as e:
         logger.error(f"Ingest failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/v1/webhook/meta")
-async def meta_webhook(payload: dict, db: DBSession = Depends(get_db)):
+async def meta_webhook(payload: dict, current_client: models.Client = Depends(auth.get_client_by_api_key), db: DBSession = Depends(get_db)):
     """Webhook for Facebook and Instagram Lead Ads."""
     try:
         # Example naive parsing. Real implementation would parse Facebook Graph API response.
@@ -394,13 +389,13 @@ async def meta_webhook(payload: dict, db: DBSession = Depends(get_db)):
             phone=payload.get("phone_number"),
             whatsapp_opt_in=payload.get("opt_in", False)
         )
-        await process_unified_lead(parsed, db)
+        await process_unified_lead(parsed, db, client_id=current_client.id)
         return {"status": "success"}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
 @app.post("/api/v1/webhook/portals")
-async def portals_webhook(payload: dict, db: DBSession = Depends(get_db)):
+async def portals_webhook(payload: dict, current_client: models.Client = Depends(auth.get_client_by_api_key), db: DBSession = Depends(get_db)):
     """Webhook for Magicbricks / 99acres."""
     try:
         parsed = LeadIngestionPayload(
@@ -412,7 +407,7 @@ async def portals_webhook(payload: dict, db: DBSession = Depends(get_db)):
             location=payload.get("location"),
             whatsapp_opt_in=payload.get("whatsapp_opt_in", False)
         )
-        await process_unified_lead(parsed, db)
+        await process_unified_lead(parsed, db, client_id=current_client.id)
         return {"status": "success"}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -423,6 +418,7 @@ async def whatsapp_webhook(
     MessageSid: str = Form(None),
     From: str = Form(...),
     Body: str = Form(...),
+    current_client: models.Client = Depends(auth.get_client_by_api_key),
     db: DBSession = Depends(get_db)
 ):
     """
@@ -443,7 +439,7 @@ async def whatsapp_webhook(
             db.commit()
 
         session_id = From.replace("whatsapp:", "")
-        client_id = "client_A"
+        client_id = current_client.id
         
         # Task 2: Message Queue Handling (Lock per session using Redis)
         async with redis_client.lock(f"session_lock:{session_id}", timeout=20.0, blocking_timeout=30.0):
@@ -486,6 +482,7 @@ async def incoming_sms_webhook(
     MessageSid: str = Form(None),
     From: str = Form(...),
     Body: str = Form(...),
+    current_client: models.Client = Depends(auth.get_client_by_api_key),
     db: DBSession = Depends(get_db)
 ):
     """
@@ -524,7 +521,7 @@ async def incoming_sms_webhook(
                     message=Body,
                     whatsapp_opt_in=False
                 )
-                reply_text = await process_unified_lead(payload, db, client_id="client_A")
+                reply_text = await process_unified_lead(payload, db, client_id=current_client.id)
         except Exception as redis_err:
             logger.warning(f"Redis unavailable or lock failed, proceeding without lock: {redis_err}")
             payload = LeadIngestionPayload(
@@ -533,7 +530,7 @@ async def incoming_sms_webhook(
                 message=Body,
                 whatsapp_opt_in=False
             )
-            reply_text = await process_unified_lead(payload, db, client_id="client_A")
+            reply_text = await process_unified_lead(payload, db, client_id=current_client.id)
             
         twiml = MessagingResponse()
         twiml.message(reply_text)
@@ -651,7 +648,8 @@ async def get_source_attribution(db: DBSession = Depends(get_db)):
     return {"sources": results}
 
 @app.get("/api/v1/analytics")
-def get_analytics(client_id: str = Depends(get_current_client_id), db: DBSession = Depends(get_db)):
+def get_analytics(current_client: models.Client = Depends(auth.get_current_client), db: DBSession = Depends(get_db)):
+    client_id = current_client.id
     """
     Client-secured analytics dashboard tracking total leads, AI conversion rating, and user intents.
     """
@@ -687,7 +685,7 @@ def get_analytics(client_id: str = Depends(get_current_client_id), db: DBSession
 
 @app.get("/api/v1/leads")
 def get_leads(
-    client_id: str = Depends(get_current_client_id),
+    current_client: models.Client = Depends(auth.get_current_client),
     db: DBSession = Depends(get_db),
     intent: Optional[str] = None,
     location: Optional[str] = None,
@@ -697,7 +695,7 @@ def get_leads(
     Client-secured lead extraction endpoint filtering by depth, intent, location, and score.
     Supports optional query parameters like ?intent=buy&score=High
     """
-    query = db.query(models.Lead).join(models.Session).filter(models.Session.client_id == client_id)
+    query = db.query(models.Lead).filter(models.Lead.client_id == current_client.id)
     
     # Case-insensitive filtering dynamically based on provided query parameters
     if intent:
@@ -717,13 +715,13 @@ def get_leads(
 
 @app.get("/api/v1/leads/export")
 def export_leads(
-    client_id: str = Depends(get_current_client_id),
+    current_client: models.Client = Depends(auth.get_current_client),
     db: DBSession = Depends(get_db)
 ):
     """
     Exports all leads for the given client in CSV format using StreamingResponse.
     """
-    leads = db.query(models.Lead).join(models.Session).filter(models.Session.client_id == client_id).all()
+    leads = db.query(models.Lead).filter(models.Lead.client_id == current_client.id).all()
     
     stream = StringIO()
     writer = csv.writer(stream)
@@ -737,7 +735,7 @@ def export_leads(
         ])
     
     response = StreamingResponse(iter([stream.getvalue()]), media_type="text/csv")
-    response.headers["Content-Disposition"] = f"attachment; filename=leads_export_{client_id}.csv"
+    response.headers["Content-Disposition"] = f"attachment; filename=leads_export_{current_client.id}.csv"
     return response
 
 @app.get("/health")
