@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { Lead } from '@/lib/api'
 import { updateLeadStageAction } from './actions'
 
@@ -8,6 +9,7 @@ const STAGES = ["New", "Contacted", "Appointment Scheduled", "Closed Won", "Lost
 
 export default function KanbanBoard({ initialLeads }: { initialLeads: Lead[] }) {
   const [leads, setLeads] = useState<Lead[]>(initialLeads)
+  const router = useRouter()
 
   // Group leads strictly by their current funnel stage
   const columns = STAGES.map(stage => ({
@@ -16,7 +18,8 @@ export default function KanbanBoard({ initialLeads }: { initialLeads: Lead[] }) 
   }))
 
   const handleDragStart = (e: React.DragEvent, leadId: number) => {
-    e.dataTransfer.setData('leadId', leadId.toString())
+    e.dataTransfer.effectAllowed = 'move'
+    e.dataTransfer.setData('text/plain', leadId.toString())
   }
 
   const handleDragOver = (e: React.DragEvent) => {
@@ -25,7 +28,7 @@ export default function KanbanBoard({ initialLeads }: { initialLeads: Lead[] }) 
 
   const handleDrop = async (e: React.DragEvent, targetStage: string) => {
     e.preventDefault()
-    const leadId = parseInt(e.dataTransfer.getData('leadId'))
+    const leadId = parseInt(e.dataTransfer.getData('text/plain'))
     if (!leadId) return
 
     // Optimistically update UI
@@ -35,6 +38,7 @@ export default function KanbanBoard({ initialLeads }: { initialLeads: Lead[] }) 
 
     try {
       await updateLeadStageAction(leadId, targetStage)
+      router.refresh()
     } catch (error) {
       console.error('Failed to update lead stage:', error)
       // Revert if failed
@@ -61,7 +65,7 @@ export default function KanbanBoard({ initialLeads }: { initialLeads: Lead[] }) 
             {col.items.map((lead: Lead) => (
               <div 
                 key={lead.id} 
-                draggable
+                draggable={true}
                 onDragStart={(e) => handleDragStart(e, lead.id)}
                 className="bg-zinc-900/80 backdrop-blur-xl p-4 rounded-2xl border border-zinc-800/80 shadow-lg shadow-black/20 hover:border-zinc-700/80 transition-all cursor-grab active:cursor-grabbing group"
               >
