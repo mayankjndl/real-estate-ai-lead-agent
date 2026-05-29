@@ -6,7 +6,7 @@ import sys
 # Force UTF-8 encoding for Windows console to handle emojis returned by the AI
 sys.stdout.reconfigure(encoding='utf-8')
 
-RENDER_URL = "https://real-estate-ai-lead-agent-2.onrender.com"
+RENDER_URL = "https://real-estate-ai-lead-agent-3.onrender.com"
 API_KEY = "secret-client-key-123"
 
 # 5 distinct users providing all required details in their chat messages

@@ -1,5 +1,5 @@
 const API_KEY = "secret-client-key-123";
-const API_BASE = "https://real-estate-ai-lead-agent-2.onrender.com/api/v1";
+const API_BASE = "https://real-estate-ai-lead-agent-3.onrender.com/api/v1";
 
 const headers = {
     "X-API-Key": API_KEY,

@@ -51,7 +51,7 @@ export async function fetchLeads(): Promise<LeadsResponse | null> {
   if (!token) return null
 
   try {
-    const res = await fetch('http://127.0.0.1:8000/api/v1/leads', {
+    const res = await fetch('https://real-estate-ai-lead-agent-3.onrender.com/api/v1/leads', {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -79,7 +79,7 @@ export async function fetchAnalytics(): Promise<AnalyticsResponse | null> {
   if (!token) return null
 
   try {
-    const res = await fetch('http://127.0.0.1:8000/api/v1/analytics', {
+    const res = await fetch('https://real-estate-ai-lead-agent-3.onrender.com/api/v1/analytics', {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${token}`,

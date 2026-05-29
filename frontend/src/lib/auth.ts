@@ -17,7 +17,7 @@ export async function loginClient(prevState: any, formData: FormData) {
     params.append('username', email.toString())
     params.append('password', password.toString())
 
-    const res = await fetch('http://127.0.0.1:8000/api/v1/auth/login', {
+    const res = await fetch('https://real-estate-ai-lead-agent-3.onrender.com/api/v1/auth/login', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',

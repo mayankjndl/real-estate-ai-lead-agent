@@ -21,7 +21,7 @@ export const options = {
   },
 };
 
-const BASE_URL = __ENV.BASE_URL || 'https://real-estate-ai-lead-agent-2.onrender.com';
+const BASE_URL = __ENV.BASE_URL || 'https://real-estate-ai-lead-agent-3.onrender.com';
 
 export default function () {
   // Generate a unique session ID for every iteration to test concurrency properly

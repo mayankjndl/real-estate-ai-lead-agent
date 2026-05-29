@@ -3,7 +3,7 @@ import uuid
 import time
 import json
 
-RENDER_URL = "https://real-estate-ai-lead-agent-2.onrender.com"
+RENDER_URL = "https://real-estate-ai-lead-agent-3.onrender.com"
 # RENDER_URL = "http://127.0.0.1:8000" # Use this if testing locally
 
 def print_result(channel, response):
