@@ -713,6 +713,27 @@ def get_leads(
         "leads": leads
     }
 
+class LeadStageUpdate(BaseModel):
+    stage: str
+
+@app.patch("/api/v1/leads/{lead_id}/stage")
+def update_lead_stage(
+    lead_id: int,
+    stage_update: LeadStageUpdate,
+    current_client: models.Client = Depends(auth.get_current_client),
+    db: DBSession = Depends(get_db)
+):
+    """
+    Updates the funnel stage of a specific lead.
+    """
+    lead = db.query(models.Lead).filter(models.Lead.id == lead_id, models.Lead.client_id == current_client.id).first()
+    if not lead:
+        raise HTTPException(status_code=404, detail="Lead not found")
+    
+    lead.funnel_stage = stage_update.stage
+    db.commit()
+    return {"status": "success", "lead_id": lead.id, "stage": lead.funnel_stage}
+
 @app.get("/api/v1/leads/export")
 def export_leads(
     current_client: models.Client = Depends(auth.get_current_client),
