@@ -40,9 +40,16 @@ export default async function CRMPage() {
                       <span className="w-2 h-2 rounded-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.8)] animate-pulse"></span>
                     )}
                   </div>
-                  <p className="text-xs text-zinc-400 mb-4 line-clamp-1">
-                    {lead.intent ? `${lead.intent} · ${lead.budget || 'Open Budget'}` : 'Exploring options'}
-                  </p>
+                  <div className="flex flex-col gap-1 mb-4">
+                    <p className="text-xs text-zinc-400 line-clamp-1">
+                      {lead.intent ? `${lead.intent} · ${lead.budget || 'Open Budget'}` : 'Exploring options'}
+                    </p>
+                    {lead.budget_alignment_status && lead.budget_alignment_status !== 'unknown' && (
+                      <span className="inline-flex self-start px-2 py-0.5 rounded-full text-[9px] font-medium bg-zinc-800 text-zinc-400 border border-zinc-700 capitalize">
+                        {lead.budget_alignment_status} Match
+                      </span>
+                    )}
+                  </div>
                   
                   <div className="flex items-center justify-between border-t border-zinc-800/50 pt-3 mt-1">
                     <span className="text-[10px] uppercase font-semibold text-zinc-500 tracking-wider flex items-center gap-1.5">

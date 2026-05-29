@@ -19,6 +19,7 @@ export interface Lead {
   lead_temperature: string
   engagement_score: number
   urgency_level: string
+  budget_alignment_status: string
   assigned_agent: string | null
   conversion_status: string
   followup_stage: string

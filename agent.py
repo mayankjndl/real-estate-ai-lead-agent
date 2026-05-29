@@ -10,6 +10,8 @@ from system_prompt import REAL_ESTATE_SYSTEM_PROMPT
 from sqlalchemy.orm import Session as DBSession
 from models import Session, Message, Lead, EventLog
 from rag import retrieve
+from app.intelligence.lead_scoring import calculate_lead_score
+from app.intelligence.agent_matcher import match_best_agent
 
 # 1. Gemini Initialization
 genai.configure(api_key=settings.GEMINI_API_KEY)
@@ -615,48 +617,86 @@ async def process_chat(session_id: str, user_message: str, db: DBSession, client
                     db.add(Message(session_id=session_id, client_id=client_id, role="assistant", content=local_reply))
                     db.commit()
                     logger.info(f"LEAD_EXTRACT | session={session_id} | fields={captured_fields} | new_fields={list(new_fields)} | has_gemini_text={text_from_response is not None} | concluded={visit_concluded}")
-                    return local_reply
+                    
+                    final_text = local_reply
+                    extracted_early = True
+                    break
 
     # Safely get the final text (handling cases where only a tool call was returned)
-    try:
-        if not response.candidates or not response.candidates[0].content.parts:
-            finish = response.candidates[0].finish_reason if response.candidates else 'None'
-            logger.warning(f"Empty response from Gemini. finish_reason: {finish}. Using smart local fallback.")
-            # Smart zero-latency local fallback — no second LLM call, no extra latency
-            msg_l = user_message.lower()
-            if any(k in msg_l for k in ["school", "hospital", "infrastructure", "connectivity", "transport"]):
-                final_text = f"{lead.location or 'That area'} has good infrastructure with reputed schools and hospitals nearby. Would you like to schedule a visit?"
-            elif any(k in msg_l for k in ["safe", "family", "kids", "children"]):
-                final_text = f"{lead.location or 'Baner'} is considered a safe, family-friendly area. Are you looking for a ready-to-move-in flat or under construction?"
-            elif any(k in msg_l for k in ["resale", "investment", "appreciation"]):
-                final_text = f"Properties in {lead.location or 'Pune'} have shown consistent appreciation. Would you like options with good resale value?"
-            elif any(k in msg_l for k in ["gym", "pool", "club", "amenities", "parking"]):
-                final_text = "Most modern societies in that area offer premium amenities including gym, pool, and covered parking. Shall I suggest some specific projects?"
+    if 'extracted_early' not in locals():
+        try:
+            if not response.candidates or not response.candidates[0].content.parts:
+                finish = response.candidates[0].finish_reason if response.candidates else 'None'
+                logger.warning(f"Empty response from Gemini. finish_reason: {finish}. Using smart local fallback.")
+                # Smart zero-latency local fallback — no second LLM call, no extra latency
+                msg_l = user_message.lower()
+                if any(k in msg_l for k in ["school", "hospital", "infrastructure", "connectivity", "transport"]):
+                    final_text = f"{lead.location or 'That area'} has good infrastructure with reputed schools and hospitals nearby. Would you like to schedule a visit?"
+                elif any(k in msg_l for k in ["safe", "family", "kids", "children"]):
+                    final_text = f"{lead.location or 'Baner'} is considered a safe, family-friendly area. Are you looking for a ready-to-move-in flat or under construction?"
+                elif any(k in msg_l for k in ["resale", "investment", "appreciation"]):
+                    final_text = f"Properties in {lead.location or 'Pune'} have shown consistent appreciation. Would you like options with good resale value?"
+                elif any(k in msg_l for k in ["gym", "pool", "club", "amenities", "parking"]):
+                    final_text = "Most modern societies in that area offer premium amenities including gym, pool, and covered parking. Shall I suggest some specific projects?"
+                else:
+                    final_text = f"I'd be happy to help with that! Based on your interest in {lead.location or 'Pune'}, shall we schedule a visit to a property that fits your requirements?"
             else:
-                final_text = f"I'd be happy to help with that! Based on your interest in {lead.location or 'Pune'}, shall we schedule a visit to a property that fits your requirements?"
-        else:
-            final_text = response.text
-    except ValueError:
-        # If Gemini returned a function call but we somehow missed it, or if it returned no text
-        logger.warning(f"ValueError accessing response.text. Parts: {response.candidates[0].content.parts}")
-        final_text = "Got it. Let me know if you need anything else or want to schedule a visit."
+                final_text = response.text
+        except ValueError:
+            # If Gemini returned a function call but we somehow missed it, or if it returned no text
+            logger.warning(f"ValueError accessing response.text. Parts: {response.candidates[0].content.parts}")
+            final_text = "Got it. Let me know if you need anything else or want to schedule a visit."
 
-    # AI Conversion Intelligence Logic
+    # ==========================================
+    # NEW ML INTELLIGENCE LAYER
+    # ==========================================
     history_text = " ".join([m.content for m in past_messages if m.role == "user"]).lower() + " " + user_message.lower()
-    calculated_score = "low"
-    if any(x in history_text for x in ["visit", "book", "finalize", "ready"]):
-        calculated_score = "high"
-    elif any(x in history_text for x in ["budget", "options", "compare", "price"]):
-        calculated_score = "medium"
-        
-    # Dynamically ensure phone number is correctly parsed even if LLM bypasses function extraction
-    if session_id.startswith("+") and not lead.phone:
-        lead.phone = session_id
     
-    lead.score = calculated_score.capitalize()
+    memory_dicts = []
+    for m in past_messages:
+        memory_dicts.append({
+            "role": m.role,
+            "content": m.content,
+            "timestamp": m.timestamp.isoformat() if hasattr(m, "timestamp") and m.timestamp else None
+        })
+        
+    # 1. Calculate advanced lead score
+    ml_score_data = calculate_lead_score(
+        query=user_message,
+        memory=memory_dicts,
+        intent=lead.intent or "low"
+    )
+    
+    lead.conversion_probability = ml_score_data.get("conversion_probability", 0)
+    lead.lead_temperature = ml_score_data.get("lead_temperature", "cold")
+    lead.expected_closure_days = ml_score_data.get("expected_closure_days", 60)
+    lead.engagement_score = ml_score_data.get("engagement_score", 0)
+    lead.urgency_level = ml_score_data.get("urgency_level", "low")
+    lead.response_speed_score = ml_score_data.get("response_speed_score", 0)
+    lead.inactivity_penalty = ml_score_data.get("inactivity_penalty", 0)
+    lead.budget_alignment_status = ml_score_data.get("budget_alignment_status", "unknown")
+    
+    # Optional: Map the raw integer score back to High/Medium/Low string if needed for frontend backward compatibility
+    prob = ml_score_data.get("conversion_probability", 0)
+    if prob >= 82:
+        lead.score = "High"
+    elif prob >= 55:
+        lead.score = "Medium"
+    else:
+        lead.score = "Low"
+
+    # 2. Match Best Agent
+    agent_data = match_best_agent(
+        location=lead.location,
+        query=history_text
+    )
+    
+    if agent_data.get("assigned_agent"):
+        lead.assigned_agent = agent_data["assigned_agent"]
+
     db.commit()
 
-    if calculated_score == "high" and not lead.visit_date and session.status != "closed":
+    if lead.score == "High" and not lead.visit_date and session.status != "closed":
         # We rely on the LLM to naturally propose a visit if the context feels right.
         pass
 

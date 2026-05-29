@@ -327,10 +327,10 @@ def check_and_send_followups():
                 db.commit()
                 continue
                 
-            # Maps current stage string to day integer
+            # Maps current stage string to hour integer for the ML engine
             current_stage = state.follow_up_stage
-            day_map = {"Day 0": 0, "Day 1": 1, "Day 3": 3, "Day 7": 7}
-            current_day = day_map.get(current_stage, 0)
+            hour_map = {"Day 0": 0, "Day 1": 24, "Day 3": 72, "Day 7": 168}
+            current_day = hour_map.get(current_stage, 0)
             
             # Calculate inactivity boolean (> 7 days)
             inactivity = False
@@ -426,16 +426,20 @@ def check_and_send_followups():
                     ))
                     
                     # Transition State Machine
-                    if current_stage == "Day 0":
+                    followups = generated_payload.get("followups", [])
+                    if current_stage == "Day 0" and len(followups) > 1:
                         state.follow_up_stage = "Day 1"
-                        state.next_follow_up_at = now + timedelta(days=1)
-                    elif current_stage == "Day 1":
+                        delay_hours = followups[1].get("day", 24) - followups[0].get("day", 0)
+                        state.next_follow_up_at = now + timedelta(hours=delay_hours)
+                    elif current_stage == "Day 1" and len(followups) > 2:
                         state.follow_up_stage = "Day 3"
-                        state.next_follow_up_at = now + timedelta(days=2)
-                    elif current_stage == "Day 3":
+                        delay_hours = followups[2].get("day", 72) - followups[1].get("day", 24)
+                        state.next_follow_up_at = now + timedelta(hours=delay_hours)
+                    elif current_stage == "Day 3" and len(followups) > 3:
                         state.follow_up_stage = "Day 7"
-                        state.next_follow_up_at = now + timedelta(days=4)
-                    elif current_stage == "Day 7":
+                        delay_hours = followups[3].get("day", 168) - followups[2].get("day", 72)
+                        state.next_follow_up_at = now + timedelta(hours=delay_hours)
+                    elif current_stage == "Day 7" or len(followups) <= 1:
                         state.follow_up_status = "completed"
                         state.next_follow_up_at = None
                         session.status = "closed"

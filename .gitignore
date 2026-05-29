@@ -87,3 +87,8 @@ latency_cert_*.txt
 crm_integrity_report_*.txt
 failure_simulation_report_*.txt
 production_certification_report*.txt
+ci_venv/
+final_qa_test.py
+test_lead_scoring.py
+apply_changes.py
+trigger.py

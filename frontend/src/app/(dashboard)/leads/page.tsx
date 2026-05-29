@@ -60,9 +60,16 @@ export default async function LeadsPage() {
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center gap-2">
-                      {getTempBadge(lead.lead_temperature)}
-                      {getUrgencyBadge(lead.urgency_level)}
+                    <div className="flex flex-col gap-2">
+                      <div className="flex items-center gap-2">
+                        {getTempBadge(lead.lead_temperature)}
+                        {getUrgencyBadge(lead.urgency_level)}
+                      </div>
+                      <div className="flex items-center gap-2 text-xs text-zinc-400">
+                        <span title="Engagement Score">Eng: {lead.engagement_score || 0}/100</span>
+                        <span>•</span>
+                        <span title="Expected Closure">Close: {lead.expected_closure_days || 60}d</span>
+                      </div>
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">

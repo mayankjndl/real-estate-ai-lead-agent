@@ -7,8 +7,8 @@ from database import SessionLocal
 from models import Session, Lead, FollowUpState, EventLog
 from follow_up import check_and_send_followups
 
-BASE_URL = "http://127.0.0.1:8000"
-CLIENT_ID = "client_A"
+BASE_URL = "https://real-estate-ai-lead-agent-3.onrender.com"
+API_KEY = "6896da68ea6db537bde47d347dd74e23bff90bea085ea67b8874bbc66fd72703"
 TEST_SESSION_ID = f"smoke_test_{int(time.time())}"
 
 def print_step(msg):
