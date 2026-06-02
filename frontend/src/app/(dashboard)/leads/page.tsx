@@ -27,8 +27,8 @@ export default async function LeadsPage() {
       </div>
       
       <div className="bg-zinc-900/40 border border-zinc-800/80 rounded-2xl overflow-hidden shadow-2xl backdrop-blur-xl">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
+        <div className="overflow-x-auto w-full">
+          <table className="w-full min-w-[800px] text-left border-collapse">
             <thead>
               <tr className="border-b border-zinc-800/80 bg-zinc-900/50">
                 <th className="px-6 py-4 text-xs font-medium text-zinc-400 uppercase tracking-wider">Lead</th>

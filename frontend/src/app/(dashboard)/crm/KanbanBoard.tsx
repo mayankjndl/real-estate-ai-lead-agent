@@ -47,9 +47,9 @@ export default function KanbanBoard({ initialLeads }: { initialLeads: Lead[] }) 
   }
 
   return (
-    <div className="flex-1 flex gap-6 overflow-x-auto pb-4">
+    <div className="flex-1 flex gap-6 overflow-x-auto pb-4 snap-x snap-mandatory">
       {columns.map(col => (
-        <div key={col.name} className="flex-shrink-0 w-[320px] flex flex-col">
+        <div key={col.name} className="flex-shrink-0 w-[320px] flex flex-col snap-center">
           <div className="flex items-center justify-between mb-4 px-1">
             <h3 className="text-sm font-medium text-zinc-300">{col.name}</h3>
             <span className="text-xs font-medium text-zinc-500 bg-zinc-900/80 px-2.5 py-1 rounded-full border border-zinc-800">
