@@ -3,45 +3,26 @@ import { ArrowRight, Bot, Target, Zap, Building2, Smartphone, BarChart3, Chevron
 export default function HomePage() {
   return (
     <div className="min-h-screen bg-zinc-950 text-white selection:bg-emerald-500/30 font-sans">
-      {/* Navigation */}
-      <nav className="fixed top-0 w-full z-50 bg-zinc-950/80 backdrop-blur-xl border-b border-zinc-900">
-        <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="h-8 w-8 rounded-xl bg-gradient-to-tr from-emerald-400 to-cyan-500 flex items-center justify-center shadow-lg shadow-emerald-500/20">
-              <Building2 className="text-zinc-950 w-4 h-4" />
-            </div>
-            <span className="font-semibold tracking-tight text-lg">Revenue OS</span>
-          </div>
-          <div className="hidden md:flex items-center gap-8 text-sm font-medium text-zinc-400">
-            <a href="/features" className="hover:text-white transition-colors">Features</a>
-            <a href="/pricing" className="hover:text-white transition-colors">Pricing</a>
-            <a href="/contact" className="hover:text-white transition-colors">Contact</a>
-          </div>
-          <div className="flex items-center gap-4">
-            <a href="/login" className="text-sm font-medium text-zinc-300 hover:text-white transition-colors hidden md:block">Sign in</a>
-            <a href="/dashboard" className="text-sm font-medium bg-white text-zinc-950 px-4 py-2 rounded-full hover:bg-zinc-200 transition-colors">Go to Dashboard</a>
-          </div>
-        </div>
-      </nav>
+
 
       {/* Hero Section */}
-      <main className="pt-40 pb-20 px-6 max-w-7xl mx-auto flex flex-col items-center text-center relative">
+      <main className="pt-32 pb-20 px-6 max-w-7xl mx-auto flex flex-col items-center text-center relative">
         <div className="absolute inset-0 z-[-1] bg-[radial-gradient(ellipse_80%_60%_at_50%_-20%,rgba(52,211,153,0.15),transparent_100%)]"></div>
-        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-400/10 text-emerald-400 text-xs font-medium mb-8 border border-emerald-400/20">
+        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-400/10 text-emerald-400 text-xs font-medium mb-8 border border-emerald-400/20 shadow-[0_0_15px_rgba(52,211,153,0.1)] transition-transform hover:scale-105 duration-300 cursor-default">
           <span className="flex h-2 w-2 rounded-full bg-emerald-400 animate-pulse"></span>
           Revenue OS 2.0 is now live
         </div>
         
-        <h1 className="text-5xl md:text-7xl font-bold tracking-tighter mb-8 bg-gradient-to-br from-white via-zinc-200 to-zinc-500 bg-clip-text text-transparent max-w-5xl leading-tight">
+        <h1 className="text-5xl md:text-7xl font-bold tracking-tighter mb-8 bg-gradient-to-br from-white via-zinc-200 to-zinc-500 bg-clip-text text-transparent max-w-5xl leading-tight animate-in fade-in slide-in-from-bottom-4 duration-1000">
           The autonomous lead engine <br className="hidden md:block"/> for modern real estate.
         </h1>
         
-        <p className="text-lg md:text-xl text-zinc-400 max-w-2xl mb-12 leading-relaxed font-light">
+        <p className="text-lg md:text-xl text-zinc-400 max-w-2xl mb-12 leading-relaxed font-light animate-in fade-in slide-in-from-bottom-6 duration-1000 delay-150">
           Stop losing prospects to slow follow-ups. Our AI qualifies leads instantly via WhatsApp, scores them, and routes them to your CRM while you sleep.
         </p>
         
-        <div className="flex flex-col sm:flex-row items-center gap-4 w-full sm:w-auto">
-          <a href="/login" className="w-full sm:w-auto px-8 py-4 bg-white text-zinc-950 rounded-full font-medium flex items-center justify-center hover:bg-zinc-200 transition-all hover:scale-[1.02] active:scale-[0.98] group">
+        <div className="flex flex-col sm:flex-row items-center gap-4 w-full sm:w-auto animate-in fade-in slide-in-from-bottom-8 duration-1000 delay-300">
+          <a href="/login" className="w-full sm:w-auto px-8 py-4 bg-white text-zinc-950 rounded-full font-medium flex items-center justify-center hover:bg-zinc-200 transition-all hover:scale-[1.02] active:scale-[0.98] group shadow-[0_0_30px_rgba(255,255,255,0.2)]">
             Start free trial
             <ArrowRight className="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform" />
           </a>
@@ -50,6 +31,18 @@ export default function HomePage() {
           </a>
         </div>
       </main>
+
+      {/* Trusted By Banner */}
+      <section className="border-y border-zinc-900 bg-zinc-950/50 py-10 px-6">
+        <div className="max-w-7xl mx-auto text-center">
+          <p className="text-sm font-medium text-zinc-500 mb-6 uppercase tracking-widest">Trusted by leading developers globally</p>
+          <div className="flex flex-wrap justify-center gap-8 md:gap-16 opacity-50 grayscale hover:grayscale-0 transition-all duration-500">
+            {['Acme Corp', 'Global Estates', 'Stellar Homes', 'Apex Properties', 'Vanguard Realty'].map((brand) => (
+              <span key={brand} className="text-xl font-bold text-zinc-400 hover:text-white transition-colors cursor-default">{brand}</span>
+            ))}
+          </div>
+        </div>
+      </section>
 
       {/* How it Works Section */}
       <section className="py-24 px-6 relative border-t border-zinc-900 bg-zinc-950/50">
