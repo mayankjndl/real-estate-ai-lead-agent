@@ -1,10 +1,17 @@
 'use client'
-import { Building2 } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { Building2, Menu, X } from 'lucide-react'
 import { usePathname } from 'next/navigation'
 import Link from 'next/link'
 
 export default function Header() {
   const pathname = usePathname()
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+
+  // Close mobile menu on route change
+  useEffect(() => {
+    setIsMobileMenuOpen(false)
+  }, [pathname])
 
   const links = [
     { name: 'Features', href: '/features' },
@@ -23,6 +30,7 @@ export default function Header() {
           <span className="font-semibold tracking-tight text-lg text-white">Revenue OS</span>
         </Link>
         
+        {/* Desktop Navigation */}
         <div className="hidden md:flex items-center gap-8">
           {links.map((link) => {
             const isActive = pathname === link.href
@@ -41,11 +49,45 @@ export default function Header() {
           })}
         </div>
         
-        <div className="flex items-center gap-4">
-          <Link href="/login" className="text-sm font-medium text-zinc-300 hover:text-white transition-colors hidden sm:block">
+        <div className="hidden md:flex items-center gap-4">
+          <Link href="/login" className="text-sm font-medium text-zinc-300 hover:text-white transition-colors">
             Sign in
           </Link>
           <Link href="/dashboard" className="text-sm font-medium bg-white text-zinc-950 px-5 py-2 rounded-full hover:bg-zinc-200 transition-all hover:scale-105 active:scale-95 shadow-[0_0_20px_rgba(255,255,255,0.1)]">
+            Dashboard
+          </Link>
+        </div>
+
+        {/* Mobile Menu Toggle Button */}
+        <button 
+          className="md:hidden p-2 text-zinc-400 hover:text-white transition-colors"
+          onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+          aria-label="Toggle menu"
+        >
+          {isMobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+        </button>
+      </div>
+
+      {/* Mobile Navigation Dropdown */}
+      <div className={`md:hidden absolute w-full bg-zinc-950/95 backdrop-blur-xl border-b border-zinc-900 transition-all duration-300 overflow-hidden ${isMobileMenuOpen ? 'max-h-[400px] opacity-100' : 'max-h-0 opacity-0'}`}>
+        <div className="px-6 py-4 flex flex-col gap-4">
+          {links.map((link) => {
+            const isActive = pathname === link.href
+            return (
+              <Link 
+                key={link.name} 
+                href={link.href} 
+                className={`text-base font-medium py-2 transition-colors ${isActive ? 'text-emerald-400' : 'text-zinc-400 hover:text-white'}`}
+              >
+                {link.name}
+              </Link>
+            )
+          })}
+          <div className="h-px w-full bg-zinc-800 my-2"></div>
+          <Link href="/login" className="text-base font-medium text-zinc-300 hover:text-white py-2">
+            Sign in
+          </Link>
+          <Link href="/dashboard" className="text-base font-medium bg-white text-zinc-950 px-5 py-3 rounded-xl text-center hover:bg-zinc-200 transition-colors mt-2">
             Dashboard
           </Link>
         </div>
