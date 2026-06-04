@@ -8,7 +8,7 @@ export async function updateLeadStageAction(leadId: number, stage: string) {
 
   if (!token) throw new Error('Unauthorized')
 
-  const res = await fetch(`https://real-estate-ai-lead-agent-3.onrender.com/api/v1/leads/${leadId}/stage`, {
+  const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/leads/${leadId}/stage`, {
     method: 'PATCH',
     headers: {
       'Authorization': `Bearer ${token}`,

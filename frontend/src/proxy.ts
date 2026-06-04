@@ -1,12 +1,12 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
-export default function proxy(request: NextRequest) {
+export default function middleware(request: NextRequest) {
   // Extract the JWT securely from HttpOnly cookie
   const token = request.cookies.get('jwt')?.value;
 
   // Define the protected route boundaries
-  const isProtectedRoute = 
+  const isProtectedRoute =
     request.nextUrl.pathname.startsWith('/dashboard') ||
     request.nextUrl.pathname.startsWith('/leads') ||
     request.nextUrl.pathname.startsWith('/crm') ||
@@ -15,6 +15,7 @@ export default function proxy(request: NextRequest) {
   // Guard: Redirect unauthenticated users back to login
   if (isProtectedRoute && !token) {
     const loginUrl = new URL('/login', request.url);
+    loginUrl.searchParams.set('from', request.nextUrl.pathname);
     return NextResponse.redirect(loginUrl);
   }
 
