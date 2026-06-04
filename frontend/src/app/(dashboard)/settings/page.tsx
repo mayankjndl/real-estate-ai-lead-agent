@@ -10,6 +10,20 @@ const TABS = [
   { id: 'notifications', label: 'Notifications', icon: Bell },
 ]
 
+// Custom hook: reads from localStorage on mount, falls back to defaultValue
+function usePersistentState<T>(key: string, defaultValue: T): [T, React.Dispatch<React.SetStateAction<T>>] {
+  const [value, setValue] = useState<T>(() => {
+    if (typeof window === 'undefined') return defaultValue
+    try {
+      const stored = localStorage.getItem(key)
+      return stored !== null ? (JSON.parse(stored) as T) : defaultValue
+    } catch {
+      return defaultValue
+    }
+  })
+  return [value, setValue]
+}
+
 function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }) {
   return (
     <button
@@ -57,21 +71,31 @@ export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState('profile')
   const [saved, setSaved] = useState(false)
 
-  // Profile state
-  const [displayName, setDisplayName] = useState('Admin')
-  const [company, setCompany] = useState('Revenue OS HQ')
+  // Profile state — persisted
+  const [displayName, setDisplayName] = usePersistentState('settings_displayName', 'Admin')
+  const [company, setCompany] = usePersistentState('settings_company', 'Revenue OS HQ')
 
-  // Workspace preferences
-  const [defaultView, setDefaultView] = useState('dashboard')
-  const [leadsPerPage, setLeadsPerPage] = useState('25')
+  // Workspace preferences — persisted
+  const [defaultView, setDefaultView] = usePersistentState('settings_defaultView', 'dashboard')
+  const [leadsPerPage, setLeadsPerPage] = usePersistentState('settings_leadsPerPage', '25')
 
-  // Notification toggles
-  const [emailDigest, setEmailDigest] = useState(true)
-  const [whatsappAlerts, setWhatsappAlerts] = useState(true)
-  const [newLeadNotif, setNewLeadNotif] = useState(true)
-  const [weeklyReport, setWeeklyReport] = useState(false)
+  // Notification toggles — persisted
+  const [emailDigest, setEmailDigest] = usePersistentState('settings_emailDigest', true)
+  const [whatsappAlerts, setWhatsappAlerts] = usePersistentState('settings_whatsappAlerts', true)
+  const [newLeadNotif, setNewLeadNotif] = usePersistentState('settings_newLeadNotif', true)
+  const [weeklyReport, setWeeklyReport] = usePersistentState('settings_weeklyReport', false)
 
   const handleSave = () => {
+    // Persist all current state values to localStorage
+    localStorage.setItem('settings_displayName', JSON.stringify(displayName))
+    localStorage.setItem('settings_company', JSON.stringify(company))
+    localStorage.setItem('settings_defaultView', JSON.stringify(defaultView))
+    localStorage.setItem('settings_leadsPerPage', JSON.stringify(leadsPerPage))
+    localStorage.setItem('settings_emailDigest', JSON.stringify(emailDigest))
+    localStorage.setItem('settings_whatsappAlerts', JSON.stringify(whatsappAlerts))
+    localStorage.setItem('settings_newLeadNotif', JSON.stringify(newLeadNotif))
+    localStorage.setItem('settings_weeklyReport', JSON.stringify(weeklyReport))
+
     setSaved(true)
     setTimeout(() => setSaved(false), 2500)
   }
