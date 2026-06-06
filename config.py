@@ -25,19 +25,29 @@ class Settings(BaseSettings):
     DATABASE_URL: str = "sqlite:///./real_estate_agent.db"
     REDIS_URL: str = "redis://localhost:6379/0"
 
-    # Model configuration — gemini-2.5-flash is the production model.
-    # Supports function calling, tool use, and multi-turn context reliably.
-    GEMINI_MODEL: str = "gemini-2.5-flash"
+    # Model configuration — gemini-3.1-flash-lite is the current test model.
+    # Supports function calling, tool use, and multi-turn context.
+    # Uses the same google-generativeai SDK interface as gemini-2.5-flash.
+    # To revert: set GEMINI_MODEL=gemini-2.5-flash in .env
+    GEMINI_MODEL: str = "gemini-3.1-flash-lite"
 
     # Follow-up system settings
-    FOLLOW_UP_DELAY_MINUTES: int = 3
+    # TEST MODE: Set FOLLOW_UP_TEST_MODE=true in .env to compress all timings.
+    # Day 0 = 1 min, Day 1 = 2 min, Day 3 = 3 min, Day 7 = 4 min
+    # Production values: FOLLOW_UP_DELAY_MINUTES=30, hour gaps are 24/48/96
+    FOLLOW_UP_DELAY_MINUTES: int = 30
     FOLLOW_UP_MAX_COUNT: int = 2
     USE_AI_FOLLOWUPS: bool = False
+    FOLLOW_UP_TEST_MODE: bool = False
+    FOLLOW_UP_DLQ_TEST: bool = False  # Set true alongside TEST_MODE to force a DLQ entry for QA
 
     # Twilio API credentials
     TWILIO_ACCOUNT_SID: str = ""
     TWILIO_AUTH_TOKEN: str = ""
     TWILIO_PHONE_NUMBER: str = ""
+
+    # Production flag — set to true on Render
+    IS_PRODUCTION: bool = False
 
     # AWS Secrets Manager
     AWS_REGION: str = ""
@@ -83,4 +93,3 @@ if not settings.GEMINI_API_KEY:
     _cfg_logger.warning("GEMINI_API_KEY is not set — AI responses will fail.")
 if not settings.CLIENT_KEY_A:
     _cfg_logger.warning("CLIENT_KEY_A is not set — /leads and /analytics will reject all requests.")
-

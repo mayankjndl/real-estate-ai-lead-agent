@@ -2,6 +2,7 @@
 
 # Environment variables
 .env
+frontend/.env
 
 # Virtual environment
 venv/
@@ -26,6 +27,10 @@ app.log
 .vscode/
 .idea/
 
+# OS files
+.DS_Store
+Thumbs.db
+
 # Reset database
 reset_db.py
 
@@ -34,11 +39,32 @@ dist/
 build/
 *.egg-info/
 
+# Archive files (never commit binaries/archives)
+*.7z
+*.zip
+*.tar
+*.tar.gz
+
+# Backup folders
+backup/
+backups/
+*_backup/
+*_backups/
+
 # Local Documents
 documentation.md
-
 project_deep_dive.md
 production_report.md
+
+# DB migration/alter scripts (one-time use, not for repo)
+alter_db_final.py
+alter_eventlog.py
+alter_followup_state.py
+alter_pg_db.py
+
+# DB utility scripts (dev-only)
+db_backup.py
+db_restore.py
 
 # Test, proof, and simulation scripts (dev-only, not for production repo)
 anohita_test_suite.py
@@ -53,6 +79,7 @@ piyush_final_proof_log.txt
 test_results_log.txt
 live_validation_log.txt
 live_validation_suite.py
+crm_extraction_accuracy_test.py
 
 # Dev utility scripts (not part of core production code)
 crm_populate.py

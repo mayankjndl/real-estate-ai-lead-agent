@@ -29,7 +29,7 @@ from database import engine, Base, get_db
 from agent import process_chat
 from follow_up import check_and_send_followups
 from apscheduler.schedulers.background import BackgroundScheduler
-from metrics import BACKGROUND_FAILURE_COUNT
+from metrics import BACKGROUND_FAILURE_COUNT, INTEGRATION_FAILURES
 import models
 import os
 from crm_sync import sync_lead_to_crm
@@ -265,6 +265,7 @@ async def background_process_and_push(session_id: str, Body: str, client_id: int
             logger.error(f"FALLBACK push also failed for {session_id}: {fallback_err}")
             # Phase 2 Hardening: Dead-Letter Queue integration for Twilio outbound
             BACKGROUND_FAILURE_COUNT.labels(component="twilio").inc()
+            INTEGRATION_FAILURES.labels(integration="twilio").inc()
             payload = {
                 "session_id": session_id,
                 "body": "I'm experiencing a brief connectivity issue. Please try again in a moment, or reach our team directly at +91 9876543210.",
@@ -322,8 +323,6 @@ async def process_unified_lead(payload: LeadIngestionPayload, db: DBSession, cli
     if payload.location: lead.location = payload.location
     if payload.property_type: lead.property_type = payload.property_type
     
-    db.commit()
-
     db.commit()
 
     if is_new_lead:
@@ -452,7 +451,10 @@ async def whatsapp_webhook(
                     message=Body,
                     whatsapp_opt_in=True
                 )
-                reply_text = await process_unified_lead(payload, db, client_id=client_id)
+                reply_text = await asyncio.wait_for(
+                    process_unified_lead(payload, db, client_id=client_id),
+                    timeout=15.0
+                )
                 
                 # Finished fast enough — log latency and return standard TwiML
                 latency_ms = round((time.time() - request_start) * 1000)
