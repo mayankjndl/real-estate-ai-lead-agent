@@ -93,20 +93,22 @@ def generate_followup_sequence(
     # DAY 0
     # ==========================================
 
-    day_0_message = optimized_message
+    # Build Day 0 message from actual lead data instead of static variant string.
+    # If fields are missing, ask for them rather than hallucinating values.
+    greeting = f"Hi {lead_name}," if lead_name else "Hi,"
+    if property_type and budget:
+        body = f"we found some {property_type} options matching your budget of {budget}."
+    elif property_type:
+        body = f"we found some {property_type} options. Could you share your budget so we can shortlist better?"
+    elif budget:
+        body = f"we shortlisted options within your budget of {budget}. What property type are you looking for — 2BHK, 3BHK, or villa?"
+    else:
+        body = "we'd love to help with your property search. Could you share your budget and preferred property type?"
 
-    if lead_name:
-
-        day_0_message = (
-            f"Hi {lead_name}, "
-            + day_0_message
-        )
+    day_0_message = f"{greeting} {body}"
 
     if assigned_agent:
-
-        day_0_message += (
-            f" {assigned_agent} will assist you further."
-        )
+        day_0_message += f" {assigned_agent} will assist you further."
 
     sequence.append({
         "day": 0,
@@ -118,11 +120,14 @@ def generate_followup_sequence(
     # DAY 1
     # ==========================================
 
-    day_1_message = (
-        f"We shortlisted options around "
-        f"{budget or 'your preferred budget'} "
-        f"in {location or 'your selected area'}."
-    )
+    if budget and location:
+        day_1_message = f"We shortlisted some options around {budget} in {location}. Would you like to take a look?"
+    elif budget:
+        day_1_message = f"We found options within {budget}. Which area in Pune are you considering?"
+    elif location:
+        day_1_message = f"We shortlisted options in {location}. Could you share your budget so we can narrow it down?"
+    else:
+        day_1_message = "We'd love to help shortlist properties for you. Could you share your preferred area and budget?"
 
     sequence.append({
         "day": optimized_schedule[1],
@@ -134,38 +139,27 @@ def generate_followup_sequence(
     # DAY 3
     # ==========================================
 
-    if strategy in [
-        "aggressive_push",
-        "sales_push"
-    ]:
-
-        day_3_message = (
-            "Properties matching your criteria "
-            "are moving quickly. "
-            "Would you like to schedule "
-            "a site visit?"
-        )
-
+    if strategy in ["aggressive_push", "sales_push"]:
+        if location and property_type:
+            day_3_message = f"{property_type} options in {location} are moving quickly. Would you like to schedule a site visit?"
+        elif location:
+            day_3_message = f"Properties in {location} are moving quickly. Would you like to schedule a site visit?"
+        else:
+            day_3_message = "Good properties in Pune are moving quickly. Would you like to schedule a site visit?"
         stage = "urgency_push"
 
     elif strategy == "reengage":
-
-        day_3_message = (
-            "Just checking in — would you like "
-            "updated recommendations based on "
-            "your requirements?"
-        )
-
+        if location or budget or property_type:
+            day_3_message = "Just checking in — would you like updated options based on what you shared earlier?"
+        else:
+            day_3_message = "Just checking in — we'd love to help with your property search. What are you looking for?"
         stage = "reengagement"
 
     else:
-
-        day_3_message = (
-            "We found additional matching "
-            "options that may better fit "
-            "your preferences."
-        )
-
+        if location:
+            day_3_message = f"We found a few more options in {location} that might interest you. Want to take a look?"
+        else:
+            day_3_message = "We found a few more options that might interest you. Could you share your preferred area?"
         stage = "soft_nurture"
 
     sequence.append({

@@ -17,8 +17,10 @@ from app.intelligence.agent_matcher import match_best_agent
 genai.configure(api_key=settings.GEMINI_API_KEY)
 logger = logging.getLogger("agent")
 
+
 # 2. Lightweight Guardrail & Tracking Helpers
-async def log_event_async(session_id: str, action_type: str, latency_ms: int = None, agent_type: str = "AI", client_id: int = 1):
+async def log_event_async(session_id: str, action_type: str, latency_ms: int = None, agent_type: str = "AI",
+                          client_id: int = 1):
     """Highly asynchronous background tracking so core response latency remains 0ms."""
     from database import SessionLocal
     # We must use a fresh DB session for the background task
@@ -39,80 +41,84 @@ async def log_event_async(session_id: str, action_type: str, latency_ms: int = N
     finally:
         db.close()
 
+
 def check_topic_drift(query: str) -> bool:
     """Detects if the user has drifted from real estate topics."""
     query_lower = query.lower()
     off_topic = ["weather", "news", "movie", "food", "joke"]
-    re_keywords = ["rent", "buy", "invest", "price", "bhk", "flats", "apartments", "properties", "listings", "available", "options", "villa"]
+    re_keywords = ["rent", "buy", "invest", "price", "bhk", "flats", "apartments", "properties", "listings",
+                   "available", "options", "villa"]
     return any(w in query_lower for w in off_topic) and not any(w in query_lower for w in re_keywords)
+
 
 def is_vague_without_location(query: str, lead) -> bool:
     """Blocks vague queries if no location is specified or remembered."""
     query_lower = query.lower()
     vague_triggers = ["cheap", "affordable", "any available"]
-    
+
     if not any(trigger in query_lower for trigger in vague_triggers):
         return False
-        
+
     pune_areas = ["wakad", "hinjewadi", "baner", "kharadi", "kothrud", "hadapsar", "ravet", "pune"]
     has_loc_now = any(area in query_lower for area in pune_areas)
     has_loc_mem = lead and lead.location and lead.location.lower() != "unknown"
     return not has_loc_now and not has_loc_mem
 
+
 def normalize_lead_data(args: dict, existing_intent: str = None) -> dict:
     """Normalizes fuzzy LLM extractions into clean structured CRM data."""
     import re
-    
+
     # 2. Normalize Intent (do this first to use it for budget formatting)
     intent_val = args.get("intent") or existing_intent or ""
     intent_val = str(intent_val).title()
-    
+
     if "intent" in args and args["intent"]:
         args["intent"] = str(args["intent"]).title()
-        
+
     # 1. Normalize Budget
     if "budget" in args and args["budget"]:
         budget_str = str(args["budget"]).upper().replace(" ", "")
-        
+
         # Strip trailing PERMONTH/PM variants for clean parsing
         budget_str = re.sub(r'(PERMONTH|PM|/MONTH|MONTH|-MONTH)$', '', budget_str)
-        
+
         # Format Lakhs
         if re.search(r'(LAKHS?|L)$', budget_str):
             budget_str = re.sub(r'(LAKHS?|L)$', '', budget_str) + "LAKHS"
-            
+
         # Format Crores
         elif re.search(r'(CRORES?|CR)$', budget_str):
             num = re.sub(r'(CRORES?|CR)$', '', budget_str)
             budget_str = "1CRORE" if num == "1" else num + "CRORES"
-                
+
         # Format Rent
         if intent_val == "Rent":
             budget_str = budget_str + "PERMONTH"
-            
+
         args["budget"] = budget_str
-        
+
     # 3. Normalize Location with Canonical List and Fallbacks
     if "location" in args and args["location"]:
         loc_lower = str(args["location"]).lower()
-        
+
         canonical_locations = [
-            "Wakad", "Hinjewadi", "Baner", "Kharadi", "Kothrud", "Hadapsar", 
-            "Ravet", "Balewadi", "Aundh", "Pashan", "Viman Nagar", "Magarpatta", 
-            "Kondhwa", "Undri", "Mundhwa", "Wakad Road", "Punawale", "Tathawade", 
+            "Wakad", "Hinjewadi", "Baner", "Kharadi", "Kothrud", "Hadapsar",
+            "Ravet", "Balewadi", "Aundh", "Pashan", "Viman Nagar", "Magarpatta",
+            "Kondhwa", "Undri", "Mundhwa", "Wakad Road", "Punawale", "Tathawade",
             "Bavdhan", "Sinhagad Road"
         ]
-        
+
         fallback_mapping = {
             "punawale": "Wakad or Ravet",
             "tathawade": "Wakad",
             "pashan": "Baner or Bavdhan",
             "mundhwa": "Kharadi or Magarpatta"
         }
-        
+
         # Check for direct or fuzzy match in canonical list
         canonical_match = next((area for area in canonical_locations if area.lower() in loc_lower), None)
-        
+
         if canonical_match:
             args["location"] = canonical_match
         else:
@@ -126,17 +132,18 @@ def normalize_lead_data(args: dict, existing_intent: str = None) -> dict:
 
     return args
 
+
 # 4. Structured Tool Calling Definition
 def extract_lead_info(
-    name: str = None,
-    phone: str = None,
-    budget: str = None,
-    location: str = None,
-    property_type: str = None,
-    intent: str = None,
-    score: str = None,
-    visit_date: str = None,
-    conversational_reply: str = None
+        name: str = None,
+        phone: str = None,
+        budget: str = None,
+        location: str = None,
+        property_type: str = None,
+        intent: str = None,
+        score: str = None,
+        visit_date: str = None,
+        conversational_reply: str = None
 ):
     """
     Saves the lead's property search details to the CRM database.
@@ -169,7 +176,7 @@ def extract_lead_info(
         score: Your internal lead scoring evaluation (High, Medium, Low).
         visit_date: The user's requested visit date/time (e.g., 'Tuesday 2pm', 'Saturday morning').
         conversational_reply: Your natural, conversational response to the user's message. MUST NOT BE EMPTY.
-    
+
     INTENT-BASED BEHAVIOR:
     - HIGH: Be proactive. Offer a specific next step like shortlisting or a site visit.
     - MEDIUM: Provide data/description only. Do NOT ask follow-up questions or offer next steps. Answer and STOP.
@@ -185,6 +192,7 @@ def extract_lead_info(
     """
     pass  # Schema definition only. Execution is handled in process_chat.
 
+
 # Initialize the generative model with the AI's system instruction and the extraction tool
 model = genai.GenerativeModel(
     model_name=settings.GEMINI_MODEL,
@@ -192,56 +200,70 @@ model = genai.GenerativeModel(
     tools=[extract_lead_info]
 )
 
+
 # 3. Stateful Memory Function
-async def process_chat(session_id: str, user_message: str, db: DBSession, client_id: int = 1, is_background: bool = False) -> str:
+async def process_chat(session_id: str, user_message: str, db: DBSession, client_id: int = 1,
+                       is_background: bool = False) -> str:
     """
-    Main orchestrator for user input. Fetches memory, injects context to the LLM, 
+    Main orchestrator for user input. Fetches memory, injects context to the LLM,
     extracts function calls for lead generation, and commits all data to DB.
     """
     start_time = time.time()
-    
+
     # Ensure session and lead exist in the database exactly once to prevent redundant queries
     session = db.query(Session).filter(Session.id == session_id).first()
     if not session:
         session = Session(id=session_id, client_id=client_id)
         db.add(session)
-        
+
     lead = db.query(Lead).filter(Lead.session_id == session_id).first()
     if not lead:
         lead = Lead(session_id=session_id, client_id=client_id)
         db.add(lead)
-        # Track lead creation event asynchronously
         asyncio.create_task(log_event_async(session_id, "lead_created", client_id=client_id))
-        
+
+    # Always auto-populate phone from WhatsApp session_id — unconditional so phone is
+    # set even if Gemini never calls extract_lead_info (e.g. visit-date-first messages).
+    if session_id.startswith("+") and not lead.phone:
+        lead.phone = session_id
+
     db.commit()
-    
+
     from models import FollowUpState
     f_state = db.query(FollowUpState).filter(FollowUpState.session_id == session_id).first()
     if not f_state:
         f_state = FollowUpState(session_id=session_id, client_id=client_id)
         db.add(f_state)
-    
+
     f_state.last_user_reply_timestamp = datetime.now(timezone.utc)
-    
+
     # If the user replies while follow-up is active (e.g. Day 1, Day 3), log it and stop follow-ups
     if f_state.follow_up_status == "active" and f_state.follow_up_stage != "Day 0":
         asyncio.create_task(log_event_async(session_id, "follow_up_replied", client_id=client_id))
-        
-    f_state.follow_up_status = "stopped"  # User replied, so we stop active automated follow-ups for now.
-    
+
+    # If the lead already has a visit date booked, mark follow-up as completed (not just stopped).
+    # "stopped" = paused mid-sequence by user reply; "completed" = goal achieved, no further action needed.
+    if lead and lead.visit_date:
+        f_state.follow_up_status = "completed"
+        f_state.next_follow_up_at = None
+    else:
+        f_state.follow_up_status = "stopped"  # User replied, so we stop active automated follow-ups for now.
+
     # User replied — reset old follow-up state (for backwards compatibility temporarily)
     session.follow_up_count = 0
     session.last_activity_at = datetime.now(timezone.utc)
     db.commit()
-    
+
     # Detect if user is naturally closing the conversation
     msg_lower = user_message.lower().strip()
     # Remove punctuation
     msg_clean = msg_lower.translate(str.maketrans('', '', string.punctuation))
-    closing_phrases = ["thanks", "thank you", "bye", "goodbye", "ok thanks", "perfect thanks", "done", "great thanks", "thanks a lot", "stop"]
-    
+    closing_phrases = ["thanks", "thank you", "bye", "goodbye", "ok thanks", "perfect thanks", "done", "great thanks",
+                       "thanks a lot", "stop"]
+
     logger.info(f"DEBUG_MSG_CLEAN: '{msg_clean}' (original: '{user_message}')")
-    if any(msg_clean == p for p in closing_phrases) or msg_clean.startswith("stop") or msg_clean.endswith(" bye") or msg_clean.endswith(" thanks"):
+    if any(msg_clean == p for p in closing_phrases) or msg_clean.startswith("stop") or msg_clean.endswith(
+            " bye") or msg_clean.endswith(" thanks"):
         session.status = "closed"
         logger.info(f"Session {session_id} marked as CLOSED (user concluded conversation).")
     else:
@@ -263,7 +285,7 @@ async def process_chat(session_id: str, user_message: str, db: DBSession, client
         "thanks": "You're welcome! Feel free to ask if you need anything else.",
         "thank you": "You're welcome! Feel free to ask if you need anything else."
     }
-    
+
     if msg_clean in INSTANT_REPLIES:
         local_reply = INSTANT_REPLIES[msg_clean]
         db.add(Message(session_id=session_id, client_id=client_id, role="assistant", content=local_reply))
@@ -271,8 +293,9 @@ async def process_chat(session_id: str, user_message: str, db: DBSession, client
 
         # Log the response speed for the ROI dashboard
         total_latency_ms = round((time.time() - start_time) * 1000)
-        asyncio.create_task(log_event_async(session_id, "message_sent", latency_ms=total_latency_ms, agent_type="AI", client_id=client_id))
-        
+        asyncio.create_task(log_event_async(session_id, "message_sent", latency_ms=total_latency_ms, agent_type="AI",
+                                            client_id=client_id))
+
         logger.info(f"INSTANT_INTERCEPT | session={session_id} | bypassed LLM")
         return local_reply
 
@@ -299,8 +322,29 @@ async def process_chat(session_id: str, user_message: str, db: DBSession, client
         "resale flat", "resale property",
         "furnished", "semi-furnished",
     ]
+    # Skip intent intercept if the message also contains personal data
+    # (name, budget, phone) — those need Gemini to extract and save properly.
+    # Also skip if the message contains location or property type — those are
+    # meaningful DB fields that the intercept template never captures.
+    PUNE_AREAS = ["wakad", "hinjewadi", "baner", "kharadi", "kothrud", "hadapsar",
+                  "ravet", "balewadi", "aundh", "pashan", "viman nagar", "magarpatta",
+                  "kondhwa", "undri", "mundhwa", "punawale", "tathawade", "bavdhan",
+                  "sinhagad road", "pune"]
+    HAS_PERSONAL_DATA = any([
+        "my name is" in msg_clean,
+        "i am " in msg_clean and len(msg_clean.split()) <= 8,
+        "budget is" in msg_clean,
+        "budget" in msg_clean and any(c.isdigit() for c in msg_clean),
+        "lakhs" in msg_clean or "crore" in msg_clean or "lakh" in msg_clean,
+        "per month" in msg_clean,
+        any(area in msg_clean for area in PUNE_AREAS),        # has location — send to Gemini
+        "2bhk" in msg_clean or "3bhk" in msg_clean or "1bhk" in msg_clean or "4bhk" in msg_clean,
+        "2 bhk" in msg_clean or "3 bhk" in msg_clean or "1 bhk" in msg_clean,
+        "villa" in msg_clean or "plot" in msg_clean,
+    ])
+
     for opener in PROPERTY_INTENT_OPENERS:
-        if opener in msg_clean:
+        if opener in msg_clean and not HAS_PERSONAL_DATA:
             loc_hint = lead.location or ""
             pt_hint = lead.property_type or ""
             msg_l2 = msg_clean
@@ -319,11 +363,13 @@ async def process_chat(session_id: str, user_message: str, db: DBSession, client
                 local_reply = f"Looking for a {pt_hint} — great! Which area in Pune interests you most?"
             else:
                 local_reply = "Great! To find the best match, could you tell me which area in Pune you're interested in, and your approximate budget?"
-            
+
             db.add(Message(session_id=session_id, client_id=client_id, role="assistant", content=local_reply))
             db.commit()
             total_latency_ms = round((time.time() - start_time) * 1000)
-            asyncio.create_task(log_event_async(session_id, "message_sent", latency_ms=total_latency_ms, agent_type="AI", client_id=client_id))
+            asyncio.create_task(
+                log_event_async(session_id, "message_sent", latency_ms=total_latency_ms, agent_type="AI",
+                                client_id=client_id))
             logger.info(f"INTENT_INTERCEPT | session={session_id} | bypassed LLM")
             return local_reply
 
@@ -331,12 +377,12 @@ async def process_chat(session_id: str, user_message: str, db: DBSession, client
     # AI Lightweight Guardrail Intercepts
     # -----------------------------------
     guardrail_reply = None
-    
+
     if check_topic_drift(user_message):
         guardrail_reply = "I specialize in Pune real estate. Shall we get back to your property search?"
     elif is_vague_without_location(user_message, lead):
         guardrail_reply = "I'd be happy to help! Which specific area in Pune are you looking into? (e.g., Wakad, Kharadi, Baner)"
-        
+
     if guardrail_reply:
         db.add(Message(session_id=session_id, client_id=client_id, role="assistant", content=guardrail_reply))
         db.commit()
@@ -346,7 +392,8 @@ async def process_chat(session_id: str, user_message: str, db: DBSession, client
     # LIMIT CONTEXT: last 6 turns (12 messages) — keeps enough history for the full
     # conversation to remain coherent. CRM fields are always protected by the DB summary
     # so they are never lost even if the extraction turn scrolls out of the window.
-    past_messages = db.query(Message).filter(Message.session_id == session_id).order_by(Message.id.desc()).limit(12).all()
+    past_messages = db.query(Message).filter(Message.session_id == session_id).order_by(Message.id.desc()).limit(
+        12).all()
     past_messages.reverse()
 
     formatted_history = []
@@ -391,7 +438,8 @@ async def process_chat(session_id: str, user_message: str, db: DBSession, client
     # If so, forcefully instruct the LLM not to ask again to prevent an endless loop.
     if not lead.name:
         for m in past_messages[:-1]:
-            if m.role == "assistant" and any(ph in m.content.lower() for ph in ["name", "speaking with", "who is this", "know you as"]):
+            if m.role == "assistant" and any(
+                    ph in m.content.lower() for ph in ["name", "speaking with", "who is this", "know you as"]):
                 summary_text += "SYSTEM NOTE: You have already asked for their name in a previous message. DO NOT ask for their name again. Focus ONLY on their property requirements.\n"
                 break
 
@@ -429,13 +477,15 @@ async def process_chat(session_id: str, user_message: str, db: DBSession, client
                     det = item.get('details', '')
                     if isinstance(det, dict):
                         det = ', '.join(f"{k}: {v}" for k, v in det.items())
-                    raw = f"{item['location']} ({item.get('type','')}) — {det}. {item.get('description','')}"
+                    raw = f"{item['location']} ({item.get('type', '')}) — {det}. {item.get('description', '')}"
                     return raw[:280]
+
                 context_text = "\n".join(_fmt_item(i) for i in context_items)
                 user_message_for_llm = f"Summary: {summary_text}\nProperty Context:\n{context_text}\n\nUser Message: {user_message}"
         except Exception as e:
             rag_time = round((time.time() - rag_start) * 1000)
-            logger.error(json.dumps({"event": "rag_retrieval", "latency_ms": rag_time, "success": False, "error": type(e).__name__}))
+            logger.error(json.dumps(
+                {"event": "rag_retrieval", "latency_ms": rag_time, "success": False, "error": type(e).__name__}))
     else:
         logger.info(f"RAG skipped (non-property query) for session={session_id}")
 
@@ -446,7 +496,10 @@ async def process_chat(session_id: str, user_message: str, db: DBSession, client
     # If the user's name is unknown and they give a short response, dynamically extract it.
     # Wrapped in a 2-second timeout to guarantee it NEVER causes latency spikes.
     name_extraction_task = None
-    if not lead.name and len(user_message.split()) <= 6 and not is_property_query:
+    # Expanded: fire on any message up to 12 words when name is unknown.
+    # Property query restriction removed — name must be captured even if the message
+    # also mentions a location or BHK type (those are handled by extract_lead_info).
+    if not lead.name and len(user_message.split()) <= 12:
         name_model = genai.GenerativeModel(model_name=settings.GEMINI_MODEL)
         name_extraction_task = asyncio.create_task(
             asyncio.wait_for(
@@ -474,11 +527,11 @@ async def process_chat(session_id: str, user_message: str, db: DBSession, client
                 )
                 response = results[0]
                 name_resp = results[1]
-                
+
                 # If the main chat failed, manually raise so the retry loop catches it
                 if isinstance(response, Exception):
                     raise response
-                    
+
                 if not isinstance(name_resp, Exception):
                     try:
                         extracted_name = name_resp.text.strip()
@@ -490,18 +543,42 @@ async def process_chat(session_id: str, user_message: str, db: DBSession, client
                         logger.warning(f"Fast name extraction text parsing failed: {e}")
             else:
                 response = await asyncio.wait_for(chat.send_message_async(user_message_for_llm), timeout=6.0)
-                
+
             llm_time = round((time.time() - llm_start) * 1000)
-            logger.info(json.dumps({"event": "llm_main_call", "latency_ms": llm_time, "attempt": attempt + 1, "success": True}))
+            logger.info(
+                json.dumps({"event": "llm_main_call", "latency_ms": llm_time, "attempt": attempt + 1, "success": True}))
+
+            # Token usage + cost tracking for gemini-3.1-flash-lite
+            # Pricing (paid tier, standard): $0.25/1M input tokens, $1.50/1M output tokens
+            try:
+                usage = response.usage_metadata
+                input_tokens = usage.prompt_token_count or 0
+                output_tokens = usage.candidates_token_count or 0
+                cost_usd = (input_tokens / 1_000_000 * 0.25) + (output_tokens / 1_000_000 * 1.50)
+                logger.info(json.dumps({
+                    "event": "llm_token_usage",
+                    "model": settings.GEMINI_MODEL,
+                    "input_tokens": input_tokens,
+                    "output_tokens": output_tokens,
+                    "total_tokens": input_tokens + output_tokens,
+                    "estimated_cost_usd": round(cost_usd, 6),
+                    "session_id": session_id
+                }))
+            except Exception:
+                pass  # Never let cost logging crash the main flow
+
             break  # Success — exit retry loop
         except Exception as e:
             llm_time = round((time.time() - llm_start) * 1000)
-            logger.warning(json.dumps({"event": "llm_main_call", "latency_ms": llm_time, "attempt": attempt + 1, "success": False, "error": type(e).__name__, "detail": str(e)[:200]}))
+            logger.warning(json.dumps(
+                {"event": "llm_main_call", "latency_ms": llm_time, "attempt": attempt + 1, "success": False,
+                 "error": type(e).__name__, "detail": str(e)[:200]}))
             if attempt < max_retries - 1:
                 wait_time = 0.5 * (2 ** attempt)  # Exponential backoff
                 await asyncio.sleep(wait_time)
             else:
-                logger.error(json.dumps({"event": "llm_main_fatal", "error": type(e).__name__, "detail": str(e)[:200], "session": session_id}))
+                logger.error(json.dumps({"event": "llm_main_fatal", "error": type(e).__name__, "detail": str(e)[:200],
+                                         "session": session_id}))
                 # Proper closure — no false promise, offer human support immediately
                 fallback = (
                     "I'm currently experiencing a technical issue and couldn't process your request. "
@@ -523,7 +600,7 @@ async def process_chat(session_id: str, user_message: str, db: DBSession, client
                 if fc and fc.name == "extract_lead_info":
                     # Extract and normalize arguments payload securely
                     args = normalize_lead_data(dict(fc.args), existing_intent=lead.intent)
-                    
+
                     # Snapshot which fields are GENUINELY NEW in this turn vs already known.
                     # This prevents re-extracted old data from triggering the same template repeatedly.
                     prev_budget = lead.budget
@@ -532,14 +609,12 @@ async def process_chat(session_id: str, user_message: str, db: DBSession, client
                     prev_name = lead.name
                     prev_visit_date = lead.visit_date
                     prev_property_type = lead.property_type
-                    
+
                     # Update Lead table fields dynamically (using the in-memory lead object)
                     if "name" in args: lead.name = args["name"]
-                    
-                    # Automatically capture WhatsApp number from session context
-                    if session_id.startswith("+") and not lead.phone:
-                        lead.phone = session_id
-                    elif "phone" in args: 
+
+                    # Phone from args (explicit user input) — session_id auto-set happens above
+                    if "phone" in args:
                         lead.phone = args["phone"]
                     if "budget" in args: lead.budget = args["budget"]
                     if "location" in args: lead.location = args["location"]
@@ -557,12 +632,13 @@ async def process_chat(session_id: str, user_message: str, db: DBSession, client
                     if "intent" in args and args["intent"] != prev_intent: new_fields.add("intent")
                     if "name" in args and args["name"] != prev_name: new_fields.add("name")
                     if "visit_date" in args and args["visit_date"] != prev_visit_date: new_fields.add("visit_date")
-                    if "property_type" in args and args["property_type"] != prev_property_type: new_fields.add("property_type")
+                    if "property_type" in args and args["property_type"] != prev_property_type: new_fields.add(
+                        "property_type")
 
                     # Fire highly-asynchronous funnel events based on new data
                     if any(k in new_fields for k in ["budget", "location", "intent", "property_type"]):
                         asyncio.create_task(log_event_async(session_id, "qualified", client_id=client_id))
-                        
+
                     if "visit_date" in new_fields:
                         asyncio.create_task(log_event_async(session_id, "appointment_booked", client_id=client_id))
 
@@ -575,7 +651,9 @@ async def process_chat(session_id: str, user_message: str, db: DBSession, client
                                 break
 
                     visit_concluded = bool(lead and lead.visit_date and lead.phone)
-                    captured_fields = [k for k in ["name", "phone", "budget", "location", "property_type", "intent", "visit_date"] if k in args]
+                    captured_fields = [k for k in
+                                       ["name", "phone", "budget", "location", "property_type", "intent", "visit_date"]
+                                       if k in args]
 
                     if visit_concluded and "visit_date" in new_fields:
                         # TEMPLATE 1: Visit fully booked — guaranteed exact wording, zero-latency
@@ -616,10 +694,12 @@ async def process_chat(session_id: str, user_message: str, db: DBSession, client
 
                     db.add(Message(session_id=session_id, client_id=client_id, role="assistant", content=local_reply))
                     db.commit()
-                    logger.info(f"LEAD_EXTRACT | session={session_id} | fields={captured_fields} | new_fields={list(new_fields)} | has_gemini_text={text_from_response is not None} | concluded={visit_concluded}")
-                    
+                    logger.info(
+                        f"LEAD_EXTRACT | session={session_id} | fields={captured_fields} | new_fields={list(new_fields)} | has_gemini_text={text_from_response is not None} | concluded={visit_concluded}")
+
                     final_text = local_reply
                     extracted_early = True
+                    message_saved = True
                     break
 
     # Safely get the final text (handling cases where only a tool call was returned)
@@ -651,7 +731,7 @@ async def process_chat(session_id: str, user_message: str, db: DBSession, client
     # NEW ML INTELLIGENCE LAYER
     # ==========================================
     history_text = " ".join([m.content for m in past_messages if m.role == "user"]).lower() + " " + user_message.lower()
-    
+
     memory_dicts = []
     for m in past_messages:
         memory_dicts.append({
@@ -659,14 +739,14 @@ async def process_chat(session_id: str, user_message: str, db: DBSession, client
             "content": m.content,
             "timestamp": m.timestamp.isoformat() if hasattr(m, "timestamp") and m.timestamp else None
         })
-        
+
     # 1. Calculate advanced lead score
     ml_score_data = calculate_lead_score(
         query=user_message,
         memory=memory_dicts,
         intent=lead.intent or "low"
     )
-    
+
     lead.conversion_probability = ml_score_data.get("conversion_probability", 0)
     lead.lead_temperature = ml_score_data.get("lead_temperature", "cold")
     lead.expected_closure_days = ml_score_data.get("expected_closure_days", 60)
@@ -675,9 +755,33 @@ async def process_chat(session_id: str, user_message: str, db: DBSession, client
     lead.response_speed_score = ml_score_data.get("response_speed_score", 0)
     lead.inactivity_penalty = ml_score_data.get("inactivity_penalty", 0)
     lead.budget_alignment_status = ml_score_data.get("budget_alignment_status", "unknown")
-    
+
     # Optional: Map the raw integer score back to High/Medium/Low string if needed for frontend backward compatibility
     prob = ml_score_data.get("conversion_probability", 0)
+
+    # DB-aware score override: ML scoring only sees the current message text,
+    # so it misses signals already committed to the lead row. Apply overrides here.
+    fully_qualified = all([lead.visit_date, lead.phone, lead.location, lead.budget])
+    has_visit = bool(lead.visit_date)
+    has_core = all([lead.location, lead.budget, lead.property_type, lead.intent])
+
+    if fully_qualified:
+        # Complete lead with booked visit — always High/hot
+        prob = max(prob, 88)
+        lead.lead_temperature = "hot"
+        lead.expected_closure_days = min(lead.expected_closure_days, 7)
+    elif has_visit:
+        # Visit date set but missing some fields — still strong
+        prob = max(prob, 82)
+        lead.lead_temperature = "hot"
+    elif has_core:
+        # All core fields captured, no visit yet — Warm
+        prob = max(prob, 62)
+        if lead.lead_temperature == "cold":
+            lead.lead_temperature = "warm"
+
+    lead.conversion_probability = prob
+
     if prob >= 82:
         lead.score = "High"
     elif prob >= 55:
@@ -690,7 +794,7 @@ async def process_chat(session_id: str, user_message: str, db: DBSession, client
         location=lead.location,
         query=history_text
     )
-    
+
     if agent_data.get("assigned_agent"):
         lead.assigned_agent = agent_data["assigned_agent"]
 
@@ -700,14 +804,16 @@ async def process_chat(session_id: str, user_message: str, db: DBSession, client
         # We rely on the LLM to naturally propose a visit if the context feels right.
         pass
 
-    # Save Gemini's textual response to the Message table
-    db.add(Message(session_id=session_id, client_id=client_id, role="assistant", content=final_text))
-    db.commit()
-    
+    # Save Gemini's textual response to the Message table (skip if already saved inside tool call block)
+    if not locals().get('message_saved', False):
+        db.add(Message(session_id=session_id, client_id=client_id, role="assistant", content=final_text))
+        db.commit()
+
     # Log the response speed for the ROI dashboard
     total_latency_ms = round((time.time() - start_time) * 1000)
-    asyncio.create_task(log_event_async(session_id, "message_sent", latency_ms=total_latency_ms, agent_type="AI", client_id=client_id))
-    
+    asyncio.create_task(
+        log_event_async(session_id, "message_sent", latency_ms=total_latency_ms, agent_type="AI", client_id=client_id))
+
     # Re-arm Day 0 follow-up scheduler
     if f_state:
         from datetime import timedelta
@@ -715,7 +821,9 @@ async def process_chat(session_id: str, user_message: str, db: DBSession, client
         if session.status != "closed" and not lead.visit_date:
             f_state.follow_up_stage = "Day 0"
             f_state.follow_up_status = "active"
-            f_state.next_follow_up_at = datetime.now(timezone.utc) + timedelta(minutes=30)
+            # TEST MODE: compress Day 0 to 1 minute. Production: 30 minutes.
+            day0_delay = timedelta(minutes=1) if settings.FOLLOW_UP_TEST_MODE else timedelta(minutes=30)
+            f_state.next_follow_up_at = datetime.now(timezone.utc) + day0_delay
         db.commit()
 
     # Return the text response isolated from tool calls

@@ -4,6 +4,7 @@ Backend state machine executing scheduled follow-ups based on FollowUpState trac
 Now integrated with Anohita's ML Intelligence Layer.
 """
 import logging
+import time
 from datetime import datetime, timezone, timedelta
 from twilio.rest import Client
 from tenacity import retry, stop_after_attempt, wait_exponential
@@ -14,7 +15,7 @@ from models import Session, Message, Lead, FollowUpState, EventLog, DLQEvent
 
 from app.intelligence.followup_engine import generate_followup_sequence
 from app.intelligence.push_wait_engine import decide_push_vs_wait
-from metrics import BACKGROUND_FAILURE_COUNT
+from metrics import BACKGROUND_FAILURE_COUNT, SCHEDULER_JOB_DURATION, SCHEDULER_JOB_FAILURES
 
 logger = logging.getLogger("follow_up")
 logging.basicConfig(level=logging.INFO)
@@ -300,175 +301,230 @@ def check_and_send_followups():
     Scans the FollowUpState table for triggered follow-up windows.
     Integrates ML dynamically via the generate_followup_payload hook.
     """
+    _JOB = "check_and_send_followups"
     db = SessionLocal()
     try:
-        now = datetime.now(timezone.utc)
-        
-        # 1. Fetch all active states where next_follow_up_at <= now
-        triggered_states = db.query(FollowUpState).filter(
-            FollowUpState.follow_up_status == "active",
-            FollowUpState.next_follow_up_at <= now
-        ).all()
-        
-        logger.info(f"SCHEDULER_HEARTBEAT | Triggers found: {len(triggered_states)}")
-        
-        for state in triggered_states:
-            session_id = state.session_id
-            
-            # Double check the session/lead to make sure it shouldn't be stopped
-            session = db.query(Session).filter(Session.id == session_id).first()
-            lead = db.query(Lead).filter(Lead.session_id == session_id).first()
-            
-            if not session:
-                continue
+        with SCHEDULER_JOB_DURATION.labels(job_name=_JOB).time():
+            now = datetime.now(timezone.utc)
 
-            if session.status == "closed" or (lead and lead.visit_date):
-                state.follow_up_status = "stopped"
-                db.commit()
-                continue
-                
-            # Maps current stage string to hour integer for the ML engine
-            current_stage = state.follow_up_stage
-            hour_map = {"Day 0": 0, "Day 1": 24, "Day 3": 72, "Day 7": 168}
-            current_day = hour_map.get(current_stage, 0)
-            
-            # Calculate inactivity boolean (> 7 days)
-            inactivity = False
-            if state.last_user_reply_timestamp:
-                # Ensure offset-aware timestamp arithmetic
-                if state.last_user_reply_timestamp.tzinfo is None:
-                    user_tz_aware = state.last_user_reply_timestamp.replace(tzinfo=timezone.utc)
-                else:
-                    user_tz_aware = state.last_user_reply_timestamp
-                
-                delta = now - user_tz_aware
-                if delta.days > 7:
-                    inactivity = True
-            
-            # Parameter Mapping
-            lead_data = {}
-            assigned_agent = None
-            if lead:
-                lead_data = {
-                    "name": lead.name,
-                    "location": lead.location,
-                    "budget": lead.budget,
-                    "property_type": lead.property_type,
-                    "conversion_probability": getattr(lead, "conversion_probability", 0) or 0,
-                    "urgency_level": getattr(lead, "urgency_level", "low") or "low",
-                    "engagement_score": getattr(lead, "engagement_score", 0) or 0,
-                    "expected_closure_days": getattr(lead, "expected_closure_days", 0),
-                    "budget_alignment_status": "aligned",
-                    "response_speed_score": 50, # Default or mocked 
-                    "inactive_lead": inactivity
-                }
-                assigned_agent = {"assigned_agent": getattr(lead, "assigned_agent", "ABC Properties Team") or "ABC Properties Team"}
-            
-            try:
-                # ML Engine Call
-                generated_payload = generate_followup_payload(
-                    lead_data=lead_data,
-                    assigned_agent=assigned_agent,
-                    session_id=session_id,
-                    current_day=current_day,
-                    inactivity=inactivity
-                )
-                
-                payload_msg = generated_payload.get("message")
-                if not payload_msg:
-                    raise ValueError("ML Engine returned an empty message payload.")
-                
-                # Dispatch
-                success = False
-                if session_id.startswith("+") and settings.TWILIO_ACCOUNT_SID:
-                    try:
-                        client = Client(settings.TWILIO_ACCOUNT_SID, settings.TWILIO_AUTH_TOKEN)
-                        to_number = f"whatsapp:{session_id}" if lead and lead.source == "whatsapp" else session_id
-                        
-                        @retry(stop=stop_after_attempt(5), wait=wait_exponential(multiplier=1, min=2, max=30), reraise=True)
-                        def _send_twilio_msg():
-                            client.messages.create(
-                                from_=settings.TWILIO_PHONE_NUMBER,
-                                body=payload_msg,
-                                to=to_number
-                            )
-                        
-                        _send_twilio_msg()
-                        
-                        success = True
-                        logger.info(f"Follow-up {current_stage} sent to {session_id} via {'WhatsApp' if lead and lead.source == 'whatsapp' else 'SMS'}")
-                    except Exception as ex:
-                        logger.error(f"Follow-up Twilio push failed for {session_id}: {ex}")
-                        raise ex
-                else:
-                    success = True
-                    logger.info(f"Simulated follow-up {current_stage} sent to {session_id}")
-                
-                if success:
-                    state.follow_up_sent_at = now
-                    state.last_ai_reply_timestamp = now
-                    
-                    # Create EventLog
-                    event = EventLog(
-                        session_id=session_id,
-                        client_id=state.client_id,
-                        event_type="tracking",
-                        action_type="follow_up_sent"
-                    )
-                    db.add(event)
-                    
-                    # Save as AI Message
-                    db.add(Message(
-                        session_id=session_id,
-                        client_id=state.client_id,
-                        role="assistant",
-                        content=f"[AUTO {current_stage.upper()}] {payload_msg}"
-                    ))
-                    
-                    # Transition State Machine
-                    followups = generated_payload.get("followups", [])
-                    if current_stage == "Day 0" and len(followups) > 1:
-                        state.follow_up_stage = "Day 1"
-                        delay_hours = followups[1].get("day", 24) - followups[0].get("day", 0)
-                        state.next_follow_up_at = now + timedelta(hours=delay_hours)
-                    elif current_stage == "Day 1" and len(followups) > 2:
-                        state.follow_up_stage = "Day 3"
-                        delay_hours = followups[2].get("day", 72) - followups[1].get("day", 24)
-                        state.next_follow_up_at = now + timedelta(hours=delay_hours)
-                    elif current_stage == "Day 3" and len(followups) > 3:
-                        state.follow_up_stage = "Day 7"
-                        delay_hours = followups[3].get("day", 168) - followups[2].get("day", 72)
-                        state.next_follow_up_at = now + timedelta(hours=delay_hours)
-                    elif current_stage == "Day 7" or len(followups) <= 1:
+            # 1. Fetch all active states where next_follow_up_at <= now
+            triggered_states = db.query(FollowUpState).filter(
+                FollowUpState.follow_up_status == "active",
+                FollowUpState.next_follow_up_at <= now
+            ).all()
+
+            logger.info(f"SCHEDULER_HEARTBEAT | Triggers found: {len(triggered_states)}")
+
+            for state in triggered_states:
+                session_id = state.session_id
+
+                # Double check the session/lead to make sure it shouldn't be stopped
+                session = db.query(Session).filter(Session.id == session_id).first()
+                lead = db.query(Lead).filter(Lead.session_id == session_id).first()
+
+                if not session:
+                    continue
+
+                if session.status == "closed" or (lead and lead.visit_date):
+                    state.follow_up_status = "stopped"
+                    db.commit()
+                    continue
+
+                # Maps current stage string to hour integer for the ML engine
+                current_stage = state.follow_up_stage
+                hour_map = {"Day 0": 0, "Day 1": 24, "Day 3": 72, "Day 7": 168}
+                current_day = hour_map.get(current_stage, 0)
+
+                # Calculate inactivity boolean
+                # TEST MODE: inactivity triggers after 60 seconds instead of 7 days.
+                # Production: delta.days > 7
+                inactivity = False
+                if state.last_user_reply_timestamp:
+                    # Ensure offset-aware timestamp arithmetic
+                    if state.last_user_reply_timestamp.tzinfo is None:
+                        user_tz_aware = state.last_user_reply_timestamp.replace(tzinfo=timezone.utc)
+                    else:
+                        user_tz_aware = state.last_user_reply_timestamp
+
+                    delta = now - user_tz_aware
+                    if settings.FOLLOW_UP_TEST_MODE:
+                        inactivity = delta.total_seconds() > 60  # 1 minute in test mode
+                    else:
+                        inactivity = delta.days > 7
+                logger.info(f"INACTIVITY_FLAG={inactivity} | session={session_id} | test_mode={settings.FOLLOW_UP_TEST_MODE}")
+                if inactivity and state:
+                    state.inactivity_score = (state.inactivity_score or 0) + 1
+                    logger.info(f"INACTIVITY_SCORE incremented to {state.inactivity_score} | session={session_id}")
+
+                # Parameter Mapping
+                lead_data = {}
+                assigned_agent = None
+                if lead:
+                    lead_data = {
+                        "name": lead.name,
+                        "location": lead.location,
+                        "budget": lead.budget,
+                        "property_type": lead.property_type,
+                        "conversion_probability": getattr(lead, "conversion_probability", 0) or 0,
+                        "urgency_level": getattr(lead, "urgency_level", "low") or "low",
+                        "engagement_score": getattr(lead, "engagement_score", 0) or 0,
+                        "expected_closure_days": getattr(lead, "expected_closure_days", 0),
+                        "budget_alignment_status": "aligned",
+                        "response_speed_score": 50, # Default or mocked
+                        "inactive_lead": inactivity
+                    }
+                    assigned_agent = {"assigned_agent": getattr(lead, "assigned_agent", "ABC Properties Team") or "ABC Properties Team"}
+
+                try:
+                    # DLQ TEST HOOK: set FOLLOW_UP_DLQ_TEST=true in .env (alongside TEST_MODE)
+                    # to force a DLQ entry. Check dlq_events table, then remove it from .env.
+                    if settings.FOLLOW_UP_TEST_MODE and settings.FOLLOW_UP_DLQ_TEST:
+                        raise Exception("QA_DLQ_TEST — intentional failure to verify DLQ pipeline")
+
+                    # Day 7 is the final stage — send a closure notice, not another follow-up.
+                    # Skip the ML engine entirely and close the session cleanly.
+                    if current_stage == "Day 7":
+                        closure_msg = (
+                            f"Hi {lead.name or 'there'}, we haven't heard back from you in a while. "
+                            f"We'll pause our updates for now. Feel free to reach out anytime — "
+                            f"we're happy to help with your property search. Take care! 🏡"
+                        )
+                        if session_id.startswith("+") and settings.TWILIO_ACCOUNT_SID:
+                            try:
+                                client = Client(settings.TWILIO_ACCOUNT_SID, settings.TWILIO_AUTH_TOKEN)
+                                to_number = f"whatsapp:{session_id}" if lead and lead.source == "whatsapp" else session_id
+                                client.messages.create(
+                                    from_=settings.TWILIO_PHONE_NUMBER,
+                                    body=closure_msg,
+                                    to=to_number
+                                )
+                            except Exception as ex:
+                                logger.error(f"Closure message failed for {session_id}: {ex}")
                         state.follow_up_status = "completed"
                         state.next_follow_up_at = None
                         session.status = "closed"
+                        db.add(Message(session_id=session_id, client_id=state.client_id, role="assistant", content=f"[AUTO DAY7 CLOSURE] {closure_msg}"))
+                        db.add(Message(session_id=session_id, client_id=state.client_id, role="assistant", content="[SESSION CLOSED DUE TO INACTIVITY]"))
+                        db.commit()
+                        continue
+
+                    # ML Engine Call
+                    generated_payload = generate_followup_payload(
+                        lead_data=lead_data,
+                        assigned_agent=assigned_agent,
+                        session_id=session_id,
+                        current_day=current_day,
+                        inactivity=inactivity
+                    )
+
+                    payload_msg = generated_payload.get("message")
+                    if not payload_msg:
+                        raise ValueError("ML Engine returned an empty message payload.")
+
+                    # Dispatch
+                    success = False
+                    followup_latency_ms = None
+                    if session_id.startswith("+") and settings.TWILIO_ACCOUNT_SID:
+                        try:
+                            client = Client(settings.TWILIO_ACCOUNT_SID, settings.TWILIO_AUTH_TOKEN)
+                            to_number = f"whatsapp:{session_id}" if lead and lead.source == "whatsapp" else session_id
+
+                            @retry(stop=stop_after_attempt(5), wait=wait_exponential(multiplier=1, min=2, max=30), reraise=True)
+                            def _send_twilio_msg():
+                                client.messages.create(
+                                    from_=settings.TWILIO_PHONE_NUMBER,
+                                    body=payload_msg,
+                                    to=to_number
+                                )
+
+                            _twilio_start = time.time()
+                            _send_twilio_msg()
+                            followup_latency_ms = round((time.time() - _twilio_start) * 1000)
+
+                            success = True
+                            logger.info(f"Follow-up {current_stage} sent to {session_id} via {'WhatsApp' if lead and lead.source == 'whatsapp' else 'SMS'} | latency={followup_latency_ms}ms")
+                        except Exception as ex:
+                            logger.error(f"Follow-up Twilio push failed for {session_id}: {ex}")
+                            raise ex
+                    else:
+                        success = True
+                        logger.info(f"Simulated follow-up {current_stage} sent to {session_id}")
+
+                    if success:
+                        state.follow_up_sent_at = now
+                        state.last_ai_reply_timestamp = now
+
+                        # Create EventLog with latency
+                        event = EventLog(
+                            session_id=session_id,
+                            client_id=state.client_id,
+                            event_type="tracking",
+                            action_type="follow_up_sent",
+                            latency_ms=followup_latency_ms
+                        )
+                        db.add(event)
+
+                        # Save as AI Message
                         db.add(Message(
                             session_id=session_id,
                             client_id=state.client_id,
                             role="assistant",
-                            content="[SESSION CLOSED DUE TO INACTIVITY]"
+                            content=f"[AUTO {current_stage.upper()}] {payload_msg}"
                         ))
-                        
-                    db.commit()
-            except Exception as ml_err:
-                logger.error(f"ML Follow-up Engine failed for session {session_id}: {ml_err}")
-                BACKGROUND_FAILURE_COUNT.labels(component="scheduler").inc()
-                
-                # Push to DLQ instead of crashing scheduler
-                try:
-                    dlq_entry = DLQEvent(
-                        target_endpoint="ml_followup_scheduler",
-                        payload={"session_id": session_id, "stage": current_stage, "lead_data": lead_data},
-                        error_trace=str(ml_err),
-                        status="pending"
-                    )
-                    db.add(dlq_entry)
-                    db.commit()
-                except Exception as dlq_err:
-                    logger.error(f"Failed to write ML error to DLQ for {session_id}: {dlq_err}")
-                
+
+                        # Transition State Machine
+                        followups = generated_payload.get("followups", [])
+                        # TEST MODE: collapse inter-stage gaps to 1 minute each.
+                        # Production: gaps come from the ML payload (24h, 48h, 96h).
+                        def _next_delay(prod_hours):
+                            if settings.FOLLOW_UP_TEST_MODE:
+                                return timedelta(minutes=1)
+                            return timedelta(hours=prod_hours)
+
+                        if current_stage == "Day 0" and len(followups) > 1:
+                            state.follow_up_stage = "Day 1"
+                            prod_hours = followups[1].get("day", 24) - followups[0].get("day", 0)
+                            state.next_follow_up_at = now + _next_delay(prod_hours)
+                        elif current_stage == "Day 1" and len(followups) > 2:
+                            state.follow_up_stage = "Day 3"
+                            prod_hours = followups[2].get("day", 72) - followups[1].get("day", 24)
+                            state.next_follow_up_at = now + _next_delay(prod_hours)
+                        elif current_stage == "Day 3" and len(followups) > 3:
+                            state.follow_up_stage = "Day 7"
+                            prod_hours = followups[3].get("day", 168) - followups[2].get("day", 72)
+                            state.next_follow_up_at = now + _next_delay(prod_hours)
+                        elif current_stage == "Day 7" or len(followups) <= 1:
+                            state.follow_up_status = "completed"
+                            state.next_follow_up_at = None
+                            session.status = "closed"
+                            db.add(Message(
+                                session_id=session_id,
+                                client_id=state.client_id,
+                                role="assistant",
+                                content="[SESSION CLOSED DUE TO INACTIVITY]"
+                            ))
+
+                        db.commit()
+                except Exception as ml_err:
+                    logger.error(f"ML Follow-up Engine failed for session {session_id}: {ml_err}")
+                    BACKGROUND_FAILURE_COUNT.labels(component="scheduler").inc()
+
+                    # Push to DLQ instead of crashing scheduler
+                    try:
+                        dlq_entry = DLQEvent(
+                            target_endpoint="ml_followup_scheduler",
+                            payload={"session_id": session_id, "stage": current_stage, "lead_data": lead_data},
+                            error_trace=str(ml_err),
+                            status="pending",
+                            client_id=state.client_id
+                        )
+                        db.add(dlq_entry)
+                        db.commit()
+                    except Exception as dlq_err:
+                        logger.error(f"Failed to write ML error to DLQ for {session_id}: {dlq_err}")
+
     except Exception as e:
         logger.error(f"Follow-up scheduler main loop error: {e}")
+        SCHEDULER_JOB_FAILURES.labels(job_name=_JOB).inc()
     finally:
         db.close()

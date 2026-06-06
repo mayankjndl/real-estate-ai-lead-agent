@@ -1,128 +1,339 @@
-# 🏠 Real Estate AI Lead Agent
+# Real Estate Revenue OS — Backend
 
-> A production-ready, WhatsApp-native AI agent that qualifies real estate leads, maintains contextual conversations, extracts structured CRM data, and automates follow-ups — handling 90–95% of real-world customer interactions without human intervention.
+> Production-ready WhatsApp AI lead agent: qualifies leads, maintains conversation context, syncs to CRM, and automates follow-ups — with multi-tenant isolation, DLQ fault recovery, and Prometheus observability.
 
-[![Python](https://img.shields.io/badge/Python-3.11.9-blue?logo=python)](https://python.org)
-[![FastAPI](https://img.shields.io/badge/FastAPI-0.110-green?logo=fastapi)](https://fastapi.tiangolo.com)
-[![Gemini](https://img.shields.io/badge/Gemini-2.5--Flash-orange?logo=google)](https://ai.google.dev)
+[![Python](https://img.shields.io/badge/Python-3.13-blue?logo=python)](https://python.org)
+[![FastAPI](https://img.shields.io/badge/FastAPI-latest-green?logo=fastapi)](https://fastapi.tiangolo.com)
+[![Gemini](https://img.shields.io/badge/Gemini-3.1--Flash--Lite-orange?logo=google)](https://ai.google.dev/gemini-api/docs/models/gemini-3.1-flash-lite)
 [![Twilio](https://img.shields.io/badge/Twilio-WhatsApp-red?logo=twilio)](https://twilio.com)
-[![Render](https://img.shields.io/badge/Deployed-Render.com-purple)](https://render.com)
-
----
-
-## What It Does
-
-A customer messages your WhatsApp number. The AI agent:
-
-1. **Greets and qualifies** — understands what they're looking for (buy/rent/invest), where, and at what budget
-2. **Holds full context** — remembers everything said in the conversation, refines recommendations as the user changes their mind
-3. **Extracts structured data** — name, phone, location, budget, intent, lead score — and saves it to the CRM automatically using Gemini function calling
-4. **Uses a property knowledge base** — answers FAQ questions (locations served, property types, process) using a RAG (Retrieval-Augmented Generation) system backed by FAISS
-5. **Follows up automatically** — if the user goes quiet, sends up to 2 follow-up messages on a timer before closing the session
-6. **Handles failures gracefully** — retries on AI errors, dispatches slow responses to a background thread, never crashes
-
----
-
-## Live Demo
-
-| Resource | URL |
-|---|---|
-| Health Check | `https://real-estate-ai-lead-agent-1.onrender.com/health` |
-| CRM Dashboard | `https://real-estate-ai-lead-agent-1.onrender.com/dashboard` |
-| Leads API | `https://real-estate-ai-lead-agent-1.onrender.com/api/v1/leads` |
-| Analytics API | `https://real-estate-ai-lead-agent-1.onrender.com/api/v1/analytics` |
+[![Render](https://img.shields.io/badge/Deploy-Render.com-purple)](https://render.com)
 
 ---
 
 ## Architecture
 
 ```
-WhatsApp (User)
-      │
-      ▼
-Twilio WhatsApp Sandbox
-      │  POST /api/v1/whatsapp
-      ▼
-FastAPI Webhook (main.py)
-      │
-      ├── Duplicate MessageSid check  ──► ignore if already seen
-      │
-      ├── asyncio.wait_for(process_chat, timeout=15s)
-      │         │
-      │    ┌────┴────────────────────────────┐
-      │    │ < 15s                           │ > 15s (timeout)
-      │    ▼                                 ▼
-      │  Gemini 2.5 Flash              Return interim TwiML
-      │  (with RAG context)            + background_dispatch()
-      │    │                                 │
-      │    ├── extract_lead_info()           │ (continues in background)
-      │    │   └── Save to SQLite CRM        │
-      │    │                                 │
-      │    └── Return TwiML reply ◄──────────┘
-      │
-      ▼
-APScheduler (every 60s)
-      └── check inactive sessions → send follow-up #1 → #2 → close
+WhatsApp message
+      ↓
+POST /api/v1/whatsapp?api_key=CLIENT_KEY_A
+      ↓
+Auth → get_client_by_api_key() → resolves client_id
+      ↓
+Fast-path intercepts (instant replies, guardrails)
+      ↓
+asyncio.wait_for(process_unified_lead(), timeout=15s)
+  ├── RAG context injection (rag.py + FAISS)
+  ├── Gemini 3.1 Flash Lite
+  └── extract_lead_info() tool → saves to Lead table
+      ↓
+TwiML response → WhatsApp reply
+      ↓
+BackgroundTask: crm_sync.py → HubSpot (5 retries + DLQ)
+      ↓
+APScheduler (every 60s): follow_up.py → timed follow-up messages
+      ↓
+DLQ: any permanent failure → dlq_events table → python dlq_replay.py
 ```
 
 ---
 
-## Features
+## Prerequisites — Install These First
 
-### 🤖 AI Conversation Engine
-- Powered by **Google Gemini 2.5 Flash** for fast, accurate, contextual responses
-- Full conversation memory within a session — the AI understands context changes ("actually, I want to rent instead")
-- Persona-driven: acts as a professional real estate advisor from ABC Properties
-- Operates within a defined scope — politely declines out-of-area requests (e.g., Delhi when only serving Pune)
+Install the following in order before touching any code.
 
-### 📚 RAG (Retrieval-Augmented Generation)
-- A FAISS vector index is built from a curated FAQ dataset at startup
-- Every user message is semantically matched against the knowledge base using Gemini embeddings
-- Relevant context is injected into the AI's prompt before each response
-- Falls back gracefully if the index is unavailable (lazy initialization)
+### 1. Python 3.13
 
-### 🧠 Automatic Lead Extraction
-- Gemini uses **native function calling** to call `extract_lead_info()` when qualifying data is detected
-- Extracts: `name`, `phone`, `budget`, `location`, `intent` (buy/rent/invest), `lead_score` (High/Medium/Low)
-- Scores leads based on intent urgency and budget signals
-- Stored to a persistent SQLite database via SQLAlchemy
+Download from https://www.python.org/downloads/  
+During install on Windows: ✅ check **"Add Python to PATH"**
 
-### 🔔 Automated Follow-up System
-- **APScheduler** runs every 60 seconds on the server
-- If a session is inactive for > N minutes, sends a follow-up WhatsApp message via Twilio REST API
-- Sends at most 2 follow-ups — session is permanently closed after 2 unanswered messages
-- State tracked via `follow_up_count` in the database — **never sends a duplicate follow-up**
+Verify:
+```powershell
+python --version   # Python 3.13.x
+```
 
-### 🛡️ Reliability & Fault Tolerance
-- **Duplicate protection**: every `MessageSid` is stored; duplicate webhook calls are silently ignored
-- **Gemini retry logic**: exponential backoff retry (up to 2 attempts) on API errors
-- **Timeout handling**: 15-second async timeout — slow responses fall back to background thread dispatch
-- **Fallback messaging**: if all AI retries fail, a coherent fallback message is returned — never an empty or broken response
-- **Structured logging**: every request emits a `LATENCY`, `FALLBACK`, or `TIMEOUT` log entry for full observability
+### 2. PostgreSQL 18 Client Tools (EDB Installer — Windows)
 
-### 📊 Real-Time CRM Dashboard
-- Built with Vanilla HTML/CSS/JS, served directly by FastAPI as a static mount
-- Displays total sessions, leads captured, conversion rate, and follow-up system status
-- Full leads table: name, phone, location, budget, intent, score, last updated timestamp
-- Filter by intent (buy/rent/invest) and score (high/medium/low)
-- One-click CSV export
+You need `pg_dump` and `psql` for backup/restore. You do **not** need the PostgreSQL
+server — Docker handles that. Install the client tools only:
+
+1. Go to https://www.enterprisedb.com/downloads/postgres-postgresql-downloads
+2. Download **PostgreSQL 18** for Windows
+3. Run the installer — check **only:**
+   - ✅ **Command Line Tools**
+   - ❌ Uncheck pgAdmin, Stack Builder, Server
+4. Default install path: `C:\Program Files\PostgreSQL\18\bin`
+
+**Add to PATH (run PowerShell as Administrator):**
+```powershell
+[System.Environment]::SetEnvironmentVariable(
+  "Path",
+  $env:Path + ";C:\Program Files\PostgreSQL\18\bin",
+  [System.EnvironmentVariableTarget]::Machine
+)
+```
+Close and reopen terminal after running this.
+
+Verify:
+```powershell
+psql --version    # psql (PostgreSQL) 18.x
+pg_dump --version # pg_dump (PostgreSQL) 18.x
+```
+
+> **If you already have a local PostgreSQL server running**, it will conflict with
+> the Docker container on port 5432. Disable it:
+> ```powershell
+> # Run as Administrator
+> Stop-Service -Name "postgresql*" -Force
+> Set-Service -Name "postgresql*" -StartupType Disabled
+> ```
+
+### 3. Docker Desktop 4.7.x
+
+Download from https://www.docker.com/products/docker-desktop/  
+Install and start Docker Desktop before running any `docker` command.  
+Requires Docker Engine 29.5.x (included with Docker Desktop 4.7.x).
+
+Verify:
+```powershell
+docker --version        # Docker version 4.7.x
+docker engine version   # 29.5.x
+```
+
+### 4. ngrok
+
+1. Sign up at https://ngrok.com (free account)
+2. Download from https://ngrok.com/download and extract `ngrok.exe`
+3. Add the folder containing `ngrok.exe` to PATH (or run from that folder)
+4. Authenticate:
+```powershell
+ngrok config add-authtoken YOUR_NGROK_AUTH_TOKEN
+```
+
+Verify:
+```powershell
+ngrok version
+```
+
+### 5. Twilio Account Setup
+
+1. Go to https://www.twilio.com and click **Sign Up** to create a free account
+2. Verify your email and phone number
+3. From the **Console Dashboard**, copy:
+   - **Account SID** — starts with `AC...`
+   - **Auth Token** — click the eye icon to reveal
+4. Go to **Messaging → Try it out → Send a WhatsApp message**
+5. Note the sandbox number: `+14155238886`
+
+You will add these values to `.env` in the setup steps below.
+
+> **Trial account limit:** Free Twilio accounts have a daily outbound message limit
+> (error 63038). Upgrade your account at **Console → Billing → Upgrade** to remove
+> this limit before production testing.
+
+### 6. Gemini API Key
+
+1. Go to https://aistudio.google.com
+2. Click **Get API key → Create API key**
+3. Copy the key — you will add it to `.env`
+
+This project uses **Gemini 3.1 Flash Lite**. See:
+https://ai.google.dev/gemini-api/docs/models/gemini-3.1-flash-lite
 
 ---
 
-## Tech Stack
+## Local Setup — Step by Step
 
-| Layer | Technology |
-|---|---|
-| AI Engine | Google Gemini 2.5 Flash |
-| Function Calling | Gemini Native Tool Use |
-| Vector Search | FAISS + Gemini Embedding-001 |
-| Backend API | FastAPI + Uvicorn |
-| Messaging | Twilio WhatsApp API |
-| Scheduler | APScheduler |
-| Database | SQLite + SQLAlchemy ORM |
-| Frontend Dashboard | Vanilla HTML / CSS / JS |
-| Deployment | Render.com |
-| Language | Python 3.11.9 |
+Open a **new PowerShell terminal** for each numbered section below.
+
+---
+
+### Terminal 1 — Docker Containers
+
+```powershell
+# PostgreSQL
+docker run -d --name pg-local `
+  -e POSTGRES_USER=realestate `
+  -e POSTGRES_PASSWORD=localpass `
+  -e POSTGRES_DB=realestate_db `
+  -p 5432:5432 `
+  postgres:15
+
+# Redis
+docker run -d --name redis-local `
+  -p 6379:6379 `
+  redis:alpine
+
+# Verify both are running
+docker ps
+```
+
+You should see `pg-local` and `redis-local` with status `Up`.
+
+> **Container already exists error:** `docker rm pg-local redis-local` then re-run.  
+> **Containers were stopped:** `docker start pg-local redis-local`
+
+---
+
+### Terminal 2 — Python Environment + App
+
+```powershell
+# 1. Navigate to project folder
+cd "path\to\real-estate-ai-lead-agent"
+
+# 2. Create virtual environment
+python -m venv venv
+
+# 3. Activate it — you should see (venv) in your prompt
+venv\Scripts\activate
+
+# 4. Install dependencies from lock file (exact versions for reproducibility)
+pip install -r requirements.lock
+
+# 5. Copy .env.example to .env and fill in your values
+copy .env.example .env
+# Open .env in any editor — fill in GEMINI_API_KEY, TWILIO_*, DATABASE_URL etc.
+# See .env Reference section below for exact values
+
+# 6. Seed the database — creates tables and generates your API key
+python seed.py
+# Output example:
+#   Database seeded successfully!
+#   Email: admin@revenueos.com
+#   Password: password123
+#   API Key: a3f8d2...c91b   <-- COPY THIS
+
+# 7. Update CLIENT_KEY_A in .env with the API key from step 6
+
+# 8. Start the server
+uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+```
+
+Server is ready when you see:
+```
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8000
+```
+
+Verify:
+```powershell
+# In any terminal
+curl -UseBasicParsing http://localhost:8000/health
+```
+
+---
+
+### Terminal 3 — ngrok Tunnel
+
+```powershell
+ngrok http 8000
+```
+
+Copy the **https** URL from the output, e.g.:
+```
+Forwarding  https://abc123.ngrok-free.app -> http://localhost:8000
+```
+
+---
+
+### Twilio Sandbox — Connect Your WhatsApp
+
+1. On your WhatsApp, send `join <word>-<word>` to `+14155238886`
+   (the exact words are shown in your Twilio console under Messaging → Try it out → Send a WhatsApp message)
+2. You'll receive a confirmation from the sandbox
+3. Go to **Twilio Console → Messaging → Try it out → Send a WhatsApp message**
+4. Under **"When a message comes in"**, paste:
+   ```
+   https://abc123.ngrok-free.app/api/v1/whatsapp?api_key=YOUR_CLIENT_KEY_A
+   ```
+   Replace `abc123.ngrok-free.app` with your current ngrok URL  
+   Replace `YOUR_CLIENT_KEY_A` with the key from `seed.py`
+5. Set method to **HTTP POST**
+6. Click **Save**
+7. Send any message to `+14155238886` to test
+
+---
+
+### Terminal 4 — Frontend (Optional)
+
+```powershell
+cd frontend
+
+# First time only
+copy .env.example .env.local
+# Default value (NEXT_PUBLIC_API_URL=http://localhost:8000) works for local dev
+# Change it to your Render URL when deploying
+
+npm install    # ~2 minutes first time
+npm run dev    # starts on port 3000
+```
+
+Open `http://localhost:3000` in your browser.  
+Login: `admin@revenueos.com` / `password123`
+
+---
+
+## .env Reference
+
+```env
+# Gemini AI — get from https://aistudio.google.com
+GEMINI_API_KEY=your_gemini_api_key
+
+# Internal admin key — any string for local dev
+API_AUTH_KEY=anything
+
+# PostgreSQL — matches the Docker container started above
+DATABASE_URL=postgresql://realestate:localpass@localhost:5432/realestate_db
+
+# Redis — matches the Docker container started above
+REDIS_URL=redis://localhost:6379/0
+
+# Twilio — Account SID and Auth Token from https://console.twilio.com
+TWILIO_ACCOUNT_SID=ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+TWILIO_AUTH_TOKEN=your_auth_token
+TWILIO_PHONE_NUMBER=whatsapp:+14155238886
+
+# API key from seed.py output
+CLIENT_KEY_A=paste_seed_output_here
+CLIENT_KEY_B=
+
+# Production flag — leave false for local dev, set true on Render
+IS_PRODUCTION=false
+```
+
+---
+
+## Fresh Session Restart
+
+When returning after closing everything:
+
+```powershell
+# Terminal 1 — restart containers if they were stopped
+docker start pg-local redis-local
+
+# Terminal 2 — reactivate venv and start server
+cd path\to\project
+venv\Scripts\activate
+uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+
+# Terminal 3 — restart ngrok (URL changes every restart on free plan)
+ngrok http 8000
+# Update Twilio sandbox webhook to new ngrok URL:
+# https://<new-url>.ngrok-free.app/api/v1/whatsapp?api_key=<CLIENT_KEY_A>
+```
+
+---
+
+## Resetting Test Data
+
+To clear all lead data and start fresh without touching containers:
+
+```sql
+-- Connect first:
+-- psql postgresql://realestate:localpass@localhost:5432/realestate_db
+
+TRUNCATE messages, event_log, dlq_events, follow_up_states, leads, sessions
+RESTART IDENTITY CASCADE;
+```
 
 ---
 
@@ -131,173 +342,177 @@ APScheduler (every 60s)
 ```
 real-estate-ai-lead-agent/
 │
-├── main.py              # FastAPI app, webhook handler, timeout logic, structured logging
-├── agent.py             # Gemini conversation engine, retry logic, lead extraction
-├── rag.py               # FAISS index builder, semantic search, context injection
-├── follow_up.py         # APScheduler, follow-up logic, Twilio outbound push
-├── models.py            # SQLAlchemy ORM models (Session, Lead, WebhookLog)
-├── database.py          # Database engine and session factory
-├── config.py            # Environment variable loading and configuration
-├── system_prompt.py     # Agent persona, scope, and tone definition
+├── main.py              # FastAPI app, webhook handler, scheduler, metrics
+├── agent.py             # Gemini conversation engine, lead extraction
+├── rag.py               # FAISS index, semantic search, context injection
+├── follow_up.py         # APScheduler job, follow-up state machine
+├── crm_sync.py          # HubSpot sync with retries + DLQ
+├── dlq_replay.py        # Dead-letter queue replay runner
+├── models.py            # SQLAlchemy ORM models
+├── database.py          # DB engine + session factory
+├── auth.py              # JWT and API key auth dependencies
+├── config.py            # Environment variable loading
+├── metrics.py           # Prometheus metrics definitions
+├── system_prompt.py     # Agent persona definition
+├── seed.py              # DB table creation + client provisioning
+├── db_backup.py         # pg_dump wrapper
+├── db_restore.py        # psql restore from .sql artifact
 │
-├── data/                # FAQ knowledge base for RAG
-│   └── faq.json
+├── app/intelligence/    # ML scoring, agent matching, follow-up engine
+├── data/faq.json        # Property FAQ knowledge base for RAG
+├── dashboard/           # Static HTML/CSS/JS CRM dashboard
+├── frontend/            # Next.js SaaS dashboard
+│   ├── .env.example     # Copy to .env.local for local dev
+│   └── src/
 │
-├── dashboard/           # CRM frontend
-│   ├── index.html
-│   ├── styles.css
-│   └── script.js
+├── docs/                # All documentation
+│   ├── BACKUP_RESTORE_DRILL.md
+│   ├── BACKEND_RELIABILITY_CHECKLIST.md
+│   ├── API_SCHEMA_AND_VERSIONING.md
+│   ├── DLQ_REPLAY_PROCESS.md
+│   └── BACKEND_STABILITY_REPORT.md
 │
-├── requirements.txt     # Python dependencies
-├── Procfile             # Render.com start command
-└── .python-version      # Python version pin (3.11.9)
+├── prometheus_alerts.yml
+├── grafana_dashboard.json
+├── final_soak_test_log_20260429_201913.txt
+├── requirements.txt         # Unpinned — for local dev / onboarding
+├── requirements.lock        # Fully pinned — use this for production deploys
+├── Procfile                 # Render start command
+├── .env.example             # Variable names only — copy to .env and fill values
+└── README.md
 ```
 
 ---
 
-## Getting Started
+## Key URLs (Local)
 
-### Prerequisites
-
-- Python 3.11+
-- A [Google Gemini API key](https://ai.google.dev)
-- A [Twilio account](https://twilio.com) with WhatsApp Sandbox enabled
-
-### 1. Clone the Repository
-
-```bash
-git clone https://github.com/mayankjndl/real-estate-ai-lead-agent.git
-cd real-estate-ai-lead-agent
-```
-
-### 2. Create a Virtual Environment
-
-```bash
-python -m venv venv
-venv\Scripts\activate      # Windows
-source venv/bin/activate   # macOS/Linux
-```
-
-### 3. Install Dependencies
-
-```bash
-pip install -r requirements.txt
-```
-
-### 4. Configure Environment Variables
-
-Create a `.env` file in the project root:
-
-```env
-GEMINI_API_KEY=your_gemini_api_key_here
-API_AUTH_KEY=your_dashboard_api_key_here
-
-TWILIO_ACCOUNT_SID=your_twilio_account_sid
-TWILIO_AUTH_TOKEN=your_twilio_auth_token
-TWILIO_PHONE_NUMBER=whatsapp:+14155238886
-```
-
-### 5. Run Locally
-
-```bash
-uvicorn main:app --host 0.0.0.0 --port 8000 --reload
-```
-
-Expose your local server to Twilio using [ngrok](https://ngrok.com):
-
-```bash
-ngrok http 8000
-```
-
-Set the ngrok HTTPS URL as your Twilio WhatsApp Sandbox webhook:
-```
-https://<your-ngrok-id>.ngrok.io/api/v1/whatsapp
-```
-
----
-
-## Deploying to Render
-
-1. Push this repository to GitHub
-2. Create a new **Web Service** on [Render.com](https://render.com)
-3. Connect your GitHub repo
-4. Set all environment variables in the Render dashboard
-5. Render will auto-detect the `Procfile` and deploy
-
-The `Procfile` contains:
-```
-web: uvicorn main:app --host 0.0.0.0 --port $PORT
-```
-
-For production stability, configure a free keep-alive ping at [cron-job.org](https://cron-job.org) to hit `GET /health` every 10 minutes.
-
----
-
-## API Reference
-
-All protected endpoints require the header: `X-API-Key: <your_api_auth_key>`
-
-| Method | Endpoint | Auth | Description |
-|---|---|---|---|
-| `POST` | `/api/v1/whatsapp` | Twilio signature | Main webhook — handles all inbound WhatsApp messages |
-| `GET` | `/health` | None | Health check — confirms DB connectivity |
-| `GET` | `/api/v1/leads` | ✅ | Returns all captured leads with optional `intent` and `score` filters |
-| `GET` | `/api/v1/leads/export` | ✅ | Downloads all leads as a CSV file |
-| `GET` | `/api/v1/analytics` | ✅ | Returns session count, lead count, and conversion rate |
-| `GET` | `/dashboard` | None | Serves the real-time CRM dashboard |
+| URL                               | Description                       |
+|-----------------------------------|-----------------------------------|
+| `http://localhost:8000/health`    | Health check                      |
+| `http://localhost:8000/docs`      | Swagger UI                        |
+| `http://localhost:8000/metrics`   | Prometheus metrics                |
+| `http://localhost:8000/dashboard` | Static CRM dashboard              |
+| `http://localhost:3000`           | Next.js SaaS dashboard (frontend) |
 
 ---
 
 ## Observability
 
-Every processed request emits one of three structured log entries:
+Prometheus metrics at `GET /metrics`:
+- `http_request_duration_seconds` — latency per endpoint
+- `scheduler_job_duration_seconds` — scheduler tick timing
+- `scheduler_job_failures_total` — unhandled scheduler crashes
+- `integration_failure_total` — permanent CRM/Twilio failures
+- `dlq_pending_events` — current DLQ backlog
 
+LLM token cost logged per message in uvicorn:
+```json
+{"event": "llm_token_usage", "model": "gemini-3.1-flash-lite",
+ "input_tokens": 842, "output_tokens": 97, "estimated_cost_usd": 0.000358}
 ```
-# Successful response
-INFO:main: LATENCY | session=+91XXXXXXXXXX | 5243ms | status=delivered
 
-# AI failure → graceful fallback
-WARNING:main: FALLBACK | session=+91XXXXXXXXXX | reason=ResourceExhausted | detail=429...
+Import `grafana_dashboard.json` into Grafana for visual dashboards.
 
-# Response exceeded 15s → background dispatch
-INFO:main: TIMEOUT | session=+91XXXXXXXXXX | exceeded=15000ms | action=background_dispatch
+---
+
+## Test Mode (Follow-up Timing Compression)
+
+For testing follow-up sequences without waiting 24h+, add to `.env`:
+
+```env
+FOLLOW_UP_TEST_MODE=true
 ```
 
-These are visible in the Render log stream in real time.
+This compresses all timings to 1 minute:
+- Day 0 fires after 1 minute of silence (instead of 30 minutes)
+- Day 0 → Day 1 → Day 3 → Day 7 each advance after 1 minute
+
+For DLQ testing, also add:
+```env
+FOLLOW_UP_DLQ_TEST=true
+```
+This forces the scheduler to throw an exception before the ML call, writing a test
+entry to `dlq_events`. Remove after testing.
+
+**Always remove both flags before production deploy.**
 
 ---
 
-## Performance
+## DLQ Recovery
 
-Tested under real production conditions with live WhatsApp messages:
+```powershell
+python dlq_replay.py
+```
 
-| Metric | Value |
-|---|---|
-| Typical response time | 3 – 8 seconds |
-| Max observed latency | ~14.5 seconds (within 15s threshold) |
-| Fallback trigger | < 5% of requests under normal quota |
-| Follow-up accuracy | 100% — no duplicate triggers observed |
-| Duplicate webhook protection | 100% — all re-delivered SIDs correctly ignored |
-| CRM extraction accuracy | Name, budget, location, intent, score from natural language |
-
----
-
-## Configuration Reference
-
-Key settings in `config.py`:
-
-| Setting | Default | Description |
-|---|---|---|
-| `FOLLOW_UP_DELAY_MINUTES` | `3` | Minutes of inactivity before first follow-up |
-| `MAX_FOLLOW_UPS` | `2` | Maximum follow-up messages per session |
-| `WEBHOOK_TIMEOUT_SECONDS` | `15` | Max seconds before background dispatch |
-| `GEMINI_MAX_RETRIES` | `2` | Retry attempts on Gemini API failure |
+Check depth:
+```sql
+SELECT target_endpoint, COUNT(*)
+FROM dlq_events WHERE status='pending'
+GROUP BY target_endpoint;
+```
 
 ---
 
-## Author
-Mayank Jindal | AI/ML Engineer
+## Backup and Restore
+
+```powershell
+# Create backup
+python db_backup.py
+# Output: backups/backup_YYYYMMDD_HHMMSS.sql
+
+# Restore
+python db_restore.py backups/backup_YYYYMMDD_HHMMSS.sql
+```
+
+See `docs/BACKUP_RESTORE_DRILL.md` for post-restore verification.
 
 ---
 
-*Built with FastAPI, Google Gemini, and Twilio WhatsApp API.*
+## Deploying to Render
+
+1. Push codebase to a GitHub repo
+2. Go to https://render.com → **New Web Service** → connect your repo
+3. Set all environment variables in Render dashboard (same as `.env` but with production values for `DATABASE_URL`, `REDIS_URL`)
+4. Render uses `Procfile` automatically:
+   ```
+   web: uvicorn main:app --host 0.0.0.0 --port $PORT --workers 2
+   ```
+5. After deploy, verify: `GET https://your-service.onrender.com/health`
+6. Update Twilio webhook:
+   ```
+   https://your-service.onrender.com/api/v1/whatsapp?api_key=YOUR_CLIENT_KEY_A
+   ```
+7. For the frontend, set `NEXT_PUBLIC_API_URL=https://your-service.onrender.com` in the Render frontend environment variables
+
+> Add a keep-alive cron job at https://cron-job.org to ping `/health` every 10 minutes on free Render tier.
+
+---
+
+## Known Limitations
+
+| Limitation                             | Notes                                                                     |
+|----------------------------------------|---------------------------------------------------------------------------|
+| `google.generativeai` SDK deprecated   | Warning on startup, API still works. Migrate to `google.genai` post-pilot |
+| Single worker on Render free tier      | Upgrade plan for `--workers 2+` under load                                |
+| Backup storage is local disk on Render | Render managed DB backups are primary safety net                          |
+| `/metrics` is public                   | Restrict at network level in production                                   |
+| ROI routes query all clients           | Admin-only — add JWT + client_id filter before client-facing use          |
+| A/B follow-up timing always Strategy A | No historical data yet to activate Strategy B                             |
+
+---
+
+## Documentation Index
+
+| File                                    | Contents                                                                                       |
+|-----------------------------------------|------------------------------------------------------------------------------------------------|
+| `docs/ARITRO_DELIVERABLES.md`           | Complete backend deliverables: checklist, API schema, monitoring, DLQ, backup, bugs fixed      |
+| `docs/MAITRI_DELIVERABLES.md`           | Complete automation deliverables: flow map, trigger logic, testing evidence, known limitations |
+| `docs/BACKEND_RELIABILITY_CHECKLIST.md` | Acceptance criteria audit                                                                      |
+| `docs/API_SCHEMA_AND_VERSIONING.md`     | Full endpoint reference                                                                        |
+| `docs/DLQ_REPLAY_PROCESS.md`            | DLQ event types, replay, escalation                                                            |
+| `docs/BACKUP_RESTORE_DRILL.md`          | Backup/restore procedure                                                                       |
+| `docs/BACKEND_STABILITY_REPORT.md`      | Pilot-readiness sign-off                                                                       |
+
+---
+
+*Real Estate Revenue OS — Phase 1 Backend | Imperion Data Systems*

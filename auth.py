@@ -1,9 +1,9 @@
 import os
+import bcrypt
 from datetime import datetime, timedelta, timezone
-from passlib.context import CryptContext
 import jwt
 from fastapi import Depends, HTTPException, status, Security
-from fastapi.security import OAuth2PasswordBearer, APIKeyHeader
+from fastapi.security import OAuth2PasswordBearer, APIKeyHeader, APIKeyQuery
 from sqlalchemy.orm import Session
 from database import get_db
 import models
@@ -13,18 +13,16 @@ SECRET_KEY = os.getenv("JWT_SECRET_KEY", "super-secret-jwt-key-replace-in-prod")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7  # 7 Days for dashboard
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
 api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
-from fastapi.security import APIKeyQuery
 api_key_query = APIKeyQuery(name="api_key", auto_error=False)
 
 # Passwords
-def verify_password(plain_password, hashed_password):
-    return pwd_context.verify(plain_password, hashed_password)
+def verify_password(plain_password: str, hashed_password: str) -> bool:
+    return bcrypt.checkpw(plain_password.encode("utf-8"), hashed_password.encode("utf-8"))
 
-def get_password_hash(password):
-    return pwd_context.hash(password)
+def get_password_hash(password: str) -> str:
+    return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
 
 # Tokens
 def create_access_token(data: dict, expires_delta: timedelta = None):
@@ -51,7 +49,7 @@ def get_current_client(token: str = Depends(oauth2_scheme), db: Session = Depend
             raise credentials_exception
     except jwt.PyJWTError:
         raise credentials_exception
-        
+
     client = db.query(models.Client).filter(models.Client.id == int(client_id)).first()
     if client is None or not client.is_active:
         raise credentials_exception
@@ -59,7 +57,7 @@ def get_current_client(token: str = Depends(oauth2_scheme), db: Session = Depend
 
 # Dependency for Ingestion/Webhooks (API Key)
 def get_client_by_api_key(
-    api_key_h: str = Security(api_key_header), 
+    api_key_h: str = Security(api_key_header),
     api_key_q: str = Security(api_key_query),
     db: Session = Depends(get_db)
 ):
@@ -69,7 +67,7 @@ def get_client_by_api_key(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Missing X-API-Key header or api_key query parameter",
         )
-    
+
     client = db.query(models.Client).filter(models.Client.api_key == api_key).first()
     if not client or not client.is_active:
         raise HTTPException(
