@@ -119,3 +119,15 @@ final_qa_test.py
 test_lead_scoring.py
 apply_changes.py
 trigger.py
+
+# Mayank's local testing and load scripts
+*_REPORT.md
+*_SUMMARY.md
+BUG_REPORT_AND_FIX_LOG.md
+CONVERSATION_DATASET.csv
+live_production_load_test*.py
+clear_test_data.py
+generate_report*.py
+export_csv.py
+check_leads.py
+get_live_key.py
