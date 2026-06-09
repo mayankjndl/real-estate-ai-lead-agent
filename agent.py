@@ -243,11 +243,18 @@ async def process_chat(session_id: str, user_message: str, db: DBSession, client
 
     # If the lead already has a visit date booked, mark follow-up as completed (not just stopped).
     # "stopped" = paused mid-sequence by user reply; "completed" = goal achieved, no further action needed.
-    if lead and lead.visit_date:
-        f_state.follow_up_status = "completed"
-        f_state.next_follow_up_at = None
-    else:
-        f_state.follow_up_status = "stopped"  # User replied, so we stop active automated follow-ups for now.
+
+
+        # Ensure ALL mandatory fields are present before marking follow-up complete
+        is_fully_qualified = bool(
+            lead and lead.visit_date and lead.phone and lead.name and lead.location and lead.budget and lead.property_type)
+
+        if is_fully_qualified:
+            f_state.follow_up_status = "completed"
+            f_state.next_follow_up_at = None
+            session.status = "closed"
+        else:
+            f_state.follow_up_status = "stopped"  # User replied, so we stop active automated follow-ups for now.
 
     # User replied — reset old follow-up state (for backwards compatibility temporarily)
     session.follow_up_count = 0
@@ -420,18 +427,38 @@ async def process_chat(session_id: str, user_message: str, db: DBSession, client
     # Inject the FULL persisted lead state so the LLM always knows what was captured,
     # even if the original extraction message has rolled out of the 12-message window.
     summary_text = ""
+    missing_fields = []
     if lead:
-        summary_parts = [
-            f"Location: {lead.location}" if lead.location else None,
-            f"Budget: {lead.budget}" if lead.budget else None,
-            f"Property Type: {lead.property_type}" if lead.property_type else None,
-            f"Intent: {lead.intent}" if lead.intent else None,
-            f"Name: {lead.name}" if lead.name else None,
-            f"Visit scheduled: {lead.visit_date}" if lead.visit_date else None,
-        ]
-        parts = [p for p in summary_parts if p]
-        if parts:
-            summary_text = "Known about this user: " + ", ".join(parts) + ".\n"
+        summary_parts = []
+        if lead.location:
+            summary_parts.append(f"Location: {lead.location}")
+        else:
+            missing_fields.append("location")
+
+        if lead.budget:
+            summary_parts.append(f"Budget: {lead.budget}")
+        else:
+            missing_fields.append("budget")
+
+        if lead.property_type:
+            summary_parts.append(f"Property Type: {lead.property_type}")
+        else:
+            missing_fields.append("property type (e.g., 2BHK, 3BHK)")
+
+        if lead.name:
+            summary_parts.append(f"Name: {lead.name}")
+        else:
+            missing_fields.append("name")
+
+        if lead.intent: summary_parts.append(f"Intent: {lead.intent}")
+        if lead.visit_date: summary_parts.append(f"Visit scheduled: {lead.visit_date}")
+
+        if summary_parts:
+            summary_text = "Known about this user: " + ", ".join(summary_parts) + ".\n"
+
+        # THE FIX: If they want to visit but are missing details, force Gemini to naturally ask for them.
+        if lead.visit_date and missing_fields:
+            summary_text += f"CRITICAL INSTRUCTION: The user has requested a visit, but we are missing mandatory details: {', '.join(missing_fields)}. You MUST naturally ask them for these missing details before finalizing the visit. Do NOT say the visit is fully booked yet.\n"
 
     # Dynamic Repetition Prevention
     # Check if the agent already proactively asked for the name in recent history.
@@ -609,6 +636,7 @@ async def process_chat(session_id: str, user_message: str, db: DBSession, client
                     prev_name = lead.name
                     prev_visit_date = lead.visit_date
                     prev_property_type = lead.property_type
+                    was_fully_qualified = bool(lead.visit_date and lead.phone and lead.name and lead.location and lead.budget and lead.property_type)
 
                     # Update Lead table fields dynamically (using the in-memory lead object)
                     if "name" in args: lead.name = args["name"]
@@ -650,20 +678,24 @@ async def process_chat(session_id: str, user_message: str, db: DBSession, client
                                 text_from_response = part.text.strip()
                                 break
 
-                    visit_concluded = bool(lead and lead.visit_date and lead.phone)
+                    is_fully_qualified = bool(
+                        lead and lead.visit_date and lead.phone and lead.name and lead.location and lead.budget and lead.property_type)
                     captured_fields = [k for k in
                                        ["name", "phone", "budget", "location", "property_type", "intent", "visit_date"]
                                        if k in args]
 
-                    if visit_concluded and "visit_date" in new_fields:
-                        # TEMPLATE 1: Visit fully booked — guaranteed exact wording, zero-latency
-                        loc = lead.location or "the property"
-                        vdate = lead.visit_date or "your requested time"
+                    # ONLY fire the confirmation when the lead crosses from incomplete to fully complete
+                    if is_fully_qualified and not was_fully_qualified:
+                        # TEMPLATE 1: Visit fully booked!
+                        loc = lead.location
+                        vdate = lead.visit_date
                         local_reply = f"Fantastic! Everything is set for your visit to {loc} on {vdate}. Our team will be in touch to confirm. Looking forward to seeing you! 🏡"
 
-                    elif "visit_date" in new_fields:
-                        # TEMPLATE 2: Visit date noted — guaranteed exact wording, zero-latency
-                        local_reply = f"Great, I've noted your visit request for {lead.visit_date}! Our team will confirm the details shortly. Looking forward to it!"
+                        # Properly lock the session and follow-ups
+                        session.status = "closed"
+                        if f_state:
+                            f_state.follow_up_status = "completed"
+                            f_state.next_follow_up_at = None
 
                     elif text_from_response:
                         # PRIMARY PATH: Use Gemini's own text from this same single response.
@@ -695,8 +727,7 @@ async def process_chat(session_id: str, user_message: str, db: DBSession, client
                     db.add(Message(session_id=session_id, client_id=client_id, role="assistant", content=local_reply))
                     db.commit()
                     logger.info(
-                        f"LEAD_EXTRACT | session={session_id} | fields={captured_fields} | new_fields={list(new_fields)} | has_gemini_text={text_from_response is not None} | concluded={visit_concluded}")
-
+                        f"LEAD_EXTRACT | session={session_id} | fields={captured_fields} | new_fields={list(new_fields)} | has_gemini_text={text_from_response is not None} | concluded={is_fully_qualified}")
                     final_text = local_reply
                     extracted_early = True
                     message_saved = True
@@ -818,13 +849,18 @@ async def process_chat(session_id: str, user_message: str, db: DBSession, client
     if f_state:
         from datetime import timedelta
         f_state.last_ai_reply_timestamp = datetime.now(timezone.utc)
-        if session.status != "closed" and not lead.visit_date:
-            f_state.follow_up_stage = "Day 0"
-            f_state.follow_up_status = "active"
-            # TEST MODE: compress Day 0 to 1 minute. Production: 30 minutes.
-            day0_delay = timedelta(minutes=1) if settings.FOLLOW_UP_TEST_MODE else timedelta(minutes=30)
-            f_state.next_follow_up_at = datetime.now(timezone.utc) + day0_delay
+        if session.status != "closed":
+            if not lead.visit_date:
+                f_state.follow_up_stage = "Day 0"
+                f_state.follow_up_status = "active"
+                # TEST MODE: compress Day 0 to 1 minute. Production: 30 minutes.
+                day0_delay = timedelta(minutes=1) if settings.FOLLOW_UP_TEST_MODE else timedelta(minutes=30)
+                f_state.next_follow_up_at = datetime.now(timezone.utc) + day0_delay
+            else:
+                # If visit date was extracted THIS turn, mark it completed immediately
+                f_state.follow_up_status = "completed"
+                f_state.next_follow_up_at = None
         db.commit()
 
-    # Return the text response isolated from tool calls
+        # Return the text response isolated from tool calls
     return final_text

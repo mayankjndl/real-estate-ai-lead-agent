@@ -113,10 +113,22 @@ full test window.
 | No per-client rate limiting | A single high-volume client could starve others | Redis-based per-session lock is in place; per-client hourly quota is the recommended next step |
 | `/metrics` is publicly accessible | Internal metrics exposed without auth | Firewall-restrict in production or add Prometheus basic auth |
 | Admin ROI routes query all clients | No multi-tenant safety for internal ops routes | Acceptable for pilot; add `client_id` filter before making client-facing |
+| 429 ResourceExhausted API rate limits | Free-tier API quotas prevent running 100+ concurrent tests at high speed | System handles gracefully via Twilio fallback; upgrade to paid API tier before high-volume load testing |
+| Partial visit date collection stalls DB write | If a user provides only a visit date without Name or Budget, the LLM asks for missing fields before writing to DB | Expected qualification-gate behaviour; date is not persisted until `is_fully_qualified` passes |
 
 ---
 
-## 8. Recommended Next Steps (Post-Pilot)
+## 8. Bugs Found and Fixed (June 9, 2026)
+
+| Bug | Root Cause | Fix |
+|-----|------------|-----|
+| ML Inactivity Penalty not syncing with Follow-up Scheduler | ML scorer's inactivity penalty ran independently of the scheduler's time-based decay, causing divergent scoring | Bridged the two systems so inactivity penalty state is shared and consistent across both paths |
+| Premature Visit Confirmation | AI confirmed site visits without first collecting Name, Budget, and Property Type | Implemented `is_fully_qualified` strict gate and dynamic prompt injection to block confirmation until all required fields are present |
+| ROI Dashboard missing `site_visit_done` and `deal_closed` events | Manual CRM Stage PATCH endpoint did not write to the `EventLog` table; visit and deal events never appeared in ROI metrics | Wired the PATCH endpoint directly to `EventLog` — every stage update now emits the corresponding event |
+
+---
+
+## 9. Recommended Next Steps (Post-Pilot)
 
 1. **Per-client rate limiting** — Redis counter keyed by `client_id` + hour window.
 2. **Render worker scale-up** — Switch `Procfile` from single Uvicorn to

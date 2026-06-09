@@ -733,6 +733,16 @@ def update_lead_stage(
         raise HTTPException(status_code=404, detail="Lead not found")
     
     lead.funnel_stage = stage_update.stage
+
+    # --- LOGGING BLOCK ---
+    if stage_update.stage == "Site Visit Done":
+        db.add(models.EventLog(session_id=lead.session_id, client_id=current_client.id, event_type="tracking",
+                               action_type="site_visit_done", agent_type="Human"))
+    elif stage_update.stage == "Closed Won":
+        db.add(models.EventLog(session_id=lead.session_id, client_id=current_client.id, event_type="tracking",
+                               action_type="deal_closed", agent_type="Human"))
+    # ------------------------------
+
     db.commit()
     return {"status": "success", "lead_id": lead.id, "stage": lead.funnel_stage}
 

@@ -354,6 +354,22 @@ def check_and_send_followups():
                 logger.info(f"INACTIVITY_FLAG={inactivity} | session={session_id} | test_mode={settings.FOLLOW_UP_TEST_MODE}")
                 if inactivity and state:
                     state.inactivity_score = (state.inactivity_score or 0) + 1
+
+                    # --- NEW: Bridge Scheduler Inactivity with ML Lead Data ---
+                    if lead:
+                        # 1. Sync the penalty score to the Leads table (10 points per missed follow-up)
+                        lead.inactivity_penalty = state.inactivity_score * 10
+
+                        # 2. Cool down the lead's conversion probability
+                        if lead.conversion_probability and lead.conversion_probability > 10:
+                            lead.conversion_probability -= 5
+
+                        # 3. Automatically downgrade temperature if they ignore us too long
+                        if getattr(lead, 'conversion_probability', 0) < 55:
+                            lead.lead_temperature = "cold"
+                            lead.score = "Low"
+                    # -----------------------------------------------------------
+
                     logger.info(f"INACTIVITY_SCORE incremented to {state.inactivity_score} | session={session_id}")
 
                 # Parameter Mapping
