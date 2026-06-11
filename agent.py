@@ -794,7 +794,21 @@ async def process_chat(session_id: str, user_message: str, db: DBSession, client
     lead.urgency_level = ml_score_data.get("urgency_level", "low")
     lead.response_speed_score = ml_score_data.get("response_speed_score", 0)
     lead.inactivity_penalty = ml_score_data.get("inactivity_penalty", 0)
-    lead.budget_alignment_status = ml_score_data.get("budget_alignment_status", "unknown")
+    new_alignment = ml_score_data.get("budget_alignment_status", "unknown")
+    if new_alignment == "unknown" and lead.budget and lead.location and lead.property_type:
+        try:
+            from app.intelligence.budget_alignment import evaluate_budget_alignment
+            recalculated = evaluate_budget_alignment(
+                budget_text=lead.budget,
+                location=lead.location,
+                property_type=lead.property_type
+            )
+            lead.budget_alignment_status = recalculated.get("alignment_status", "unknown")
+        except Exception as e:
+            logger.warning(f"Failed to recalculate budget alignment: {e}")
+            lead.budget_alignment_status = "unknown"
+    else:
+        lead.budget_alignment_status = new_alignment
 
     # Optional: Map the raw integer score back to High/Medium/Low string if needed for frontend backward compatibility
     prob = ml_score_data.get("conversion_probability", 0)

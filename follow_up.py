@@ -416,7 +416,7 @@ def check_and_send_followups():
                                 )
                             except Exception as ex:
                                 logger.error(f"Closure message failed for {session_id}: {ex}")
-                        state.follow_up_status = "completed"
+                        state.follow_up_status = "stopped"
                         state.next_follow_up_at = None
                         session.status = "closed"
                         db.add(Message(session_id=session_id, client_id=state.client_id, role="assistant", content=f"[AUTO DAY7 CLOSURE] {closure_msg}"))
@@ -470,6 +470,12 @@ def check_and_send_followups():
                         state.follow_up_sent_at = now
                         state.last_ai_reply_timestamp = now
 
+                        # --- FIX: Sync count and lead stage ---
+                        session.follow_up_count = (session.follow_up_count or 0) + 1
+                        if lead:
+                            lead.followup_stage = current_stage
+                        # --------------------------------------
+
                         # Create EventLog with latency
                         event = EventLog(
                             session_id=session_id,
@@ -510,7 +516,7 @@ def check_and_send_followups():
                             prod_hours = followups[3].get("day", 168) - followups[2].get("day", 72)
                             state.next_follow_up_at = now + _next_delay(prod_hours)
                         elif current_stage == "Day 7" or len(followups) <= 1:
-                            state.follow_up_status = "completed"
+                            state.follow_up_status = "stopped"
                             state.next_follow_up_at = None
                             session.status = "closed"
                             db.add(Message(
