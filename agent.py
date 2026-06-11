@@ -16,7 +16,10 @@ from app.intelligence.agent_matcher import match_best_agent
 # 1. Gemini Initialization
 genai.configure(api_key=settings.GEMINI_API_KEY)
 logger = logging.getLogger("agent")
-
+PUNE_AREAS = ["wakad", "hinjewadi", "baner", "kharadi", "kothrud", "hadapsar",
+                  "ravet", "balewadi", "aundh", "pashan", "viman nagar", "magarpatta",
+                  "kondhwa", "undri", "mundhwa", "punawale", "tathawade", "bavdhan",
+                  "sinhagad road", "pune"]
 
 # 2. Lightweight Guardrail & Tracking Helpers
 async def log_event_async(session_id: str, action_type: str, latency_ms: int = 0, agent_type: str = "AI",
@@ -338,10 +341,7 @@ async def process_chat(session_id: str, user_message: str, db: DBSession, client
     # (name, budget, phone) — those need Gemini to extract and save properly.
     # Also skip if the message contains location or property type — those are
     # meaningful DB fields that the intercept template never captures.
-    PUNE_AREAS = ["wakad", "hinjewadi", "baner", "kharadi", "kothrud", "hadapsar",
-                  "ravet", "balewadi", "aundh", "pashan", "viman nagar", "magarpatta",
-                  "kondhwa", "undri", "mundhwa", "punawale", "tathawade", "bavdhan",
-                  "sinhagad road", "pune"]
+
     HAS_PERSONAL_DATA = any([
         "my name is" in msg_clean,
         "i am " in msg_clean and len(msg_clean.split()) <= 8,
@@ -488,9 +488,14 @@ async def process_chat(session_id: str, user_message: str, db: DBSession, client
     words = user_message.lower().split()
     is_property_query = any(w.strip(".,!?") in PROPERTY_KEYWORDS for w in words)
 
+    # Only trigger RAG if we have a location in context OR if the user explicitly mentions a Pune area
+    has_loc_ctx = bool(lead and lead.location and lead.location.lower() != "unknown")
+    has_loc_msg = any(area in user_message.lower() for area in PUNE_AREAS)
+    is_rag_eligible = is_property_query and (has_loc_ctx or has_loc_msg)
+
     # Fetch RAG Context from the FAQ store (only for property-related queries)
     user_message_for_llm = f"Summary: {summary_text}\nUser Message: {user_message}"
-    if is_property_query:
+    if is_rag_eligible:
         rag_start = time.time()
         try:
             # Contextualize RAG query with known location to resolve pronouns like "there"
