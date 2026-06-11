@@ -327,7 +327,14 @@ async def process_unified_lead(payload: LeadIngestionPayload, db: DBSession, cli
 
     if is_new_lead:
         lead.funnel_stage = "New"
-        db.add(models.EventLog(session_id=payload.session_id, client_id=client_id, event_type="lead_created"))
+        # FIX: Added action_type and latency_ms=0
+        db.add(models.EventLog(
+            session_id=payload.session_id,
+            client_id=client_id,
+            event_type="tracking",
+            action_type="lead_created",
+            latency_ms=0
+        ))
         db.commit()
         # Fire background CRM Sync
         asyncio.create_task(sync_lead_to_crm(lead.id))
@@ -684,6 +691,68 @@ def get_analytics(current_client: models.Client = Depends(auth.get_current_clien
             "intent_breakdown": intent_breakdown
         }
     }
+
+
+class SettingsUpdate(BaseModel):
+    settings: dict
+
+
+@app.get("/api/v1/settings")
+def get_settings(current_client: models.Client = Depends(auth.get_current_client)):
+    """Retrieve user settings for frontend sync."""
+    return {"status": "success", "settings": current_client.settings or {}}
+
+
+@app.patch("/api/v1/settings")
+def update_settings(
+        payload: SettingsUpdate,
+        current_client: models.Client = Depends(auth.get_current_client),
+        db: DBSession = Depends(get_db)
+):
+    """Save user preferences across devices."""
+    current_client.settings = payload.settings
+    db.commit()
+    return {"status": "success", "settings": current_client.settings}
+
+
+class ContactForm(BaseModel):
+    name: str
+    email: str
+    message: str
+
+
+@app.post("/api/v1/contact")
+async def submit_contact_form(form: ContactForm):
+    """
+    Accepts contact form submissions.
+    Logs the output for now. Can be directly wired to Resend/SendGrid later.
+    """
+    logger.info(f"CONTACT FORM SUBMISSION | Name: {form.name} | Email: {form.email} | Message: {form.message}")
+    return {"status": "success", "message": "Contact form delivered successfully."}
+
+
+@app.post("/api/v1/webhook/stripe")
+async def stripe_webhook(request: Request, db: DBSession = Depends(get_db)):
+    """Listens for Stripe checkout events and activates subscriptions."""
+    try:
+        payload = await request.json()
+        event_type = payload.get("type")
+        data = payload.get("data", {}).get("object", {})
+
+        if event_type == "checkout.session.completed":
+            customer_email = data.get("customer_details", {}).get("email")
+            if customer_email:
+                client = db.query(models.Client).filter(models.Client.email == customer_email).first()
+                if client:
+                    client.subscription_status = "active"
+                    client.stripe_customer_id = data.get("customer")
+                    db.commit()
+                    logger.info(f"STRIPE WEBHOOK | Activated subscription for {customer_email}")
+
+        return {"status": "success"}
+    except Exception as e:
+        logger.error(f"Stripe webhook error: {e}")
+        raise HTTPException(status_code=400, detail="Webhook processing failed")
 
 @app.get("/api/v1/leads")
 def get_leads(

@@ -17,6 +17,10 @@ class Client(Base):
     api_key = Column(String, unique=True, index=True, nullable=False) # For server-to-server ingestion
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     is_active = Column(Boolean, default=True)
+    
+    settings = Column(JSONB, default=lambda: {})
+    subscription_status = Column(String, default="inactive")
+    stripe_customer_id = Column(String, nullable=True)
 
     sessions = relationship("Session", back_populates="client", cascade="all, delete-orphan")
     leads = relationship("Lead", back_populates="client", cascade="all, delete-orphan")
