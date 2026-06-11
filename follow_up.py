@@ -475,7 +475,7 @@ def check_and_send_followups():
                             session_id=session_id,
                             client_id=state.client_id,
                             event_type="tracking",
-                            action_type="follow_up_sent",
+                            action_type=f"{current_stage} follow_up_sent",  # <-- FIX IS HERE
                             latency_ms=followup_latency_ms
                         )
                         db.add(event)

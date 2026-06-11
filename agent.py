@@ -19,7 +19,7 @@ logger = logging.getLogger("agent")
 
 
 # 2. Lightweight Guardrail & Tracking Helpers
-async def log_event_async(session_id: str, action_type: str, latency_ms: int = None, agent_type: str = "AI",
+async def log_event_async(session_id: str, action_type: str, latency_ms: int = 0, agent_type: str = "AI",
                           client_id: int = 1):
     """Highly asynchronous background tracking so core response latency remains 0ms."""
     from database import SessionLocal
@@ -127,8 +127,9 @@ def normalize_lead_data(args: dict, existing_intent: str = None) -> dict:
             if fallback_match:
                 args["location"] = fallback_match
             elif " or " in loc_lower or "," in loc_lower:
-                # Basic fallback for multiple unknown locations
-                args["location"] = loc_lower.replace(" or ", ",").split(",")[0].strip().title()
+                # FIX: Combine multiple locations instead of throwing them away
+                parts = re.split(r'\s+or\s+|,', loc_lower)
+                args["location"] = ", ".join(p.strip().title() for p in parts if p.strip())
 
     return args
 
@@ -170,7 +171,7 @@ def extract_lead_info(
         name: The name of the client (VERY IMPORTANT to capture).
         phone: The phone number of the client.
         budget: The requested budget range (e.g., '80L', '20k', '1Cr').
-        location: The area they are looking in (e.g., 'Hinjewadi', 'Pune').
+        location: The area they are looking in. If they mention multiple or add a new area to an existing search, return BOTH areas combined (e.g., 'Baner, Wakad').
         property_type: The type of property they want (e.g., '1BHK', '2BHK', 'Villa').
         intent: The goal (e.g., 'buy', 'rent', 'investment', 'browsing').
         score: Your internal lead scoring evaluation (High, Medium, Low).
@@ -220,7 +221,8 @@ async def process_chat(session_id: str, user_message: str, db: DBSession, client
     if not lead:
         lead = Lead(session_id=session_id, client_id=client_id)
         db.add(lead)
-        asyncio.create_task(log_event_async(session_id, "lead_created", client_id=client_id))
+        latency = round((time.time() - start_time) * 1000)
+        asyncio.create_task(log_event_async(session_id, "lead_created", latency_ms=latency, client_id=client_id))
 
     # Always auto-populate phone from WhatsApp session_id — unconditional so phone is
     # set even if Gemini never calls extract_lead_info (e.g. visit-date-first messages).
@@ -239,7 +241,10 @@ async def process_chat(session_id: str, user_message: str, db: DBSession, client
 
     # If the user replies while follow-up is active (e.g. Day 1, Day 3), log it and stop follow-ups
     if f_state.follow_up_status == "active" and f_state.follow_up_stage != "Day 0":
-        asyncio.create_task(log_event_async(session_id, "follow_up_replied", client_id=client_id))
+        latency = round((time.time() - start_time) * 1000)
+        asyncio.create_task(
+            log_event_async(session_id, f"{f_state.follow_up_stage} follow_up_replied", latency_ms=latency,
+                            client_id=client_id))
 
     # If the lead already has a visit date booked, mark follow-up as completed (not just stopped).
     # "stopped" = paused mid-sequence by user reply; "completed" = goal achieved, no further action needed.
@@ -664,11 +669,15 @@ async def process_chat(session_id: str, user_message: str, db: DBSession, client
                         "property_type")
 
                     # Fire highly-asynchronous funnel events based on new data
+                    current_latency = round((time.time() - start_time) * 1000)
                     if any(k in new_fields for k in ["budget", "location", "intent", "property_type"]):
-                        asyncio.create_task(log_event_async(session_id, "qualified", client_id=client_id))
+                        asyncio.create_task(
+                            log_event_async(session_id, "qualified", latency_ms=current_latency, client_id=client_id))
 
                     if "visit_date" in new_fields:
-                        asyncio.create_task(log_event_async(session_id, "appointment_booked", client_id=client_id))
+                        asyncio.create_task(
+                            log_event_async(session_id, "appointment_booked", latency_ms=current_latency,
+                                            client_id=client_id))
 
                     # Extract Gemini's own conversational text from this same response.
                     text_from_response = args.get("conversational_reply", None)
@@ -828,6 +837,19 @@ async def process_chat(session_id: str, user_message: str, db: DBSession, client
 
     if agent_data.get("assigned_agent"):
         lead.assigned_agent = agent_data["assigned_agent"]
+
+    # --- FIX: SYNCHRONIZE FUNNEL STAGE WITH EVENT LOGS ---
+    if fully_qualified or has_visit:
+        if lead.funnel_stage not in ["Site Visit Done", "Closed Won"]:
+            lead.funnel_stage = "Appointment Scheduled"
+    elif has_core:
+        if lead.funnel_stage == "New":
+            lead.funnel_stage = "Contacted"
+
+    # Sync the dormant followup_stage column so the dashboard reads it accurately
+    if f_state:
+        lead.followup_stage = f_state.follow_up_stage
+    # -----------------------------------------------------
 
     db.commit()
 
