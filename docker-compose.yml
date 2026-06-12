@@ -1,0 +1,51 @@
+services:
+  postgres:
+    image: postgres:18-alpine
+    container_name: pg-local
+    environment:
+      POSTGRES_USER: realestate
+      POSTGRES_PASSWORD: localpass
+      POSTGRES_DB: realestate_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql
+    restart: always
+
+  redis:
+    image: redis:alpine
+    container_name: redis-local
+    ports:
+      - "6379:6379"
+    volumes:
+      - redisdata:/data
+    restart: always
+
+  ngrok:
+    image: ngrok/ngrok:latest
+    container_name: ngrok-local
+    command:
+      - "http"
+      - "host.docker.internal:8000"
+    environment:
+      NGROK_AUTHTOKEN: ${NGROK_AUTHTOKEN}
+    ports:
+      - "4040:4040"
+    restart: always
+
+  frontend:
+    image: node:24-alpine
+    container_name: frontend-local
+    working_dir: /app
+    volumes:
+      - ./frontend:/app
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://host.docker.internal:8000
+    command: sh -c "npm install && npm run dev"
+    restart: always
+
+volumes:
+  pgdata:
+  redisdata:
