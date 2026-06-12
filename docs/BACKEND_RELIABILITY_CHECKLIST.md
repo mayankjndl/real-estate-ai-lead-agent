@@ -27,11 +27,11 @@ ever exposed to clients, a JWT guard + `client_id` filter must be added first.
 
 Two auth layers are in place:
 
-| Layer | Mechanism | Used on |
-|-------|-----------|---------|
-| API Key (ingestion) | `X-API-Key` header or `?api_key=` query param | `/api/v1/whatsapp`, `/api/v1/ingest`, `/api/v1/chat`, `/api/v1/webhook/*`, `/api/v1/incoming_sms` |
-| JWT Bearer (dashboard) | `Authorization: Bearer <token>` via OAuth2 | `/api/v1/analytics`, `/api/v1/leads`, `/api/v1/leads/export`, `/api/v1/leads/{id}/stage` |
-| Admin API Key | `X-Admin-Key` header | `/api/v1/reports/pipeline`, `/api/v1/roi/*` |
+| Layer                  | Mechanism                                     | Used on                                                                                           |
+|------------------------|-----------------------------------------------|---------------------------------------------------------------------------------------------------|
+| API Key (ingestion)    | `X-API-Key` header or `?api_key=` query param | `/api/v1/whatsapp`, `/api/v1/ingest`, `/api/v1/chat`, `/api/v1/webhook/*`, `/api/v1/incoming_sms` |
+| JWT Bearer (dashboard) | `Authorization: Bearer <token>` via OAuth2    | `/api/v1/analytics`, `/api/v1/leads`, `/api/v1/leads/export`, `/api/v1/leads/{id}/stage`          |
+| Admin API Key          | `X-Admin-Key` header                          | `/api/v1/reports/pipeline`, `/api/v1/roi/*`                                                       |
 
 `/health` and `/metrics` are intentionally public. `/metrics` should be firewall-restricted in production if Prometheus is not behind an internal network.
 
@@ -87,12 +87,29 @@ was confirmed via row-count query on all 7 core tables.
 
 ---
 
+
+
+## Additional Reliability Hardening (June 11, 2026)
+
+- [x] RAG hallucination prevention guardrails implemented
+- [x] CRM extraction contamination prevention validated
+- [x] Budget alignment fallback recalculation enabled
+- [x] Funnel stage synchronization implemented
+- [x] Event logging null protection enabled
+- [x] Follow-up scheduler state consistency verified
+- [x] Multi-location lead normalization supported
+- [x] Stripe webhook processing implemented
+- [x] Contact form ingestion endpoint implemented
+- [x] User settings persistence implemented
+- [x] Frontend Docker integration completed
+
+
 ## Summary
 
-| Criterion | Status | Notes |
-|-----------|--------|-------|
-| No cross-client data leakage | ✅ | ROI routes are admin-only (noted above) |
-| Auth on all sensitive routes | ✅ | Dual-layer: API key + JWT |
-| Retries + DLQ verified | ✅ | 3 DLQ event types, replay tested |
-| Scheduler stability under load | ✅ | Soak test passed, metrics instrumented |
-| Recovery procedure documented | ✅ | `BACKUP_RESTORE_DRILL.md` |
+| Criterion                      | Status   | Notes                                   |
+|--------------------------------|----------|-----------------------------------------|
+| No cross-client data leakage   | ✅        | ROI routes are admin-only (noted above) |
+| Auth on all sensitive routes   | ✅        | Dual-layer: API key + JWT               |
+| Retries + DLQ verified         | ✅        | 3 DLQ event types, replay tested        |
+| Scheduler stability under load | ✅        | Soak test passed, metrics instrumented  |
+| Recovery procedure documented  | ✅        | `BACKUP_RESTORE_DRILL.md`               |
