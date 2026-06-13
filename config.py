@@ -21,6 +21,9 @@ class Settings(BaseSettings):
     CLIENT_KEY_A: str = ""
     CLIENT_KEY_B: str = ""
 
+    #NGROK ENV KEY
+    NGROK_AUTHTOKEN: str = ""
+
     # Database Settings
     DATABASE_URL: str = "sqlite:///./real_estate_agent.db"
     REDIS_URL: str = "redis://localhost:6379/0"
