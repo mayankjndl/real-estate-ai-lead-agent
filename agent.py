@@ -74,10 +74,10 @@ def normalize_lead_data(args: dict, existing_intent: str = None) -> dict:
 
     # 2. Normalize Intent (do this first to use it for budget formatting)
     intent_val = args.get("intent") or existing_intent or ""
-    intent_val = str(intent_val).title()
+    intent_val = str(intent_val).title().replace(" Or ", "/")  # <--- FIX: Forces "Buy Or Rent" to "Buy/Rent"
 
     if "intent" in args and args["intent"]:
-        args["intent"] = str(args["intent"]).title()
+        args["intent"] = str(args["intent"]).title().replace(" Or ", "/")  # <--- FIX
 
     # 1. Normalize Budget
     if "budget" in args and args["budget"]:
@@ -119,20 +119,30 @@ def normalize_lead_data(args: dict, existing_intent: str = None) -> dict:
             "mundhwa": "Kharadi or Magarpatta"
         }
 
-        # Check for direct or fuzzy match in canonical list
-        canonical_match = next((area for area in canonical_locations if area.lower() in loc_lower), None)
+        # --- FIX: Find ALL canonical matches instead of just the first one ---
+        # We sort by length descending so "Wakad Road" is matched before "Wakad"
+        matched_canonicals = []
+        for area in sorted(canonical_locations, key=len, reverse=True):
+            if area.lower() in loc_lower and not any(
+                    area.lower() in existing.lower() for existing in matched_canonicals):
+                matched_canonicals.append(area)
 
-        if canonical_match:
-            args["location"] = canonical_match
+        if matched_canonicals:
+            # Join all found locations with a comma
+            args["location"] = ", ".join(matched_canonicals)
         else:
             # Check fallback mapping if missing from canonical list
-            fallback_match = next((fallback for key, fallback in fallback_mapping.items() if key in loc_lower), None)
-            if fallback_match:
-                args["location"] = fallback_match
+            matched_fallbacks = [fallback for key, fallback in fallback_mapping.items() if key in loc_lower]
+            if matched_fallbacks:
+                args["location"] = ", ".join(matched_fallbacks)
             elif " or " in loc_lower or "," in loc_lower:
-                # FIX: Combine multiple locations instead of throwing them away
+                # Basic fallback for multiple unknown locations
+                import re
                 parts = re.split(r'\s+or\s+|,', loc_lower)
                 args["location"] = ", ".join(p.strip().title() for p in parts if p.strip())
+            else:
+                args["location"] = loc_lower.title()
+        # ----------------------------------------------------------------------
 
     return args
 
@@ -301,7 +311,11 @@ async def process_chat(session_id: str, user_message: str, db: DBSession, client
         "thank you": "You're welcome! Feel free to ask if you need anything else."
     }
 
-    if msg_clean in INSTANT_REPLIES:
+    # --- FIX: Prevent Amnesia for Greetings Mid-Conversation ---
+    is_mid_conversation = bool(lead and (
+                lead.budget or lead.name or lead.visit_date or (lead.location and lead.location.lower() != "unknown")))
+
+    if msg_clean in INSTANT_REPLIES and not is_mid_conversation:
         local_reply = INSTANT_REPLIES[msg_clean]
         db.add(Message(session_id=session_id, client_id=client_id, role="assistant", content=local_reply))
         db.commit()
@@ -354,6 +368,11 @@ async def process_chat(session_id: str, user_message: str, db: DBSession, client
         "2 bhk" in msg_clean or "3 bhk" in msg_clean or "1 bhk" in msg_clean,
         "villa" in msg_clean or "plot" in msg_clean,
     ])
+
+    # --- FIX: Prevent Amnesia for Property Modifiers (like "ready to move") ---
+    if is_mid_conversation:
+        HAS_PERSONAL_DATA = True
+    # --------------------------------------------------------------------------
 
     for opener in PROPERTY_INTENT_OPENERS:
         if opener in msg_clean and not HAS_PERSONAL_DATA:
@@ -805,7 +824,7 @@ async def process_chat(session_id: str, user_message: str, db: DBSession, client
             from app.intelligence.budget_alignment import evaluate_budget_alignment
             recalculated = evaluate_budget_alignment(
                 budget_text=lead.budget,
-                location=lead.location,
+                location=lead.location.split(",")[0].strip(),
                 property_type=lead.property_type
             )
             lead.budget_alignment_status = recalculated.get("alignment_status", "unknown")
