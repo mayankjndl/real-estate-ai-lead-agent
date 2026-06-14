@@ -23,12 +23,12 @@
 
 ## Auth Reference
 
-| Auth type | How to send | Used on |
-|-----------|-------------|---------|
-| API Key | `X-API-Key: <key>` header **or** `?api_key=<key>` query param | Ingestion & webhook routes |
-| JWT Bearer | `Authorization: Bearer <token>` | Dashboard routes |
-| Admin API Key | `X-Admin-Key: <key>` header | Internal ops / ROI routes |
-| None | — | `/health`, `/metrics`, `/docs`, `/openapi.json` |
+| Auth type     | How to send                                                   | Used on                                         |
+|---------------|---------------------------------------------------------------|-------------------------------------------------|
+| API Key       | `X-API-Key: <key>` header **or** `?api_key=<key>` query param | Ingestion & webhook routes                      |
+| JWT Bearer    | `Authorization: Bearer <token>`                               | Dashboard routes                                |
+| Admin API Key | `X-Admin-Key: <key>` header                                   | Internal ops / ROI routes                       |
+| None          | —                                                             | `/health`, `/metrics`, `/docs`, `/openapi.json` |
 
 API keys are provisioned by `seed.py` and stored hashed in the `clients` table.
 JWT tokens are issued by `POST /api/v1/auth/login` and expire after 7 days.
@@ -39,12 +39,12 @@ JWT tokens are issued by `POST /api/v1/auth/login` and expire after 7 days.
 
 ### Public / Infrastructure
 
-| Method | Path | Auth | Description |
-|--------|------|------|-------------|
-| GET | `/health` | None | Returns `{"status":"healthy","db":"connected","redis":"connected"}` |
-| GET | `/metrics` | None | Prometheus text-format metrics |
-| GET | `/docs` | None | Swagger UI |
-| GET | `/openapi.json` | None | Raw OpenAPI 3.x schema |
+| Method | Path            | Auth | Description                                                         |
+|--------|-----------------|------|---------------------------------------------------------------------|
+| GET    | `/health`       | None | Returns `{"status":"healthy","db":"connected","redis":"connected"}` |
+| GET    | `/metrics`      | None | Prometheus text-format metrics                                      |
+| GET    | `/docs`         | None | Swagger UI                                                          |
+| GET    | `/openapi.json` | None | Raw OpenAPI 3.x schema                                              |
 
 ---
 
@@ -173,7 +173,7 @@ Query params: `page` (int, default 1), `page_size` (int, default 20), `stage` (s
 **Response `200`:**
 ```json
 {
-  "leads": [ { "id": 1, "name": "...", "phone": "...", "budget": "...", "funnel_stage": "...", ... } ],
+  "leads": [ { "id": 1, "name": "...", "phone": "...", "budget": "...", "funnel_stage": "..."} ],
   "total": 42,
   "page": 1,
   "page_size": 20

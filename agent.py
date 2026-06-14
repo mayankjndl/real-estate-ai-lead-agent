@@ -16,7 +16,10 @@ from app.intelligence.agent_matcher import match_best_agent
 # 1. Gemini Initialization
 genai.configure(api_key=settings.GEMINI_API_KEY)
 logger = logging.getLogger("agent")
-
+PUNE_AREAS = ["wakad", "hinjewadi", "baner", "kharadi", "kothrud", "hadapsar",
+                  "ravet", "balewadi", "aundh", "pashan", "viman nagar", "magarpatta",
+                  "kondhwa", "undri", "mundhwa", "punawale", "tathawade", "bavdhan",
+                  "sinhagad road", "pune"]
 
 # 2. Lightweight Guardrail & Tracking Helpers
 async def log_event_async(session_id: str, action_type: str, latency_ms: int = 0, agent_type: str = "AI",
@@ -71,10 +74,10 @@ def normalize_lead_data(args: dict, existing_intent: str = None) -> dict:
 
     # 2. Normalize Intent (do this first to use it for budget formatting)
     intent_val = args.get("intent") or existing_intent or ""
-    intent_val = str(intent_val).title()
+    intent_val = str(intent_val).title().replace(" Or ", "/")  # <--- FIX: Forces "Buy Or Rent" to "Buy/Rent"
 
     if "intent" in args and args["intent"]:
-        args["intent"] = str(args["intent"]).title()
+        args["intent"] = str(args["intent"]).title().replace(" Or ", "/")  # <--- FIX
 
     # 1. Normalize Budget
     if "budget" in args and args["budget"]:
@@ -116,20 +119,30 @@ def normalize_lead_data(args: dict, existing_intent: str = None) -> dict:
             "mundhwa": "Kharadi or Magarpatta"
         }
 
-        # Check for direct or fuzzy match in canonical list
-        canonical_match = next((area for area in canonical_locations if area.lower() in loc_lower), None)
+        # --- FIX: Find ALL canonical matches instead of just the first one ---
+        # We sort by length descending so "Wakad Road" is matched before "Wakad"
+        matched_canonicals = []
+        for area in sorted(canonical_locations, key=len, reverse=True):
+            if area.lower() in loc_lower and not any(
+                    area.lower() in existing.lower() for existing in matched_canonicals):
+                matched_canonicals.append(area)
 
-        if canonical_match:
-            args["location"] = canonical_match
+        if matched_canonicals:
+            # Join all found locations with a comma
+            args["location"] = ", ".join(matched_canonicals)
         else:
             # Check fallback mapping if missing from canonical list
-            fallback_match = next((fallback for key, fallback in fallback_mapping.items() if key in loc_lower), None)
-            if fallback_match:
-                args["location"] = fallback_match
+            matched_fallbacks = [fallback for key, fallback in fallback_mapping.items() if key in loc_lower]
+            if matched_fallbacks:
+                args["location"] = ", ".join(matched_fallbacks)
             elif " or " in loc_lower or "," in loc_lower:
-                # FIX: Combine multiple locations instead of throwing them away
+                # Basic fallback for multiple unknown locations
+                import re
                 parts = re.split(r'\s+or\s+|,', loc_lower)
                 args["location"] = ", ".join(p.strip().title() for p in parts if p.strip())
+            else:
+                args["location"] = loc_lower.title()
+        # ----------------------------------------------------------------------
 
     return args
 
@@ -298,7 +311,11 @@ async def process_chat(session_id: str, user_message: str, db: DBSession, client
         "thank you": "You're welcome! Feel free to ask if you need anything else."
     }
 
-    if msg_clean in INSTANT_REPLIES:
+    # --- FIX: Prevent Amnesia for Greetings Mid-Conversation ---
+    is_mid_conversation = bool(lead and (
+                lead.budget or lead.name or lead.visit_date or (lead.location and lead.location.lower() != "unknown")))
+
+    if msg_clean in INSTANT_REPLIES and not is_mid_conversation:
         local_reply = INSTANT_REPLIES[msg_clean]
         db.add(Message(session_id=session_id, client_id=client_id, role="assistant", content=local_reply))
         db.commit()
@@ -338,10 +355,7 @@ async def process_chat(session_id: str, user_message: str, db: DBSession, client
     # (name, budget, phone) — those need Gemini to extract and save properly.
     # Also skip if the message contains location or property type — those are
     # meaningful DB fields that the intercept template never captures.
-    PUNE_AREAS = ["wakad", "hinjewadi", "baner", "kharadi", "kothrud", "hadapsar",
-                  "ravet", "balewadi", "aundh", "pashan", "viman nagar", "magarpatta",
-                  "kondhwa", "undri", "mundhwa", "punawale", "tathawade", "bavdhan",
-                  "sinhagad road", "pune"]
+
     HAS_PERSONAL_DATA = any([
         "my name is" in msg_clean,
         "i am " in msg_clean and len(msg_clean.split()) <= 8,
@@ -354,6 +368,11 @@ async def process_chat(session_id: str, user_message: str, db: DBSession, client
         "2 bhk" in msg_clean or "3 bhk" in msg_clean or "1 bhk" in msg_clean,
         "villa" in msg_clean or "plot" in msg_clean,
     ])
+
+    # --- FIX: Prevent Amnesia for Property Modifiers (like "ready to move") ---
+    if is_mid_conversation:
+        HAS_PERSONAL_DATA = True
+    # --------------------------------------------------------------------------
 
     for opener in PROPERTY_INTENT_OPENERS:
         if opener in msg_clean and not HAS_PERSONAL_DATA:
@@ -488,9 +507,14 @@ async def process_chat(session_id: str, user_message: str, db: DBSession, client
     words = user_message.lower().split()
     is_property_query = any(w.strip(".,!?") in PROPERTY_KEYWORDS for w in words)
 
+    # Only trigger RAG if we have a location in context OR if the user explicitly mentions a Pune area
+    has_loc_ctx = bool(lead and lead.location and lead.location.lower() != "unknown")
+    has_loc_msg = any(area in user_message.lower() for area in PUNE_AREAS)
+    is_rag_eligible = is_property_query and (has_loc_ctx or has_loc_msg)
+
     # Fetch RAG Context from the FAQ store (only for property-related queries)
     user_message_for_llm = f"Summary: {summary_text}\nUser Message: {user_message}"
-    if is_property_query:
+    if is_rag_eligible:
         rag_start = time.time()
         try:
             # Contextualize RAG query with known location to resolve pronouns like "there"
@@ -794,7 +818,21 @@ async def process_chat(session_id: str, user_message: str, db: DBSession, client
     lead.urgency_level = ml_score_data.get("urgency_level", "low")
     lead.response_speed_score = ml_score_data.get("response_speed_score", 0)
     lead.inactivity_penalty = ml_score_data.get("inactivity_penalty", 0)
-    lead.budget_alignment_status = ml_score_data.get("budget_alignment_status", "unknown")
+    new_alignment = ml_score_data.get("budget_alignment_status", "unknown")
+    if new_alignment == "unknown" and lead.budget and lead.location and lead.property_type:
+        try:
+            from app.intelligence.budget_alignment import evaluate_budget_alignment
+            recalculated = evaluate_budget_alignment(
+                budget_text=lead.budget,
+                location=lead.location.split(",")[0].strip(),
+                property_type=lead.property_type
+            )
+            lead.budget_alignment_status = recalculated.get("alignment_status", "unknown")
+        except Exception as e:
+            logger.warning(f"Failed to recalculate budget alignment: {e}")
+            lead.budget_alignment_status = "unknown"
+    else:
+        lead.budget_alignment_status = new_alignment
 
     # Optional: Map the raw integer score back to High/Medium/Low string if needed for frontend backward compatibility
     prob = ml_score_data.get("conversion_probability", 0)
