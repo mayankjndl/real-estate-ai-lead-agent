@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { Building2, LayoutDashboard, Inbox, Users, Settings, LogOut, Menu, X } from 'lucide-react'
 import { usePathname } from 'next/navigation'
 import { logoutClient } from '@/lib/auth'
+import { ThemeToggle } from '@/components/ThemeToggle'
 
 export default function Sidebar() {
   const [isOpen, setIsOpen] = useState(false)
@@ -57,6 +58,10 @@ export default function Sidebar() {
         </nav>
 
         <div className="p-4 border-t border-slate-200 dark:border-zinc-900 space-y-2">
+          <div className="flex items-center justify-between px-3 py-2 mb-2">
+            <span className="text-sm font-medium text-slate-500 dark:text-zinc-400">Theme</span>
+            <ThemeToggle />
+          </div>
           <a href="/settings" onClick={() => setIsOpen(false)} className={`flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-lg transition-all duration-300 ${pathname === '/settings' ? 'text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-400/10' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100 dark:text-zinc-400 dark:hover:text-white dark:hover:bg-zinc-900'}`}>
             <Settings className={`w-4 h-4 transition-transform duration-300 ${pathname === '/settings' ? 'scale-110' : ''}`} /> Settings
           </a>
