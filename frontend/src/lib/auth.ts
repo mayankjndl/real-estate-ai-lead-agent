@@ -3,7 +3,7 @@
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || 'https://real-estate-ai-lead-agent-3.onrender.com'
 
 export async function loginClient(prevState: any, formData: FormData) {
   const email = formData.get('email')
