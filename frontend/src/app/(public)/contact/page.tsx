@@ -1,4 +1,4 @@
-import { Mail, MapPin, Phone, ArrowRight, Linkedin } from 'lucide-react'
+import { Mail, MapPin, Phone, ArrowRight, Link } from 'lucide-react'
 
 export default function ContactPage() {
   return (
@@ -45,7 +45,7 @@ export default function ContactPage() {
 
                 <a href="https://www.linkedin.com/company/imperion-data-systems/" target="_blank" rel="noopener noreferrer" className="flex items-center gap-4 group cursor-pointer">
                   <div className="w-12 h-12 rounded-full bg-zinc-800/80 flex items-center justify-center border border-zinc-700 group-hover:border-emerald-500/50 transition-colors">
-                    <Linkedin className="text-emerald-400 w-5 h-5" />
+                    <Link className="text-emerald-400 w-5 h-5" />
                   </div>
                   <div>
                     <p className="text-sm text-zinc-400 font-medium">Connect on</p>
