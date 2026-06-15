@@ -32,13 +32,21 @@ export default function HomePage() {
         </div>
       </main>
 
-      {/* Trusted By Banner */}
+      {/* Enterprise Reliability Banner */}
       <section className="border-y border-slate-200 dark:border-zinc-900 bg-white/50 dark:bg-zinc-950/50 py-10 px-6">
         <div className="max-w-7xl mx-auto text-center">
-          <p className="text-sm font-medium text-slate-500 dark:text-zinc-500 mb-6 uppercase tracking-widest">Trusted by leading developers globally</p>
-          <div className="flex flex-wrap justify-center gap-8 md:gap-16 opacity-50 grayscale hover:grayscale-0 transition-all duration-500">
-            {['Acme Corp', 'Global Estates', 'Stellar Homes', 'Apex Properties', 'Vanguard Realty'].map((brand) => (
-              <span key={brand} className="text-xl font-bold text-slate-400 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white transition-colors cursor-default">{brand}</span>
+          <p className="text-sm font-medium text-slate-500 dark:text-zinc-500 mb-8 uppercase tracking-widest">Enterprise-Grade Reliability for Real Estate</p>
+          <div className="flex flex-wrap justify-center gap-8 md:gap-16">
+            {[
+              { icon: Zap, label: 'Zero Latency Sync' },
+              { icon: Target, label: '99.9% Uptime' },
+              { icon: Smartphone, label: 'Native WhatsApp API' },
+              { icon: BarChart3, label: 'Real-Time Analytics' },
+            ].map((feature) => (
+              <div key={feature.label} className="flex items-center gap-3 text-slate-600 dark:text-zinc-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors cursor-default">
+                <feature.icon className="w-5 h-5" />
+                <span className="text-sm md:text-base font-semibold">{feature.label}</span>
+              </div>
             ))}
           </div>
         </div>
