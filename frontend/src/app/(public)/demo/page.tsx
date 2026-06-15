@@ -37,7 +37,7 @@ export default function DemoPage() {
           <div className="bg-white/5 border border-zinc-800 p-2 rounded-3xl shadow-xl backdrop-blur-md relative overflow-hidden">
             <div 
               className="calendly-inline-widget w-full rounded-2xl overflow-hidden" 
-              data-url="https://calendly.com/your-account-id/30min?hide_event_type_details=1&hide_gdpr_banner=1&background_color=09090b&text_color=ffffff&primary_color=34d399" 
+              data-url="https://calendly.com/info-imperiondatasystem/discovery-call?hide_event_type_details=1&hide_gdpr_banner=1&background_color=09090b&text_color=ffffff&primary_color=34d399" 
               style={{ minWidth: '320px', height: '700px' }}
             ></div>
             <Script type="text/javascript" src="https://assets.calendly.com/assets/external/widget.js" async />

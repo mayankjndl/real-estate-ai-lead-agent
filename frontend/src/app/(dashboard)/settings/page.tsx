@@ -140,7 +140,7 @@ export default function SettingsPage() {
           <FieldRow label="Email Address" hint="Managed by your system administrator.">
             <input
               type="email"
-              value="admin@revenueos.com"
+              value="info.imperiondatasystem@gmail.com"
               readOnly
               className="w-full bg-zinc-900 border border-zinc-800 text-zinc-500 text-sm rounded-lg px-3 py-2 cursor-not-allowed"
             />

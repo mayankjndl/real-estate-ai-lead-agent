@@ -1,4 +1,4 @@
-import { Mail, MapPin, Phone, ArrowRight } from 'lucide-react'
+import { Mail, MapPin, Phone, ArrowRight, Linkedin } from 'lucide-react'
 
 export default function ContactPage() {
   return (
@@ -29,7 +29,7 @@ export default function ContactPage() {
                   </div>
                   <div>
                     <p className="text-sm text-zinc-400 font-medium">Email us at</p>
-                    <p className="text-white group-hover:text-emerald-400 transition-colors">hello@revenueos.com</p>
+                    <p className="text-white group-hover:text-emerald-400 transition-colors">info.imperiondatasystem@gmail.com</p>
                   </div>
                 </div>
 
@@ -39,19 +39,19 @@ export default function ContactPage() {
                   </div>
                   <div>
                     <p className="text-sm text-zinc-400 font-medium">Call us at</p>
-                    <p className="text-white group-hover:text-emerald-400 transition-colors">+1 (555) 000-0000</p>
+                    <p className="text-white group-hover:text-emerald-400 transition-colors">+91 8308755482</p>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-4 group cursor-pointer">
+                <a href="https://www.linkedin.com/company/imperion-data-systems/" target="_blank" rel="noopener noreferrer" className="flex items-center gap-4 group cursor-pointer">
                   <div className="w-12 h-12 rounded-full bg-zinc-800/80 flex items-center justify-center border border-zinc-700 group-hover:border-emerald-500/50 transition-colors">
-                    <MapPin className="text-emerald-400 w-5 h-5" />
+                    <Linkedin className="text-emerald-400 w-5 h-5" />
                   </div>
                   <div>
-                    <p className="text-sm text-zinc-400 font-medium">Visit us</p>
-                    <p className="text-white group-hover:text-emerald-400 transition-colors">123 Market St, San Francisco, CA</p>
+                    <p className="text-sm text-zinc-400 font-medium">Connect on</p>
+                    <p className="text-white group-hover:text-emerald-400 transition-colors">LinkedIn</p>
                   </div>
-                </div>
+                </a>
               </div>
             </div>
           </div>
