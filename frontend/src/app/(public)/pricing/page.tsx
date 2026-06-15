@@ -47,7 +47,7 @@ export default function PricingPage() {
               <span className={`text-4xl font-bold text-slate-900 dark:text-white absolute transition-transform duration-500 ${!isAnnual ? 'translate-y-0 opacity-100' : 'translate-y-full opacity-0'}`}>$349</span>
               <span className="text-slate-500 dark:text-zinc-500 text-sm absolute bottom-0 left-[80px]">/mo</span>
             </div>
-            <a href="/login" className="w-full py-3 px-4 rounded-full border border-slate-200 dark:border-zinc-700 text-slate-900 dark:text-white text-center font-medium hover:bg-slate-50 dark:group-hover:bg-zinc-800 transition-colors mb-8">
+            <a href="/login" className="w-full py-3 px-4 rounded-full border border-slate-300 dark:border-zinc-700 text-slate-900 dark:text-white text-center font-medium hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors mb-8 shadow-sm">
               Start Free Trial
             </a>
             <div className="space-y-4 flex-1">
@@ -71,7 +71,7 @@ export default function PricingPage() {
               <span className={`text-4xl font-bold text-slate-900 dark:text-white absolute transition-transform duration-500 ${!isAnnual ? 'translate-y-0 opacity-100' : 'translate-y-full opacity-0'}`}>$899</span>
               <span className="text-slate-500 dark:text-zinc-500 text-sm absolute bottom-0 left-[80px]">/mo</span>
             </div>
-            <a href="/login" className="w-full py-3 px-4 rounded-full bg-slate-900 text-white dark:bg-white dark:text-zinc-950 text-center font-medium hover:bg-slate-800 dark:hover:bg-zinc-200 transition-colors mb-8 shadow-lg shadow-emerald-500/10 group-hover:shadow-emerald-500/20">
+            <a href="/login" className="w-full py-3 px-4 rounded-full bg-emerald-600 text-white dark:bg-white dark:text-zinc-950 text-center font-medium hover:bg-emerald-700 dark:hover:bg-zinc-200 transition-colors mb-8 shadow-lg shadow-emerald-600/20 dark:shadow-emerald-500/10 group-hover:shadow-emerald-600/30">
               Start Free Trial
             </a>
             <div className="space-y-4 flex-1">
@@ -90,7 +90,7 @@ export default function PricingPage() {
             <div className="mb-6 flex items-baseline gap-1 h-12 items-end">
               <span className="text-4xl font-bold text-slate-900 dark:text-white leading-none">Custom</span>
             </div>
-            <a href="/contact" className="w-full py-3 px-4 rounded-full border border-slate-200 dark:border-zinc-700 text-slate-900 dark:text-white text-center font-medium hover:bg-slate-50 dark:group-hover:bg-zinc-800 transition-colors mb-8">
+            <a href="/contact" className="w-full py-3 px-4 rounded-full border border-slate-300 dark:border-zinc-700 text-slate-900 dark:text-white text-center font-medium hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors mb-8 shadow-sm">
               Contact Sales
             </a>
             <div className="space-y-4 flex-1">
@@ -106,7 +106,7 @@ export default function PricingPage() {
         </div>
       </main>
       
-      <div className="fixed inset-0 z-[-2] bg-[linear-gradient(to_right,#4f4f4f2e_1px,transparent_1px),linear-gradient(to_bottom,#4f4f4f2e_1px,transparent_1px)] bg-[size:32px_32px]"></div>
+      <div className="fixed inset-0 z-[-2] bg-[linear-gradient(to_right,#0f172a0a_1px,transparent_1px),linear-gradient(to_bottom,#0f172a0a_1px,transparent_1px)] dark:bg-[linear-gradient(to_right,#4f4f4f2e_1px,transparent_1px),linear-gradient(to_bottom,#4f4f4f2e_1px,transparent_1px)] bg-[size:32px_32px]"></div>
     </div>
   )
 }

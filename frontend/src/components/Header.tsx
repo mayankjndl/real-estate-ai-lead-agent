@@ -22,7 +22,7 @@ export default function Header() {
   ]
 
   return (
-    <nav className="fixed top-0 w-full z-50 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-xl border-b border-slate-200 dark:border-zinc-900 transition-all duration-300">
+    <nav className="fixed top-0 w-full z-50 bg-white/90 dark:bg-zinc-950/80 backdrop-blur-xl border-b border-slate-200 dark:border-zinc-900 transition-all duration-300 shadow-sm dark:shadow-none">
       <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
         <Link href="/" className="flex items-center gap-3 group">
           <div className="h-8 w-8 rounded-xl bg-gradient-to-tr from-emerald-500 to-cyan-500 dark:from-emerald-400 dark:to-cyan-500 flex items-center justify-center shadow-lg shadow-emerald-500/20 group-hover:shadow-emerald-500/40 transition-shadow duration-300">
@@ -55,7 +55,7 @@ export default function Header() {
           <Link href="/login" className="text-sm font-medium text-slate-600 hover:text-slate-900 dark:text-zinc-300 dark:hover:text-white transition-colors">
             Sign in
           </Link>
-          <Link href="/dashboard" className="text-sm font-medium bg-slate-900 text-white dark:bg-white dark:text-zinc-950 px-5 py-2 rounded-full hover:bg-slate-800 dark:hover:bg-zinc-200 transition-all hover:scale-105 active:scale-95 shadow-md dark:shadow-[0_0_20px_rgba(255,255,255,0.1)]">
+          <Link href="/dashboard" className="text-sm font-medium bg-emerald-600 text-white dark:bg-white dark:text-zinc-950 px-5 py-2 rounded-full hover:bg-emerald-700 dark:hover:bg-zinc-200 transition-all hover:scale-105 active:scale-95 shadow-lg shadow-emerald-600/20 dark:shadow-[0_0_20px_rgba(255,255,255,0.1)]">
             Dashboard
           </Link>
         </div>
@@ -74,7 +74,7 @@ export default function Header() {
       </div>
 
       {/* Mobile Navigation Dropdown */}
-      <div className={`md:hidden absolute w-full bg-white/95 dark:bg-zinc-950/95 backdrop-blur-xl border-b border-slate-200 dark:border-zinc-900 transition-all duration-300 overflow-hidden ${isMobileMenuOpen ? 'max-h-[400px] opacity-100' : 'max-h-0 opacity-0'}`}>
+      <div className={`md:hidden absolute w-full bg-white dark:bg-zinc-950/95 backdrop-blur-xl border-b border-slate-200 dark:border-zinc-900 transition-all duration-300 overflow-hidden shadow-lg dark:shadow-none ${isMobileMenuOpen ? 'max-h-[400px] opacity-100' : 'max-h-0 opacity-0'}`}>
         <div className="px-6 py-4 flex flex-col gap-4">
           {links.map((link) => {
             const isActive = pathname === link.href
@@ -92,7 +92,7 @@ export default function Header() {
           <Link href="/login" className="text-base font-medium text-slate-600 hover:text-slate-900 dark:text-zinc-300 dark:hover:text-white py-2">
             Sign in
           </Link>
-          <Link href="/dashboard" className="text-base font-medium bg-slate-900 text-white dark:bg-white dark:text-zinc-950 px-5 py-3 rounded-xl text-center hover:bg-slate-800 dark:hover:bg-zinc-200 transition-colors mt-2">
+          <Link href="/dashboard" className="text-base font-medium bg-emerald-600 text-white dark:bg-white dark:text-zinc-950 px-5 py-3 rounded-xl text-center hover:bg-emerald-700 dark:hover:bg-zinc-200 transition-colors mt-2 shadow-lg shadow-emerald-600/20">
             Dashboard
           </Link>
         </div>

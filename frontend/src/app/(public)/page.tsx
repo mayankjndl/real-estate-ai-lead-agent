@@ -8,7 +8,7 @@ export default function HomePage() {
       {/* Hero Section */}
       <main className="pt-32 pb-20 px-6 max-w-7xl mx-auto flex flex-col items-center text-center relative">
         <div className="absolute inset-0 z-[-1] bg-[radial-gradient(ellipse_80%_60%_at_50%_-20%,rgba(52,211,153,0.15),transparent_100%)]"></div>
-        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/10 dark:bg-emerald-400/10 text-emerald-600 dark:text-emerald-400 text-xs font-medium mb-8 border border-emerald-500/20 dark:border-emerald-400/20 shadow-[0_0_15px_rgba(52,211,153,0.1)] transition-transform hover:scale-105 duration-300 cursor-default">
+        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-100 dark:bg-emerald-400/10 text-emerald-700 dark:text-emerald-400 text-xs font-medium mb-8 border border-emerald-200 dark:border-emerald-400/20 shadow-sm dark:shadow-[0_0_15px_rgba(52,211,153,0.1)] transition-transform hover:scale-105 duration-300 cursor-default">
           <span className="flex h-2 w-2 rounded-full bg-emerald-500 dark:bg-emerald-400 animate-pulse"></span>
           Revenue OS 2.0 is now live
         </div>
@@ -22,11 +22,11 @@ export default function HomePage() {
         </p>
         
         <div className="flex flex-col sm:flex-row items-center gap-4 w-full sm:w-auto animate-in fade-in slide-in-from-bottom-8 duration-1000 delay-300">
-          <a href="/login" className="w-full sm:w-auto px-8 py-4 bg-slate-900 text-white dark:bg-white dark:text-zinc-950 rounded-full font-medium flex items-center justify-center hover:bg-slate-800 dark:hover:bg-zinc-200 transition-all hover:scale-[1.02] active:scale-[0.98] group shadow-xl dark:shadow-[0_0_30px_rgba(255,255,255,0.2)]">
+          <a href="/login" className="w-full sm:w-auto px-8 py-4 bg-emerald-600 text-white dark:bg-white dark:text-zinc-950 rounded-full font-medium flex items-center justify-center hover:bg-emerald-700 dark:hover:bg-zinc-200 transition-all hover:scale-[1.02] active:scale-[0.98] group shadow-xl shadow-emerald-600/20 dark:shadow-[0_0_30px_rgba(255,255,255,0.2)]">
             Start free trial
             <ArrowRight className="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform" />
           </a>
-          <a href="/demo" className="w-full sm:w-auto px-8 py-4 bg-white/50 dark:bg-zinc-900/50 backdrop-blur-md border border-slate-200 dark:border-zinc-800 text-slate-700 dark:text-white rounded-full font-medium flex items-center justify-center hover:bg-slate-100 dark:hover:bg-zinc-800 transition-all hover:scale-[1.02] active:scale-[0.98]">
+          <a href="/demo" className="w-full sm:w-auto px-8 py-4 bg-white/80 dark:bg-zinc-900/50 backdrop-blur-md border border-slate-200 dark:border-zinc-800 text-slate-800 dark:text-white rounded-full font-medium flex items-center justify-center hover:bg-slate-50 dark:hover:bg-zinc-800 transition-all hover:scale-[1.02] active:scale-[0.98] shadow-sm">
             View Live Demo
           </a>
         </div>
@@ -98,7 +98,7 @@ export default function HomePage() {
           <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-1/2 bg-emerald-500/10 blur-[100px] rounded-full"></div>
           <h2 className="text-3xl md:text-5xl font-bold tracking-tight text-slate-900 dark:text-white mb-6 relative z-10">Ready to scale your pipeline?</h2>
           <p className="text-slate-600 dark:text-zinc-400 text-lg mb-10 max-w-xl mx-auto relative z-10">Join top real estate developers who have doubled their appointment rates using autonomous AI.</p>
-          <a href="/login" className="inline-flex items-center justify-center px-8 py-4 bg-slate-900 text-white dark:bg-white dark:text-zinc-950 rounded-full font-medium hover:bg-slate-800 dark:hover:bg-zinc-200 transition-all hover:scale-[1.02] relative z-10 shadow-lg">
+          <a href="/login" className="inline-flex items-center justify-center px-8 py-4 bg-emerald-600 text-white dark:bg-white dark:text-zinc-950 rounded-full font-medium hover:bg-emerald-700 dark:hover:bg-zinc-200 transition-all hover:scale-[1.02] relative z-10 shadow-xl shadow-emerald-600/20">
             Get Started Today
           </a>
         </div>
