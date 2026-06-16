@@ -37,13 +37,10 @@ PREMIUM_LOCATIONS = [
 # ==========================================
 
 def parse_budget_to_lakhs(text):
-
     text = text.lower()
 
-    match = re.search(
-        r'(\d+(?:\.\d+)?)\s*(cr|crore|l|lac|lakh)',
-        text
-    )
+    # FIX: Added 'k' and 'thousand' to handle rental budgets
+    match = re.search(r'(\d+(?:\.\d+)?)\s*(cr|crore|l|lac|lakh|k|thousand)', text)
 
     if not match:
         return None
@@ -53,6 +50,8 @@ def parse_budget_to_lakhs(text):
 
     if unit in ["cr", "crore"]:
         return value * 100
+    elif unit in ["k", "thousand"]:
+        return value / 100  # Convert thousands to lakhs (e.g., 25k -> 0.25 Lakhs)
 
     return value
 
