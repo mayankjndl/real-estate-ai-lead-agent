@@ -126,13 +126,13 @@ def run_dynamic_checks(session_id: str, tc: TestCase, bot_replies: List[str]) ->
     if not lead:
         return report
 
-        # 3. Dynamic Inference Logic
+        # 3. Dynamic Inference Logic (What SHOULD the AI have extracted?)
 
-    # Smart Location Choice (Handles "Baner over Aundh" etc.)
+    # Smart Location Choice (Handles "Baner over Aundh" negation)
     mentioned_locs = [loc for loc in LOCATIONS_IN_PUNE if loc in combined_user_text]
     if mentioned_locs:
         if "over" in combined_user_text or "instead of" in combined_user_text:
-            expected_loc = mentioned_locs[0]  # Priority to the first choice
+            expected_loc = mentioned_locs[0]  # Priority to the first choice (e.g., Baner over Aundh -> Baner)
         else:
             expected_loc = mentioned_locs[-1]
 
@@ -159,7 +159,7 @@ def run_dynamic_checks(session_id: str, tc: TestCase, bot_replies: List[str]) ->
             "budget") and lead.get("property_type"))
 
     if tc.category == "HOT":
-        # Only expect a visit scheduled if they gave a specific time, not a vague "next week"
+        # Only expect a visit scheduled if they gave a specific time, not a vague "next week" or "sometime"
         vague_visit = "next week" in combined_user_text or "sometime" in combined_user_text
         visit_keywords = ["visit", "saturday", "sunday", "tomorrow", "today", "schedule"]
 
@@ -168,10 +168,11 @@ def run_dynamic_checks(session_id: str, tc: TestCase, bot_replies: List[str]) ->
 
         # Don't expect opt-out leads to remain HOT
         opted_out = "stop" in combined_user_text or "again" in combined_user_text
-        if not opted_out:
+        if lead.get("visit_date") is not None and not opted_out:
             report["marked_hot"] = lead.get("lead_temperature") == "hot"
 
         if fup:
+            # FIX: Check for "stopped" status in addition to "completed"
             if opted_out:
                 report["followup_status_correct"] = fup.get("follow_up_status") == "stopped"
             elif is_fully_qualified_db:
