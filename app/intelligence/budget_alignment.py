@@ -59,41 +59,73 @@ def parse_budget_to_lakhs(text):
 # EXTRACT AVG LOCATION PRICE
 # ==========================================
 
-def get_average_price(
-    location,
-    property_type
-):
+import re
 
+
+def get_average_price(location, property_type):
     if not location or not property_type:
         return None
 
     location = location.lower()
-
+    from app.data_manager import PUNE_LOCATIONS
     location_data = PUNE_LOCATIONS.get(location)
 
     if not location_data:
         return None
 
     buy_data = location_data.get("buy")
-
     if not buy_data:
         return None
 
-    property_data = buy_data.get(property_type)
+    # Try to find an exact match in the dictionary first (e.g., "2BHK" or "3BHK")
+    property_data = None
+    for key, val in buy_data.items():
+        if key.upper() == property_type.upper().replace(" ", ""):
+            property_data = val
+            break
 
+    # --- FIX: Dynamic Fallback for 1BHK, 4BHK, 5BHK+, and Villas ---
     if not property_data:
+        base_2bhk = buy_data.get("2BHK") or buy_data.get("2bhk")
+        if not base_2bhk:
+            return None
+
+        values = re.findall(r'(\d+(?:\.\d+)?)', base_2bhk)
+        if not values:
+            return None
+
+        base_price = sum([float(v) for v in values]) / len(values)
+        if "cr" in base_2bhk.lower():
+            base_price *= 100
+
+        pt_lower = property_type.lower()
+
+        # 1. Handle Villas / Penthouses (Assume ~3x the cost of a standard 2BHK)
+        if "villa" in pt_lower or "penthouse" in pt_lower or "row house" in pt_lower:
+            return base_price * 3.0
+
+        # 2. Handle any custom number of BHKs (1BHK, 4BHK, 5BHK, 10BHK...)
+        bhk_match = re.search(r'(\d+)\s*bhk', pt_lower)
+        if bhk_match:
+            rooms = int(bhk_match.group(1))
+            if rooms == 1:
+                return base_price * 0.65  # 1BHK is ~65% of a 2BHK
+            elif rooms == 4:
+                return base_price * 1.8  # 4BHK is ~1.8x of a 2BHK
+            elif rooms == 5:
+                return base_price * 2.4  # 5BHK is ~2.4x of a 2BHK
+            elif rooms >= 6:
+                return base_price * 3.5  # 6BHK+ mansions
+
         return None
+    # -------------------------------------------------------------------------------
 
-    values = re.findall(
-        r'(\d+(?:\.\d+)?)',
-        property_data
-    )
-
+    # Parse the exact property_data found in the dictionary
+    values = re.findall(r'(\d+(?:\.\d+)?)', property_data)
     if not values:
         return None
 
     numbers = [float(v) for v in values]
-
     avg = sum(numbers) / len(numbers)
 
     if "cr" in property_data.lower():
