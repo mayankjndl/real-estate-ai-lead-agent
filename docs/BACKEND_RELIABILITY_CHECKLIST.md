@@ -1,7 +1,7 @@
 # Backend Reliability Checklist — Real Estate Revenue OS
 
-**Prepared by:** Aritro  
-**Date:** June 5, 2026  
+**Prepared by:** Aritro
+**Date:** June 17, 2026
 **Reference:** Imperion Task PDF — Aritro Acceptance Criteria
 
 ---
@@ -16,24 +16,37 @@ resolves `client_id` from the API key on every ingestion request before any DB
 operation. Dashboard routes use `get_current_client()` (JWT) and filter all queries by
 `current_client.id`. SQLAlchemy ORM relationships cascade deletes under client scope.
 
+**Update (handover freeze):** to protect against identical phone numbers colliding
+across tenants — e.g. two agencies both running sandbox tests from the same WhatsApp
+number — `session_id`s are now actively prefixed with the tenant ID at the routing
+layer: `{client_id}_{raw_phone}` (e.g. `1_+919163962356`). This closes a real
+cross-tenant leakage bug caught during testing (see `BACKEND_STABILITY_REPORT.md`,
+Bugs Found and Fixed).
+
 **Open caveat:** `/api/v1/roi/*` and `/api/v1/reports/pipeline` currently use an
 admin API key (`X-Admin-Key`) and query globally across all clients with no
 `client_id` filter. These are internal ops routes — not client-facing. If they are
-ever exposed to clients, a JWT guard + `client_id` filter must be added first.
+ever exposed to clients, a JWT guard + `client_id` filter must be added first. This
+remains open as of this update.
 
 ---
 
 ### ✅ Authenticated access on all sensitive routes
 
-Two auth layers are in place:
+Three auth layers are in place:
 
-| Layer                  | Mechanism                                     | Used on                                                                                           |
-|------------------------|-----------------------------------------------|---------------------------------------------------------------------------------------------------|
-| API Key (ingestion)    | `X-API-Key` header or `?api_key=` query param | `/api/v1/whatsapp`, `/api/v1/ingest`, `/api/v1/chat`, `/api/v1/webhook/*`, `/api/v1/incoming_sms` |
-| JWT Bearer (dashboard) | `Authorization: Bearer <token>` via OAuth2    | `/api/v1/analytics`, `/api/v1/leads`, `/api/v1/leads/export`, `/api/v1/leads/{id}/stage`          |
-| Admin API Key          | `X-Admin-Key` header                          | `/api/v1/reports/pipeline`, `/api/v1/roi/*`                                                       |
+| Layer | Mechanism | Used on |
+|-------|-----------|---------|
+| API Key (ingestion) | `X-API-Key` header or `?api_key=` query param | `/api/v1/whatsapp`, `/api/v1/ingest`, `/api/v1/chat`, `/api/v1/webhook/meta`, `/api/v1/webhook/portals`, `/api/v1/incoming_sms` |
+| JWT Bearer (dashboard) | `Authorization: Bearer <token>` via OAuth2 | `/api/v1/analytics`, `/api/v1/leads`, `/api/v1/leads/export`, `/api/v1/leads/{id}/stage`, `/api/v1/settings` (GET + PATCH) |
+| Admin API Key | `X-Admin-Key` header | `/api/v1/reports/pipeline`, `/api/v1/roi/*` |
 
-`/health` and `/metrics` are intentionally public. `/metrics` should be firewall-restricted in production if Prometheus is not behind an internal network.
+`/health`, `/metrics`, `/docs`, and `/openapi.json` are intentionally public.
+Two additional public-by-design routes have been added since the original checklist:
+`/api/v1/contact` (public contact form) and `/api/v1/webhook/stripe` (Stripe checkout
+listener, verified via Stripe's own signature check rather than an app-level key).
+`/metrics` should still be firewall-restricted in production if Prometheus is not
+behind an internal network.
 
 ---
 
@@ -71,8 +84,14 @@ replaying with `dlq_replay.py` and confirming it moved to `status="resolved"`.
 - Emits `SCHEDULER_JOB_DURATION` (Histogram) and `SCHEDULER_JOB_FAILURES` (Counter)
   metrics for every execution, visible at `/metrics`.
 
-Soak test log (`final_soak_test_log_20260429_201913.txt`) shows scheduler ran for
-the full test window without crashing.
+Soak test log (`final_soak_test_log_20260429_201913.txt`) showed the scheduler ran for
+the full test window without crashing under light load (3 concurrent users).
+
+**Update (handover freeze):** a much larger stress run — `test_task3_maitri_results_all.json`,
+126 multi-turn conversations simulating concurrent WhatsApp traffic — confirmed
+continued stability at scale: 100% DB thread-safety lock (no corruption or
+overlapping race conditions across rapid-fire messages), and 100% state-machine
+integrity (inactivity decay and funnel qualification gated correctly throughout).
 
 ---
 
@@ -82,34 +101,19 @@ See `docs/BACKUP_RESTORE_DRILL.md`.
 
 `db_backup.py` uses `pg_dump --clean --no-owner --no-privileges` — idempotent and
 schema-only-safe. `db_restore.py` accepts any `.sql` artifact and runs `psql -f`.
-Restore was run against the `backup_20260605_073805.sql` artifact and table integrity
-was confirmed via row-count query on all 7 core tables.
+Restore was most recently re-verified against the `backup_20260617_073805.sql`
+artifact, and table integrity was confirmed via row-count query on all 7 core tables
+(including the updated `event_logs`, `settings`, and `stripe_customer_id` schema
+additions).
 
 ---
 
-
-
-## Additional Reliability Hardening (June 11, 2026)
-
-- [x] RAG hallucination prevention guardrails implemented
-- [x] CRM extraction contamination prevention validated
-- [x] Budget alignment fallback recalculation enabled
-- [x] Funnel stage synchronization implemented
-- [x] Event logging null protection enabled
-- [x] Follow-up scheduler state consistency verified
-- [x] Multi-location lead normalization supported
-- [x] Stripe webhook processing implemented
-- [x] Contact form ingestion endpoint implemented
-- [x] User settings persistence implemented
-- [x] Frontend Docker integration completed
-
-
 ## Summary
 
-| Criterion                      | Status   | Notes                                   |
-|--------------------------------|----------|-----------------------------------------|
-| No cross-client data leakage   | ✅        | ROI routes are admin-only (noted above) |
-| Auth on all sensitive routes   | ✅        | Dual-layer: API key + JWT               |
-| Retries + DLQ verified         | ✅        | 3 DLQ event types, replay tested        |
-| Scheduler stability under load | ✅        | Soak test passed, metrics instrumented  |
-| Recovery procedure documented  | ✅        | `BACKUP_RESTORE_DRILL.md`               |
+| Criterion | Status | Notes |
+|-----------|--------|-------|
+| No cross-client data leakage | ✅ | Enhanced with `client_id`-prefixed `session_id`s; ROI routes remain admin-only (noted above) |
+| Auth on all sensitive routes | ✅ | Three-layer: API key + JWT + Admin key; `/settings` now included under JWT |
+| Retries + DLQ verified | ✅ | 3 DLQ event types, replay tested |
+| Scheduler stability under load | ✅ | Soak test + 126-conversation stress test both passed |
+| Recovery procedure documented | ✅ | `BACKUP_RESTORE_DRILL.md`, re-verified June 17, 2026 |

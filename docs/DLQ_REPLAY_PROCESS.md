@@ -1,7 +1,7 @@
 # DLQ / Replay Process — Real Estate Revenue OS
 
 **Prepared by:** Aritro  
-**Date:** June 5, 2026
+**Date:** June 17, 2026
 
 ---
 
@@ -20,10 +20,10 @@ temporarily unavailable, and decouples failure recovery from the hot path.
 
 The DLQ handles three event types, identified by the `target_endpoint` column:
 
-| `target_endpoint` | Triggered by | Replay action |
-|-------------------|-------------|---------------|
-| `hubspot_crm` | `crm_sync.py` after 5 failed HubSpot pushes | Re-calls `_push_to_hubspot(payload)` |
-| `twilio_outbound` | `main.py` after both primary agent send and Twilio fallback fail | Re-calls `client.messages.create(...)` |
+| `target_endpoint`       | Triggered by                                                         | Replay action                                       |
+|-------------------------|----------------------------------------------------------------------|-----------------------------------------------------|
+| `hubspot_crm`           | `crm_sync.py` after 5 failed HubSpot pushes                          | Re-calls `_push_to_hubspot(payload)`                |
+| `twilio_outbound`       | `main.py` after both primary agent send and Twilio fallback fail     | Re-calls `client.messages.create(...)`              |
 | `ml_followup_scheduler` | `follow_up.py` when the ML engine or Twilio send fails for a session | Re-generates follow-up message and sends via Twilio |
 
 ---
@@ -92,10 +92,10 @@ The Prometheus gauge `dlq_pending_events` also exposes this count at `/metrics`
 
 ## Status Meanings
 
-| Status | Meaning |
-|--------|---------|
-| `pending` | Event has not been successfully replayed. Either not yet attempted or last attempt failed. |
-| `resolved` | Event was replayed successfully. No further action needed. |
+| Status     | Meaning                                                                                    |
+|------------|--------------------------------------------------------------------------------------------|
+| `pending`  | Event has not been successfully replayed. Either not yet attempted or last attempt failed. |
+| `resolved` | Event was replayed successfully. No further action needed.                                 |
 
 There is no `failed` terminal state — events stay `pending` until they succeed. This
 is intentional: it allows indefinite retry with no data loss.
@@ -128,3 +128,17 @@ Prometheus alert rule `DLQDepthHigh` in `prometheus_alerts.yml` fires when
   manual escalation.
 - **ML followup replay:** Regenerates the message payload via the ML engine on each
   replay. Output may differ slightly from the original attempt.
+
+---
+
+## Verification Evidence (June 17, 2026 handover)
+
+End-to-end replay was re-verified ahead of the pilot handover:
+
+- A CRM failure was forcibly injected in a local session.
+- The `dlq_events` table received a new row with `target_endpoint = "hubspot_crm"`
+  and `status = "pending"`.
+- Running `python dlq_replay.py` updated that row to `status = "resolved"`.
+
+All three event types (`hubspot_crm`, `twilio_outbound`, `ml_followup_scheduler`)
+remain covered and are documented in the Backend Stability Report.

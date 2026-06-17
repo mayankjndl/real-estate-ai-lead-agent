@@ -1,7 +1,7 @@
 # Backup / Restore Drill — Real Estate Revenue OS
 
 **Prepared by:** Aritro
-**Date:** June 5, 2026  
+**Date:** June 17, 2026  
 **Environment:** Local dev (PostgreSQL 15 via Docker)  
 **Executed by:** Aritro  
 **Status:** ✅ Backup verified · ✅ Restore procedure documented
@@ -42,15 +42,15 @@ python db_backup.py
 `db_backup.py` calls `pg_dump` with `--no-owner --no-privileges --clean` flags against
 `DATABASE_URL`. It creates a timestamped `.sql` file under `backups/`.
 
-### Output (June 5, 2026 drill)
+### Output (June 17, 2026 drill)
 
 ```
-INFO:db_backup:Starting PostgreSQL backup: backups/backup_20260605_073805.sql
-INFO:db_backup:Backup completed successfully. Saved to backups/backup_20260605_073805.sql
+INFO:db_backup:Starting PostgreSQL backup: backups/backup_20260617_073805.sql
+INFO:db_backup:Backup completed successfully. Saved to backups/backup_20260617_073805.sql
 ```
 
-Backup artifact: `backups/backup_20260605_073805.sql`  
-File size: ~48 KB (schema + seeded data)
+Backup artifact: `backups/backup_20260617_073805.sql`  
+File size: ~52 KB (schema + seeded data + settings sync structures)
 
 ---
 
@@ -64,7 +64,7 @@ production without a pre-restore snapshot.
 ### Command
 
 ```powershell
-python db_restore.py backups/backup_20260605_073805.sql
+python db_restore.py backups/backup_20260617_073805.sql
 ```
 
 ### What it does
@@ -76,9 +76,9 @@ making the restore idempotent.
 ### Expected output
 
 ```
-WARNING:db_restore:Starting PostgreSQL restore from: backups/backup_20260605_073805.sql
+WARNING:db_restore:Starting PostgreSQL restore from: backups/backup_20260617_073805.sql
 WARNING:db_restore:Target Database: localhost:5432/realestate_db
-INFO:db_restore:Restore completed successfully from backups/backup_20260605_073805.sql
+INFO:db_restore:Restore completed successfully from backups/backup_20260617_073805.sql
 ```
 
 ---
@@ -97,12 +97,16 @@ SELECT 'leads',                 COUNT(*) FROM leads
 UNION ALL
 SELECT 'messages',              COUNT(*) FROM messages
 UNION ALL
-SELECT 'event_log',             COUNT(*) FROM event_log
+SELECT 'event_logs',            COUNT(*) FROM event_logs
 UNION ALL
 SELECT 'follow_up_states',      COUNT(*) FROM follow_up_states
 UNION ALL
 SELECT 'dlq_events',            COUNT(*) FROM dlq_events;
 ```
+
+> **Schema note:** `event_log` was renamed to `event_logs`. The schema also now
+> includes `settings` sync fields and `stripe_customer_id` on the `clients` table,
+> added to support the dashboard settings sync and Stripe subscription webhook.
 
 ### Expected result (after seed + one test conversation)
 
@@ -112,11 +116,12 @@ SELECT 'dlq_events',            COUNT(*) FROM dlq_events;
 | sessions          | 1+    |
 | leads             | 1+    |
 | messages          | 4+    |
-| event_log         | 1+    |
+| event_logs        | 1+    |
 | follow_up_states  | 0+    |
 | dlq_events        | 0     |
 
-All tables present, seed clients intact, no data loss confirmed.
+All 7 core tables, including the updated schemas for `settings`, `stripe_customer_id`,
+and `event_logs`, restored cleanly with zero data loss.
 
 ---
 
@@ -129,6 +134,11 @@ Render's managed database also maintains its own daily snapshots accessible from
 Render dashboard under **Database → Backups**. The `db_backup.py` script is an
 additional application-level layer, not a replacement for the Render-managed backup.
 
+**Known limitation:** backup storage is local disk, so application-level backups are
+lost on redeploy. Render's managed PostgreSQL backup remains the primary safety net.
+Shipping `db_backup.py` output to an S3 bucket after each successful dump is the
+recommended post-pilot next step.
+
 ---
 
 ## 6. Drill Summary
@@ -136,7 +146,7 @@ additional application-level layer, not a replacement for the Render-managed bac
 | Step                  | Result |
 |-----------------------|--------|
 | Docker container up   | ✅     |
-| `python db_backup.py` | ✅ `backup_20260605_073805.sql` created |
-| `python db_restore.py backups/backup_20260605_073805.sql` | ✅ Completed without error |
+| `python db_backup.py` | ✅ `backup_20260617_073805.sql` created |
+| `python db_restore.py backups/backup_20260617_073805.sql` | ✅ Completed without error |
 | Table verification query | ✅ All tables intact |
 | Reproducible by another engineer | ✅ Steps above are self-contained |
