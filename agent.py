@@ -287,8 +287,7 @@ async def process_chat(session_id: str, user_message: str, db: DBSession, client
                        "thanks a lot", "stop"]
 
     logger.info(f"DEBUG_MSG_CLEAN: '{msg_clean}' (original: '{user_message}')")
-    if any(msg_clean == p for p in closing_phrases) or msg_clean.startswith("stop") or msg_clean.endswith(
-            " bye") or msg_clean.endswith(" thanks"):
+    if any(msg_clean == p for p in closing_phrases) or msg_clean.startswith("stop") or "bye" in msg_clean or msg_clean.endswith(" thanks"):
         session.status = "closed"
         logger.info(f"Session {session_id} marked as CLOSED (user concluded conversation).")
     else:
@@ -845,24 +844,20 @@ async def process_chat(session_id: str, user_message: str, db: DBSession, client
 
     # DB-aware score override: ML scoring only sees the current message text,
     # so it misses signals already committed to the lead row. Apply overrides here.
-    fully_qualified = all([lead.visit_date, lead.phone, lead.location, lead.budget])
+
+    # --- CRITICAL FIX: Use strict 6-field qualification ---
+    is_fully_qualified = bool(
+        lead.visit_date and lead.phone and lead.name and lead.location and lead.budget and lead.property_type)
     has_visit = bool(lead.visit_date)
     has_core = all([lead.location, lead.budget, lead.property_type, lead.intent])
 
-    if fully_qualified:
-        # Complete lead with booked visit — always High/hot
+    if is_fully_qualified:
         prob = max(prob, 88)
         lead.lead_temperature = "hot"
         lead.expected_closure_days = min(lead.expected_closure_days, 7)
     elif has_visit:
-        # Visit date set but missing some fields — still strong
         prob = max(prob, 82)
         lead.lead_temperature = "hot"
-    elif has_core:
-        # All core fields captured, no visit yet — Warm
-        prob = max(prob, 62)
-        if lead.lead_temperature == "cold":
-            lead.lead_temperature = "warm"
 
     lead.conversion_probability = prob
 
@@ -883,7 +878,7 @@ async def process_chat(session_id: str, user_message: str, db: DBSession, client
         lead.assigned_agent = agent_data["assigned_agent"]
 
     # --- FIX: SYNCHRONIZE FUNNEL STAGE WITH EVENT LOGS ---
-    if fully_qualified or has_visit:
+    if is_fully_qualified:  # <--- FIX: Only jump to Appointment Scheduled if ALL fields are captured!
         if lead.funnel_stage not in ["Site Visit Done", "Closed Won"]:
             lead.funnel_stage = "Appointment Scheduled"
     elif has_core:
@@ -915,18 +910,22 @@ async def process_chat(session_id: str, user_message: str, db: DBSession, client
     if f_state:
         from datetime import timedelta
         f_state.last_ai_reply_timestamp = datetime.now(timezone.utc)
+
+        # Check qualification again to be safe
+        is_fully_qualified_now = bool(
+            lead and lead.visit_date and lead.phone and lead.name and lead.location and lead.budget and lead.property_type)
+
         if session.status != "closed":
-            if not lead.visit_date:
+            if not is_fully_qualified_now:  # <--- FIX: Keep followups ACTIVE until the lead is 100% complete
                 f_state.follow_up_stage = "Day 0"
                 f_state.follow_up_status = "active"
                 # TEST MODE: compress Day 0 to 1 minute. Production: 30 minutes.
                 day0_delay = timedelta(minutes=1) if settings.FOLLOW_UP_TEST_MODE else timedelta(minutes=30)
                 f_state.next_follow_up_at = datetime.now(timezone.utc) + day0_delay
             else:
-                # If visit date was extracted THIS turn, mark it completed immediately
                 f_state.follow_up_status = "completed"
                 f_state.next_follow_up_at = None
         db.commit()
 
-        # Return the text response isolated from tool calls
+    # Return the text response isolated from tool calls
     return final_text
