@@ -185,7 +185,7 @@ def extract_lead_info(
         phone: The phone number of the client.
         budget: The requested budget range (e.g., '80L', '20k', '1Cr').
         location: The area they are looking in. If they mention multiple or add a new area to an existing search, return BOTH areas combined (e.g., 'Baner, Wakad').
-        property_type: The type of property they want (e.g., '1BHK', '2BHK', 'Villa').
+        property_type: The type of property they want (e.g., '1BHK', '2BHK', 'Villa'). MUST remain empty/None if the user has not explicitly stated a size. Do NOT guess or default to 2BHK.
         intent: The goal (e.g., 'buy', 'rent', 'investment', 'browsing').
         score: Your internal lead scoring evaluation (High, Medium, Low).
         visit_date: The user's requested visit date/time (e.g., 'Tuesday 2pm', 'Saturday morning').
@@ -237,10 +237,11 @@ async def process_chat(session_id: str, user_message: str, db: DBSession, client
         latency = round((time.time() - start_time) * 1000)
         asyncio.create_task(log_event_async(session_id, "lead_created", latency_ms=latency, client_id=client_id))
 
-    # Always auto-populate phone from WhatsApp session_id — unconditional so phone is
-    # set even if Gemini never calls extract_lead_info (e.g. visit-date-first messages).
-    if session_id.startswith("+") and not lead.phone:
-        lead.phone = session_id
+    # --- FIX: Extract raw phone number from the tenant-prefixed Session ID ---
+    if not lead.phone:
+        raw_phone = session_id.split("_")[-1]
+        if raw_phone.startswith("+"):
+            lead.phone = raw_phone
 
     db.commit()
 
