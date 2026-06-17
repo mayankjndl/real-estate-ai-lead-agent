@@ -454,6 +454,12 @@ async def process_chat(session_id: str, user_message: str, db: DBSession, client
     missing_fields = []
     if lead:
         summary_parts = []
+
+        # --- FIX: Tell Gemini we already have the phone number! ---
+        if lead.phone:
+            summary_parts.append(f"Phone: {lead.phone}")
+        # ---------------------------------------------------------
+
         if lead.location:
             summary_parts.append(f"Location: {lead.location}")
         else:
