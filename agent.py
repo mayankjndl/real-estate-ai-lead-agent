@@ -239,7 +239,7 @@ async def process_chat(session_id: str, user_message: str, db: DBSession, client
 
         latency = round((time.time() - start_time) * 1000)
         asyncio.create_task(log_event_async(session_id, "lead_created", latency_ms=latency, client_id=client_id))
-        
+
         # --- FIX: Trigger HubSpot CRM sync for organically created chats ---
         asyncio.create_task(sync_lead_to_crm(lead.id))
 
@@ -302,6 +302,11 @@ async def process_chat(session_id: str, user_message: str, db: DBSession, client
     if any(msg_clean == p for p in closing_phrases) or msg_clean.startswith(
             "stop") or "bye" in msg_clean or is_opt_out or msg_clean.endswith(" thanks"):
         session.status = "closed"
+        # --- ADD THESE 3 LINES TO SYNC THE FOLLOW-UP TABLE ---
+        if f_state:
+            f_state.follow_up_status = "stopped"
+            f_state.next_follow_up_at = None
+        # -----------------------------------------------------
         logger.info(f"Session {session_id} marked as CLOSED (user concluded conversation).")
     else:
         session.status = "active"
