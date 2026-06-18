@@ -25,7 +25,7 @@ from pydantic import BaseModel
 import csv
 from io import StringIO
 from config import settings
-from database import engine, Base, get_db
+from database import engine, Base, get_db, SessionLocal
 from agent import process_chat
 from follow_up import check_and_send_followups
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -69,7 +69,7 @@ from db_backup import backup_postgres
 # --- Background Scheduler for Follow-Up System & Maintenance ---
 def daily_cleanup_job():
     logger.info("Running daily maintenance cleanup...")
-    db = next(get_db())
+    db = SessionLocal()  # Create a dedicated standard DB session
     try:
         cutoff = datetime.now(timezone.utc) - timedelta(days=90)
         # Delete old EventLogs

@@ -575,19 +575,21 @@ async def process_chat(session_id: str, user_message: str, db: DBSession, client
     # If the user's name is unknown and they give a short response, dynamically extract it.
     # Wrapped in a 2-second timeout to guarantee it NEVER causes latency spikes.
     name_extraction_task = None
-    # Expanded: fire on any message up to 12 words when name is unknown.
-    # Property query restriction removed — name must be captured even if the message
-    # also mentions a location or BHK type (those are handled by extract_lead_info).
-    if not lead.name and len(user_message.split()) <= 12:
-        name_model = genai.GenerativeModel(model_name=settings.GEMINI_MODEL)
-        name_extraction_task = asyncio.create_task(
-            asyncio.wait_for(
-                name_model.generate_content_async(
-                    f"Extract the person's name from this message. Return ONLY the extracted name, or 'NONE' if no name is present. Message: '{user_message}'"
-                ),
-                timeout=2.0
+
+    # OPTIMIZATION: Bypass during TEST_MODE to prevent request multiplication.
+    # Also skip obvious short greetings/acknowledgements to conserve API quota.
+    if not settings.TEST_MODE and not lead.name and len(user_message.split()) <= 12:
+        ignorable_short_words = ["hi", "hello", "hey", "ok", "okay", "thanks", "thank", "yes", "no", "sure", "bye"]
+        if msg_clean not in ignorable_short_words:
+            name_model = genai.GenerativeModel(model_name=settings.GEMINI_MODEL)
+            name_extraction_task = asyncio.create_task(
+                asyncio.wait_for(
+                    name_model.generate_content_async(
+                        f"Extract the person's name from this message. Return ONLY the extracted name, or 'NONE' if no name is present. Message: '{user_message}'"
+                    ),
+                    timeout=2.0
+                )
             )
-        )
 
     # Send the history + new message to Gemini (with retry logic for API reliability)
     max_retries = 3
@@ -649,11 +651,22 @@ async def process_chat(session_id: str, user_message: str, db: DBSession, client
             break  # Success — exit retry loop
         except Exception as e:
             llm_time = round((time.time() - llm_start) * 1000)
+            err_msg = str(e).lower()
+
+            # Detect if Google returned a 429 / Quota/ Limit error
+            is_rate_limit = any(term in err_msg for term in ["429", "exhausted", "quota", "limit", "rate"])
+
             logger.warning(json.dumps(
                 {"event": "llm_main_call", "latency_ms": llm_time, "attempt": attempt + 1, "success": False,
                  "error": type(e).__name__, "detail": str(e)[:200]}))
+
             if attempt < max_retries - 1:
-                wait_time = 0.5 * (2 ** attempt)  # Exponential backoff
+                if is_rate_limit:
+                    # Rate limit hit — backoff aggressively to allow the quota window to reset
+                    wait_time = 12.0 + (5.0 * attempt)
+                    logger.warning(f"RATE_LIMIT_DETECTED | Sleeping for {wait_time}s to reset quota bucket.")
+                else:
+                    wait_time = 0.5 * (2 ** attempt)  # Standard exponential backoff
                 await asyncio.sleep(wait_time)
             else:
                 logger.error(json.dumps({"event": "llm_main_fatal", "error": type(e).__name__, "detail": str(e)[:200],
