@@ -43,6 +43,7 @@ class Settings(BaseSettings):
     USE_AI_FOLLOWUPS: bool = False
     FOLLOW_UP_TEST_MODE: bool = False
     FOLLOW_UP_DLQ_TEST: bool = False  # Set true alongside TEST_MODE to force a DLQ entry for QA
+    TEST_MODE: bool = False
 
     # Twilio API credentials
     TWILIO_ACCOUNT_SID: str = ""

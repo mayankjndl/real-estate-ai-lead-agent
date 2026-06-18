@@ -12,6 +12,7 @@ from models import Session, Message, Lead, EventLog
 from rag import retrieve
 from app.intelligence.lead_scoring import calculate_lead_score
 from app.intelligence.agent_matcher import match_best_agent
+from crm_sync import sync_lead_to_crm
 
 # 1. Gemini Initialization
 genai.configure(api_key=settings.GEMINI_API_KEY)
@@ -234,8 +235,13 @@ async def process_chat(session_id: str, user_message: str, db: DBSession, client
     if not lead:
         lead = Lead(session_id=session_id, client_id=client_id)
         db.add(lead)
+        db.commit()
+
         latency = round((time.time() - start_time) * 1000)
         asyncio.create_task(log_event_async(session_id, "lead_created", latency_ms=latency, client_id=client_id))
+        
+        # --- FIX: Trigger HubSpot CRM sync for organically created chats ---
+        asyncio.create_task(sync_lead_to_crm(lead.id))
 
     # --- FIX: Extract raw phone number from the tenant-prefixed Session ID ---
     if not lead.phone:

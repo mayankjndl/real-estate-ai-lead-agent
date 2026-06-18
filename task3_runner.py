@@ -185,6 +185,11 @@ def run_dynamic_checks(session_id: str, tc: TestCase, bot_replies: List[str]) ->
         if fup:
             report["followup_active_or_stopped"] = fup.get("follow_up_status") in ["active", "stopped"]
 
+    # 5. CRM & Hardening Validation Output
+    report["crm_sync_status"] = lead.get("crm_sync_status", "pending")
+    report["external_crm_id"] = lead.get("external_crm_id", "None")
+    report["funnel_stage"] = lead.get("funnel_stage", "New")
+
     return report
 
 
