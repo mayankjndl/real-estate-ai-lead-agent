@@ -137,7 +137,7 @@ export function FollowUpGauge({ percentage }: { percentage: number }) {
         </RadialBarChart>
       </ResponsiveContainer>
       <div className="absolute inset-0 flex flex-col items-center justify-center pt-8 pointer-events-none">
-        <span className="text-3xl font-bold text-white">{percentage}%</span>
+        <span className="text-3xl font-bold text-slate-900 dark:text-white">{percentage}%</span>
         <span className="text-xs text-zinc-400 uppercase tracking-wider mt-1">Success Rate</span>
       </div>
     </div>

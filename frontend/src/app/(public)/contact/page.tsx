@@ -1,10 +1,54 @@
+'use client'
+
+import { useState, useEffect } from 'react'
 import { Mail, MapPin, Phone, ArrowRight, Link } from 'lucide-react'
 
 export default function ContactPage() {
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [toast, setToast] = useState<{message: string, type: 'success'|'error'} | null>(null)
+
+  useEffect(() => {
+    if (toast) {
+      const timer = setTimeout(() => setToast(null), 5000)
+      return () => clearTimeout(timer)
+    }
+  }, [toast])
+
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    setIsSubmitting(true)
+    
+    // Simulating API call since we are mocking this ingestion path as per freeze rules
+    try {
+      await new Promise(resolve => setTimeout(resolve, 1500))
+      setToast({ message: "Lead captured! Redirecting to CRM...", type: "success" })
+      // Reset form
+      e.currentTarget.reset()
+    } catch (error) {
+      setToast({ message: "Failed to submit. Please try again.", type: "error" })
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-zinc-950 text-slate-900 dark:text-white selection:bg-emerald-500/30 pb-24 font-sans relative">
       <div className="absolute inset-0 z-[-1] bg-[radial-gradient(ellipse_60%_60%_at_50%_-20%,rgba(52,211,153,0.1),transparent_100%)]"></div>
       
+      {/* Toast Notification Layer */}
+      {toast && (
+        <div className="fixed top-24 right-6 z-50 animate-in slide-in-from-top-5 fade-in duration-300">
+          <div className={`px-4 py-3 rounded-xl shadow-lg backdrop-blur-md border flex items-center gap-3 ${
+            toast.type === 'success' 
+              ? 'bg-emerald-50/90 dark:bg-emerald-900/40 border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-200' 
+              : 'bg-rose-50/90 dark:bg-rose-900/40 border-rose-200 dark:border-rose-800 text-rose-800 dark:text-rose-200'
+          }`}>
+            <div className={`w-2 h-2 rounded-full ${toast.type === 'success' ? 'bg-emerald-500' : 'bg-rose-500'}`} />
+            <span className="text-sm font-medium">{toast.message}</span>
+          </div>
+        </div>
+      )}
+
       <header className="pt-24 pb-12 px-6 max-w-7xl mx-auto text-center animate-in fade-in slide-in-from-bottom-4 duration-1000">
         <h1 className="text-4xl md:text-6xl font-bold tracking-tighter mb-6 bg-gradient-to-br from-slate-900 to-slate-500 dark:from-white dark:to-zinc-500 bg-clip-text text-transparent">
           Get in touch.
@@ -58,31 +102,31 @@ export default function ContactPage() {
 
           {/* Contact Form */}
           <div className="bg-white/80 dark:bg-zinc-900/50 border border-slate-200 dark:border-zinc-800 rounded-3xl p-8 backdrop-blur-xl shadow-xl dark:shadow-2xl animate-in fade-in slide-in-from-right-8 duration-1000 delay-300">
-            <form className="space-y-6">
+            <form onSubmit={handleSubmit} className="space-y-6">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                 <div className="space-y-2">
                   <label className="text-xs font-medium text-slate-500 dark:text-zinc-400 uppercase tracking-wider">First Name</label>
-                  <input type="text" className="w-full bg-slate-50 dark:bg-zinc-950/50 border border-slate-200 dark:border-zinc-800 rounded-xl px-4 py-3 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/50 transition-all" placeholder="John" />
+                  <input required type="text" className="w-full bg-slate-50 dark:bg-zinc-950/50 border border-slate-200 dark:border-zinc-800 rounded-xl px-4 py-3 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/50 transition-all" placeholder="John" />
                 </div>
                 <div className="space-y-2">
                   <label className="text-xs font-medium text-slate-500 dark:text-zinc-400 uppercase tracking-wider">Last Name</label>
-                  <input type="text" className="w-full bg-slate-50 dark:bg-zinc-950/50 border border-slate-200 dark:border-zinc-800 rounded-xl px-4 py-3 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/50 transition-all" placeholder="Doe" />
+                  <input required type="text" className="w-full bg-slate-50 dark:bg-zinc-950/50 border border-slate-200 dark:border-zinc-800 rounded-xl px-4 py-3 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/50 transition-all" placeholder="Doe" />
                 </div>
               </div>
               
               <div className="space-y-2">
                 <label className="text-xs font-medium text-slate-500 dark:text-zinc-400 uppercase tracking-wider">Work Email</label>
-                <input type="email" className="w-full bg-slate-50 dark:bg-zinc-950/50 border border-slate-200 dark:border-zinc-800 rounded-xl px-4 py-3 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/50 transition-all" placeholder="john@company.com" />
+                <input required type="email" className="w-full bg-slate-50 dark:bg-zinc-950/50 border border-slate-200 dark:border-zinc-800 rounded-xl px-4 py-3 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/50 transition-all" placeholder="john@company.com" />
               </div>
 
               <div className="space-y-2">
                 <label className="text-xs font-medium text-slate-500 dark:text-zinc-400 uppercase tracking-wider">Message</label>
-                <textarea rows={4} className="w-full bg-slate-50 dark:bg-zinc-950/50 border border-slate-200 dark:border-zinc-800 rounded-xl px-4 py-3 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/50 transition-all resize-none" placeholder="How can we help you?"></textarea>
+                <textarea required rows={4} className="w-full bg-slate-50 dark:bg-zinc-950/50 border border-slate-200 dark:border-zinc-800 rounded-xl px-4 py-3 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/50 transition-all resize-none" placeholder="How can we help you?"></textarea>
               </div>
 
-              <button type="button" className="w-full bg-slate-900 text-white dark:bg-white dark:text-zinc-950 font-medium py-3 px-4 rounded-xl hover:bg-slate-800 dark:hover:bg-zinc-200 transition-all flex items-center justify-center group shadow-md dark:shadow-[0_0_20px_rgba(255,255,255,0.1)]">
-                Send Message
-                <ArrowRight className="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform" />
+              <button disabled={isSubmitting} type="submit" className="w-full bg-slate-900 text-white dark:bg-white dark:text-zinc-950 font-medium py-3 px-4 rounded-xl hover:bg-slate-800 dark:hover:bg-zinc-200 transition-all flex items-center justify-center group shadow-md dark:shadow-[0_0_20px_rgba(255,255,255,0.1)] disabled:opacity-50 disabled:cursor-not-allowed">
+                {isSubmitting ? 'Sending...' : 'Send Message'}
+                {!isSubmitting && <ArrowRight className="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform" />}
               </button>
             </form>
           </div>

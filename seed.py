@@ -17,7 +17,7 @@ def seed_db():
         return
 
     # Generate credentials
-    api_key = secrets.token_hex(32)
+    api_key = "secret-client-key-123"
     hashed_password = get_password_hash("password123")
     
     # Insert new SaaS Client
