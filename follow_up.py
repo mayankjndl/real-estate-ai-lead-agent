@@ -439,13 +439,17 @@ def check_and_send_followups():
 
                     # Dispatch
                     success = False
+                    success = False
                     followup_latency_ms = None
-                    if session_id.startswith("+") and settings.TWILIO_ACCOUNT_SID:
+
+                    # --- FIX: Check raw lead.phone instead of prefixed session_id ---
+                    if lead and lead.phone and lead.phone.startswith("+") and settings.TWILIO_ACCOUNT_SID:
                         try:
                             client = Client(settings.TWILIO_ACCOUNT_SID, settings.TWILIO_AUTH_TOKEN)
-                            to_number = f"whatsapp:{session_id}" if lead and lead.source == "whatsapp" else session_id
+                            to_number = f"whatsapp:{lead.phone}" if lead and lead.source == "whatsapp" else lead.phone
 
-                            @retry(stop=stop_after_attempt(5), wait=wait_exponential(multiplier=1, min=2, max=30), reraise=True)
+                            @retry(stop=stop_after_attempt(5), wait=wait_exponential(multiplier=1, min=2, max=30),
+                                   reraise=True)
                             def _send_twilio_msg():
                                 client.messages.create(
                                     from_=settings.TWILIO_PHONE_NUMBER,

@@ -214,8 +214,11 @@ async def chat_endpoint(session_id: str, message: str, current_client: models.Cl
     Receives user utterance and a session ID to keep multi-turn context.
     Orchestrates Gemini response generation and silent lead data capture.
     """
+    # --- FIX: Apply tenant prefix ---
+    prefix = f"{client_id}_"
+    scoped_session_id = session_id if session_id.startswith(prefix) else f"{prefix}{session_id}"
     try:
-        reply = await process_chat(session_id, message, db, client_id=client_id)
+        reply = await process_chat(scoped_session_id, message, db, client_id=client_id)
         return {
             "status": "success",
             "session_id": session_id,
@@ -295,19 +298,25 @@ class LeadIngestionPayload(BaseModel):
     whatsapp_opt_in: bool = False
 
 async def process_unified_lead(payload: LeadIngestionPayload, db: DBSession, client_id: int, background: bool = False):
-    # 1. Ensure Session exists
-    session = db.query(models.Session).filter(models.Session.id == payload.session_id).first()
+    # --- FIX: Isolate Session ID per Client ---
+    raw_session_id = payload.session_id
+    prefix = f"{client_id}_"
+    scoped_session_id = raw_session_id if raw_session_id.startswith(prefix) else f"{prefix}{raw_session_id}"
+    # ------------------------------------------
+
+    # 1. Ensure Session exists (Using the scoped ID)
+    session = db.query(models.Session).filter(models.Session.id == scoped_session_id).first()
     if not session:
-        session = models.Session(id=payload.session_id, client_id=client_id)
+        session = models.Session(id=scoped_session_id, client_id=client_id)
         db.add(session)
         db.commit()
     
     # 2. Ensure Lead exists, preventing duplicates by session_id
-    lead = db.query(models.Lead).filter(models.Lead.session_id == payload.session_id).first()
+    lead = db.query(models.Lead).filter(models.Lead.session_id == scoped_session_id).first()
     is_new_lead = False
     if not lead:
         lead = models.Lead(
-            session_id=payload.session_id,
+            session_id=scoped_session_id,
             client_id=client_id,
             source=payload.source,
             whatsapp_opt_in=payload.whatsapp_opt_in
@@ -329,7 +338,7 @@ async def process_unified_lead(payload: LeadIngestionPayload, db: DBSession, cli
         lead.funnel_stage = "New"
         # FIX: Added action_type and latency_ms=0
         db.add(models.EventLog(
-            session_id=payload.session_id,
+            session_id=scoped_session_id,
             client_id=client_id,
             event_type="tracking",
             action_type="lead_created",
@@ -355,8 +364,8 @@ async def process_unified_lead(payload: LeadIngestionPayload, db: DBSession, cli
                     body=outbound_text,
                     to=f"whatsapp:{lead.phone}"
                 )
-                db.add(models.EventLog(session_id=payload.session_id, client_id=client_id, event_type="message_sent"))
-                db.add(models.Message(session_id=payload.session_id, client_id=client_id, role="assistant", content=outbound_text))
+                db.add(models.EventLog(session_id=scoped_session_id, client_id=client_id, event_type="message_sent"))
+                db.add(models.Message(session_id=scoped_session_id, client_id=client_id, role="assistant", content=outbound_text))
                 
                 # Update Funnel Stage
                 if lead.funnel_stage == "New":
@@ -368,7 +377,7 @@ async def process_unified_lead(payload: LeadIngestionPayload, db: DBSession, cli
 
     # 4. If a message was sent, process via AI
     if payload.message:
-        reply_text = await process_chat(payload.session_id, payload.message, db, client_id=client_id, is_background=background)
+        reply_text = await process_chat(scoped_session_id, payload.message, db, client_id=client_id, is_background=background)
         return reply_text
     
     return "Lead processed successfully."
