@@ -113,11 +113,12 @@ def run_dynamic_checks(session_id: str, tc: TestCase, bot_replies: List[str]) ->
         report["db_check"] = "SKIPPED (No DB)"
         return report
 
-    # 2. Fetch DB State
+    # 2. Fetch DB State (Using LIKE to account for the multi-tenant '1_' prefix)
     with _Session() as db:
-        lead_row = db.execute(text("SELECT * FROM leads WHERE session_id = :sid"), {"sid": session_id}).fetchone()
-        fup_row = db.execute(text("SELECT * FROM follow_up_states WHERE session_id = :sid"),
-                             {"sid": session_id}).fetchone()
+        lead_row = db.execute(text("SELECT * FROM leads WHERE session_id LIKE :sid"),
+                              {"sid": f"%{session_id}"}).fetchone()
+        fup_row = db.execute(text("SELECT * FROM follow_up_states WHERE session_id LIKE :sid"),
+                             {"sid": f"%{session_id}"}).fetchone()
         lead = dict(lead_row._mapping) if lead_row else None
         fup = dict(fup_row._mapping) if fup_row else None
 
