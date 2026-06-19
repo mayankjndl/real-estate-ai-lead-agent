@@ -275,29 +275,34 @@ Login: `admin@revenueos.com` / `password123`
 # Gemini AI — get from https://aistudio.google.com
 GEMINI_API_KEY=your_gemini_api_key
 
-# Internal admin key — any string for local dev
-API_AUTH_KEY=anything
+# Security & Encryption Keys (CRITICAL: Must not be empty in Production)
+JWT_SECRET_KEY=your_secure_random_64_char_string
+ADMIN_API_KEY=your_secure_admin_passphrase
+STRIPE_WEBHOOK_SECRET=whsec_your_stripe_secret
 
 # PostgreSQL — matches the Docker container started above
-DATABASE_URL=postgresql://realestate:localpass@localhost:5432/realestate_db
+DATABASE_URL=postgresql://realestate:localpass@127.0.0.1:5432/realestate_db
 
 # Redis — matches the Docker container started above
-REDIS_URL=redis://localhost:6379/0
+REDIS_URL=redis://127.0.0.1:6379/0
 
 # Twilio — Account SID and Auth Token from https://console.twilio.com
 TWILIO_ACCOUNT_SID=ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 TWILIO_AUTH_TOKEN=your_auth_token
 TWILIO_PHONE_NUMBER=whatsapp:+14155238886
 
-# API key from seed.py output
+# Per-Client API keys (provisioned by seed.py)
 CLIENT_KEY_A=paste_seed_output_here
 CLIENT_KEY_B=
 
 # ngrok — get from https://dashboard.ngrok.com/get-started/your-authtoken
 NGROK_AUTHTOKEN=your_ngrok_auth_token
 
-# Production flag — leave false for local dev, set true on Render
+# Application Modes
 IS_PRODUCTION=false
+FOLLOW_UP_TEST_MODE=false
+FOLLOW_UP_DLQ_TEST=false
+TEST_MODE=false
 ```
 
 ---
