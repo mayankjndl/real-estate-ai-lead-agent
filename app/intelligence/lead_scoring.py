@@ -139,7 +139,8 @@ def calculate_lead_score(
 
                 property_type=signals.get(
                     "detected_property_type"
-                )
+                ),
+                intent=intent
             )
         )
 
@@ -476,7 +477,7 @@ def calculate_lead_score(
 
             lead_temperature = "hot"
 
-        elif score >= 55:
+        elif score >= 45:
 
             lead_temperature = "warm"
 

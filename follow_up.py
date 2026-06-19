@@ -443,7 +443,13 @@ def check_and_send_followups():
                     followup_latency_ms = None
 
                     # --- FIX: Check raw lead.phone instead of prefixed session_id ---
-                    if lead and lead.phone and lead.phone.startswith("+") and settings.TWILIO_ACCOUNT_SID:
+                    if lead and lead.phone and settings.TWILIO_ACCOUNT_SID:
+                        # Normalize phone format (ensure it starts with +)
+                        clean_phone = lead.phone.strip()
+                        if not clean_phone.startswith("+"):
+                            # If it starts with 10 digits (e.g. 9163962356), prepend +
+                            clean_phone = f"+{clean_phone}"
+
                         if settings.TEST_MODE:
                             logger.info(f"[TEST MODE] Skipping WhatsApp send for {session_id}")
                             success = True
@@ -451,7 +457,7 @@ def check_and_send_followups():
                         else:
                             try:
                                 client = Client(settings.TWILIO_ACCOUNT_SID, settings.TWILIO_AUTH_TOKEN)
-                                to_number = f"whatsapp:{lead.phone}" if lead and lead.source == "whatsapp" else lead.phone
+                                to_number = f"whatsapp:{clean_phone}" if lead and lead.source == "whatsapp" else clean_phone
 
                                 @retry(stop=stop_after_attempt(5), wait=wait_exponential(multiplier=1, min=2, max=30),
                                        reraise=True)

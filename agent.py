@@ -251,6 +251,11 @@ async def process_chat(session_id: str, user_message: str, db: DBSession, client
 
     db.commit()
 
+    # --- SNAPSHOT STATE AT START OF TURN ---
+    was_fully_qualified_initial = bool(
+        lead.visit_date and lead.phone and lead.name and lead.location and lead.budget and lead.property_type
+    )
+
     from models import FollowUpState
     f_state = db.query(FollowUpState).filter(FollowUpState.session_id == session_id).first()
     if not f_state:
@@ -503,9 +508,14 @@ async def process_chat(session_id: str, user_message: str, db: DBSession, client
         if summary_parts:
             summary_text = "Known about this user: " + ", ".join(summary_parts) + ".\n"
 
-        # THE FIX: If they want to visit but are missing details, force Gemini to naturally ask for them.
-        if lead.visit_date and missing_fields:
-            summary_text += f"CRITICAL INSTRUCTION: The user has requested a visit, but we are missing mandatory details: {', '.join(missing_fields)}. You MUST naturally ask them for these missing details before finalizing the visit. Do NOT say the visit is fully booked yet.\n"
+            # THE FIX: If they want to visit but are missing details, force Gemini to naturally ask for them.
+            # Check if they are discussing a visit in this turn
+            wants_visit = lead.visit_date or (lead.intent and "visit" in lead.intent.lower()) or any(
+                w in user_message.lower() for w in
+                ["visit", "schedule", "tomorrow", "saturday", "sunday", "morning", "afternoon", "pm", "am"])
+
+            if wants_visit and missing_fields:
+                summary_text += f"CRITICAL INSTRUCTION: The user is trying to schedule a visit, but we are missing mandatory details: {', '.join(missing_fields)}. You MUST ask them for these missing details before confirming the booking. Do NOT say the visit is fully booked yet.\n"
 
     # Dynamic Repetition Prevention
     # Check if the agent already proactively asked for the name in recent history.
@@ -513,8 +523,9 @@ async def process_chat(session_id: str, user_message: str, db: DBSession, client
     if not lead.name:
         for m in past_messages[:-1]:
             if m.role == "assistant" and any(
-                    ph in m.content.lower() for ph in ["name", "speaking with", "who is this", "know you as"]):
-                summary_text += "SYSTEM NOTE: You have already asked for their name in a previous message. DO NOT ask for their name again. Focus ONLY on their property requirements.\n"
+                    ph in m.content.lower() for ph in
+                    ["name", "speaking with", "who is this", "know you as", "may i have"]):
+                summary_text += "SYSTEM NOTE: You previously asked for their name. DO NOT ask for it again right now, UNLESS they are trying to schedule a visit (in which case it is mandatory to ask before confirming).\n"
                 break
 
     # Keyword gateway: only call RAG (Gemini Embedding API) for property-related queries.
@@ -693,17 +704,16 @@ async def process_chat(session_id: str, user_message: str, db: DBSession, client
                     was_fully_qualified = bool(lead.visit_date and lead.phone and lead.name and lead.location and lead.budget and lead.property_type)
 
                     # Update Lead table fields dynamically (using the in-memory lead object)
-                    if "name" in args: lead.name = args["name"]
-
-                    # Phone from args (explicit user input) — session_id auto-set happens above
-                    if "phone" in args:
-                        lead.phone = args["phone"]
-                    if "budget" in args: lead.budget = args["budget"]
-                    if "location" in args: lead.location = args["location"]
-                    if "property_type" in args: lead.property_type = args["property_type"]
-                    if "intent" in args: lead.intent = args["intent"]
-                    if "score" in args: lead.score = args["score"]
-                    if "visit_date" in args: lead.visit_date = args["visit_date"]
+                    # OPTIMIZATION: Only overwrite DB fields if Gemini passes a non-null, valid value.
+                    # This prevents incomplete tool calls from wiping out previously saved database state.
+                    if "name" in args and args["name"]: lead.name = args["name"]
+                    if "phone" in args and args["phone"]: lead.phone = args["phone"]
+                    if "budget" in args and args["budget"]: lead.budget = args["budget"]
+                    if "location" in args and args["location"]: lead.location = args["location"]
+                    if "property_type" in args and args["property_type"]: lead.property_type = args["property_type"]
+                    if "intent" in args and args["intent"]: lead.intent = args["intent"]
+                    if "score" in args and args["score"]: lead.score = args["score"]
+                    if "visit_date" in args and args["visit_date"]: lead.visit_date = args["visit_date"]
 
                     db.commit()
 
@@ -742,30 +752,10 @@ async def process_chat(session_id: str, user_message: str, db: DBSession, client
                                        ["name", "phone", "budget", "location", "property_type", "intent", "visit_date"]
                                        if k in args]
 
-                    # ONLY fire the confirmation when the lead crosses from incomplete to fully complete
-                    if is_fully_qualified and not was_fully_qualified:
-                        # TEMPLATE 1: Visit fully booked!
-                        loc = lead.location
-                        vdate = lead.visit_date
-                        local_reply = f"Fantastic! Everything is set for your visit to {loc} on {vdate}. Our team will be in touch to confirm. Looking forward to seeing you! 🏡"
-
-                        # Properly lock the session and follow-ups
-                        session.status = "closed"
-                        if f_state:
-                            f_state.follow_up_status = "completed"
-                            f_state.next_follow_up_at = None
-
-                    elif text_from_response:
-                        # PRIMARY PATH: Use Gemini's own text from this same single response.
-                        # Gemini sees the full 20-message conversation history, so it knows
-                        # what was said, handles all context correctly, and produces natural
-                        # replies with zero additional API calls or latency overhead.
+                    # Use Gemini's text from the same response, or fall back safely.
+                    if text_from_response:
                         local_reply = text_from_response
-
                     else:
-                        # SAFETY FALLBACK: Gemini returned only a function call with no text.
-                        # Should be rare now that system prompt instructs text alongside tool calls.
-                        # No CTAs in fallbacks — just clean, concise acknowledgements.
                         if "budget" in new_fields and "location" in new_fields:
                             local_reply = f"Got it — budget of {lead.budget} for {lead.location} noted."
                         elif "budget" in new_fields:
@@ -782,13 +772,10 @@ async def process_chat(session_id: str, user_message: str, db: DBSession, client
                         else:
                             local_reply = "Got it, noted."
 
-                    db.add(Message(session_id=session_id, client_id=client_id, role="assistant", content=local_reply))
-                    db.commit()
                     logger.info(
-                        f"LEAD_EXTRACT | session={session_id} | fields={captured_fields} | new_fields={list(new_fields)} | has_gemini_text={text_from_response is not None} | concluded={is_fully_qualified}")
+                        f"LEAD_EXTRACT | session={session_id} | fields={captured_fields} | new_fields={list(new_fields)}")
                     final_text = local_reply
                     extracted_early = True
-                    message_saved = True
                     break
 
     # Safely get the final text (handling cases where only a tool call was returned)
@@ -829,12 +816,21 @@ async def process_chat(session_id: str, user_message: str, db: DBSession, client
             "timestamp": m.timestamp.isoformat() if hasattr(m, "timestamp") and m.timestamp else None
         })
 
-    # 1. Calculate advanced lead score
-    ml_score_data = calculate_lead_score(
-        query=user_message,
-        memory=memory_dicts,
-        intent=lead.intent or "low"
-    )
+        # 1. Calculate advanced lead score
+        # Map Gemini's database intent strings to the scoring engine's expected weights
+        _raw_intent = (lead.intent or "").lower()
+        if _raw_intent in ("buy", "invest", "investment"):
+            _scoring_intent = "high"
+        elif _raw_intent in ("rent", "lease", "buy/rent", "buy or rent"):
+            _scoring_intent = "medium"
+        else:
+            _scoring_intent = "low"
+
+        ml_score_data = calculate_lead_score(
+            query=user_message,
+            memory=memory_dicts,
+            intent=_scoring_intent
+        )
 
     lead.conversion_probability = ml_score_data.get("conversion_probability", 0)
     lead.lead_temperature = ml_score_data.get("lead_temperature", "cold")
@@ -885,7 +881,7 @@ async def process_chat(session_id: str, user_message: str, db: DBSession, client
     if prob >= 82:
         lead.score = "High"
         lead.lead_temperature = "hot"
-    elif prob >= 55:
+    elif prob >= 45:
         lead.score = "Medium"
         lead.lead_temperature = "warm"
     else:
@@ -901,20 +897,35 @@ async def process_chat(session_id: str, user_message: str, db: DBSession, client
     if agent_data.get("assigned_agent"):
         lead.assigned_agent = agent_data["assigned_agent"]
 
-    # --- FIX: SYNCHRONIZE FUNNEL STAGE WITH EVENT LOGS ---
-    if is_fully_qualified:  # <--- FIX: Only jump to Appointment Scheduled if ALL fields are captured!
-        if lead.funnel_stage not in ["Site Visit Done", "Closed Won"]:
-            lead.funnel_stage = "Appointment Scheduled"
-    elif has_core:
-        if lead.funnel_stage == "New":
-            lead.funnel_stage = "Contacted"
+        # --- FIX: SYNCHRONIZE FUNNEL STAGE WITH EVENT LOGS ---
+        is_fully_qualified_now = bool(
+            lead.visit_date and lead.phone and lead.name and lead.location and lead.budget and lead.property_type
+        )
 
-    # Sync the dormant followup_stage column so the dashboard reads it accurately
-    if f_state:
-        lead.followup_stage = f_state.follow_up_stage
-    # -----------------------------------------------------
+        if is_fully_qualified_now:
+            if lead.funnel_stage not in ["Site Visit Done", "Closed Won"]:
+                lead.funnel_stage = "Appointment Scheduled"
+        elif has_core:
+            if lead.funnel_stage == "New":
+                lead.funnel_stage = "Contacted"
 
-    db.commit()
+        if f_state:
+            lead.followup_stage = f_state.follow_up_stage
+
+        # =================================================================
+        # UNIVERSAL QUALIFICATION OVERRIDE (Fires closing template safely)
+        # =================================================================
+        if is_fully_qualified_now and not was_fully_qualified_initial:
+            loc = lead.location
+            vdate = lead.visit_date
+            final_text = f"Fantastic! Everything is set for your visit to {loc} on {vdate}. Our team will be in touch to confirm. Looking forward to seeing you! 🏡"
+
+            session.status = "closed"
+            if f_state:
+                f_state.follow_up_status = "completed"
+                f_state.next_follow_up_at = None
+
+        db.commit()
 
     if lead.score == "High" and not lead.visit_date and session.status != "closed":
         # We rely on the LLM to naturally propose a visit if the context feels right.

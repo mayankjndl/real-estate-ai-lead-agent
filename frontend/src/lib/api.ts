@@ -1,6 +1,9 @@
 import { cookies } from 'next/headers'
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || 'https://real-estate-ai-lead-agent-3.onrender.com'
+const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL;
+if (!BACKEND_URL) {
+  throw new Error("CRITICAL: NEXT_PUBLIC_API_URL is not set in environment variables.");
+}
 
 export interface Lead {
   id: number

@@ -9,7 +9,9 @@ from database import get_db
 import models
 
 # Constants
-SECRET_KEY = os.getenv("JWT_SECRET_KEY", "super-secret-jwt-key-replace-in-prod")
+SECRET_KEY = os.getenv("JWT_SECRET_KEY")
+if not SECRET_KEY or SECRET_KEY == "super-secret-jwt-key-replace-in-prod":
+    raise RuntimeError("CRITICAL SECURITY RISK: JWT_SECRET_KEY is missing or insecure in .env.")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7  # 7 Days for dashboard
 

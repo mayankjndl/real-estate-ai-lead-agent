@@ -1,4 +1,6 @@
 from contextlib import asynccontextmanager
+from twilio.request_validator import RequestValidator
+import stripe
 import asyncio
 import collections
 import logging
@@ -39,8 +41,9 @@ ADMIN_API_KEY_NAME = "X-Admin-Token"
 admin_api_key_header = APIKeyHeader(name=ADMIN_API_KEY_NAME, auto_error=True)
 
 def verify_admin_key(api_key: str = Security(admin_api_key_header)):
-    # Simple admin check. In production, this would be an environment variable.
-    admin_key = os.getenv("ADMIN_API_KEY", "real-estate-super-secret-key")
+    admin_key = os.getenv("ADMIN_API_KEY")
+    if not admin_key or admin_key == "real-estate-super-secret-key":
+        raise RuntimeError("CRITICAL SECURITY RISK: ADMIN_API_KEY is missing or insecure in .env.")
     if api_key != admin_key:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="Invalid or missing Admin API Key"
@@ -112,7 +115,10 @@ if os.getenv("RENDER") or os.getenv("PRODUCTION"):
 # CORS configuration to allow local Dashboard frontend to access API
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # For production, restrict this to specific dashboard URLs
+    allow_origins=[
+        "http://localhost:3000",
+        "https://real-estate-ai-lead-agent-5q20tzn22.vercel.app" # Your actual Vercel domain from layout.tsx
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -427,19 +433,35 @@ async def portals_webhook(payload: dict, current_client: models.Client = Depends
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
+
 @app.post("/api/v1/whatsapp")
 async def whatsapp_webhook(
-    background_tasks: BackgroundTasks,
-    MessageSid: str = Form(None),
-    From: str = Form(...),
-    Body: str = Form(...),
-    current_client: models.Client = Depends(auth.get_client_by_api_key),
-    db: DBSession = Depends(get_db)
+        request: Request,
+        background_tasks: BackgroundTasks,
+        MessageSid: str = Form(None),
+        From: str = Form(...),
+        Body: str = Form(...),
+        current_client: models.Client = Depends(auth.get_client_by_api_key),
+        db: DBSession = Depends(get_db)
 ):
     """
     Twilio WhatsApp Webhook.
-    Handles duplicate prevention, queueing, and timeouts.
+    Handles duplicate prevention, queueing, timeouts, and signature validation.
     """
+    # --- SECURITY: VALIDATE TWILIO SIGNATURE ---
+    validator = RequestValidator(settings.TWILIO_AUTH_TOKEN)
+    form_data = await request.form()
+    signature = request.headers.get("X-Twilio-Signature", "")
+
+    # Twilio validates against the exact URL it called (enforce https in prod)
+    url = str(request.url).replace("http://", "https://") if settings.IS_PRODUCTION else str(request.url)
+
+    # Bypass validation ONLY if we are in local development testing mode
+    if not settings.TEST_MODE and not validator.validate(url, form_data, signature):
+        logger.warning(f"SECURITY ALERT: Invalid Twilio signature from IP {request.client.host}")
+        raise HTTPException(status_code=403, detail="Invalid Twilio signature")
+    # -------------------------------------------
+
     request_start = time.time()
     try:
         # Task 1: Duplicate Message Protection
@@ -563,32 +585,31 @@ async def incoming_sms_webhook(
 # REVENUE PHASE: ROI & Funnel Dashboards
 # =====================================================================
 
-@app.get("/api/v1/reports/pipeline", dependencies=[Depends(verify_admin_key)])
-async def get_pipeline_report(db: DBSession = Depends(get_db)):
-    """
-    Aggregates funnel_stage data to calculate conversion and qualified rates.
-    """
+# =====================================================================
+# REVENUE PHASE: ROI & Funnel Dashboards
+# =====================================================================
+
+@app.get("/api/v1/reports/pipeline")
+async def get_pipeline_report(current_client: models.Client = Depends(auth.get_current_client),
+                              db: DBSession = Depends(get_db)):
+    """Aggregates funnel_stage data to calculate conversion and qualified rates."""
     from models import Lead
-    
-    total_leads = db.query(Lead).count()
-    
-    stages = db.query(Lead.funnel_stage, func.count(Lead.id)).group_by(Lead.funnel_stage).all()
+
+    total_leads = db.query(Lead).filter(Lead.client_id == current_client.id).count()
+    stages = db.query(Lead.funnel_stage, func.count(Lead.id)).filter(Lead.client_id == current_client.id).group_by(
+        Lead.funnel_stage).all()
     stage_counts = {stage: count for stage, count in stages}
-    
+
     new_leads = stage_counts.get("New", 0)
     contacted = stage_counts.get("Contacted", 0)
     scheduled = stage_counts.get("Appointment Scheduled", 0)
     closed = stage_counts.get("Closed Won", 0)
-    
     qualified = contacted + scheduled + closed
-    
+
     return {
         "pipeline": {
-            "total_leads": total_leads,
-            "new": new_leads,
-            "contacted": contacted,
-            "appointment_scheduled": scheduled,
-            "closed_won": closed
+            "total_leads": total_leads, "new": new_leads, "contacted": contacted,
+            "appointment_scheduled": scheduled, "closed_won": closed
         },
         "rates": {
             "qualified_rate": round((qualified / total_leads * 100), 2) if total_leads else 0,
@@ -596,46 +617,52 @@ async def get_pipeline_report(db: DBSession = Depends(get_db)):
         }
     }
 
-@app.get("/api/v1/roi/funnel_metrics", dependencies=[Depends(verify_admin_key)])
-async def get_funnel_metrics(db: DBSession = Depends(get_db)):
+
+@app.get("/api/v1/roi/funnel_metrics")
+async def get_funnel_metrics(current_client: models.Client = Depends(auth.get_current_client),
+                             db: DBSession = Depends(get_db)):
     """Total Leads, Qualified, Appt Booked, Site Visits, Deal Closed"""
     from models import EventLog, Lead
-    # Total leads
-    total_leads = db.query(Lead).count()
-    # Qualified: has budget, location, or intent
-    qualified = db.query(Lead).filter((Lead.budget.isnot(None)) | (Lead.intent.isnot(None))).count()
-    # Appt Booked: has visit_date
-    appointments = db.query(Lead).filter(Lead.visit_date.isnot(None)).count()
-    
-    # We can also track from EventLog for deal_closed and site_visit_done if added later by Anohita
-    site_visits = db.query(EventLog).filter(EventLog.action_type == "site_visit_done").count()
-    deal_closed = db.query(EventLog).filter(EventLog.action_type == "deal_closed").count()
-    
+
+    total_leads = db.query(Lead).filter(Lead.client_id == current_client.id).count()
+    qualified = db.query(Lead).filter(Lead.client_id == current_client.id,
+                                      ((Lead.budget.isnot(None)) | (Lead.intent.isnot(None)))).count()
+    appointments = db.query(Lead).filter(Lead.client_id == current_client.id, Lead.visit_date.isnot(None)).count()
+    site_visits = db.query(EventLog).filter(EventLog.client_id == current_client.id,
+                                            EventLog.action_type == "site_visit_done").count()
+    deal_closed = db.query(EventLog).filter(EventLog.client_id == current_client.id,
+                                            EventLog.action_type == "deal_closed").count()
+
     return {
         "funnel": {
-            "total_leads": total_leads,
-            "qualified": qualified,
-            "appointment_booked": appointments,
-            "site_visit_done": site_visits,
-            "deal_closed": deal_closed
+            "total_leads": total_leads, "qualified": qualified, "appointment_booked": appointments,
+            "site_visit_done": site_visits, "deal_closed": deal_closed
         },
         "conversion_rates": {
             "lead_to_qualified": round((qualified / total_leads * 100), 2) if total_leads else 0,
             "qualified_to_appt": round((appointments / qualified * 100), 2) if qualified else 0
         },
-        "financials": {
-            "revenue_generated": 0  # Populated by deal_closed events from Anohita's layer
-        }
+        "financials": {"revenue_generated": 0}
     }
 
-@app.get("/api/v1/roi/speed_intelligence", dependencies=[Depends(verify_admin_key)])
-async def get_speed_intelligence(db: DBSession = Depends(get_db)):
+
+@app.get("/api/v1/roi/speed_intelligence")
+async def get_speed_intelligence(current_client: models.Client = Depends(auth.get_current_client),
+                                 db: DBSession = Depends(get_db)):
     from models import EventLog
-    # Average response time for AI (message_sent logs)
-    avg_ai = db.query(func.avg(EventLog.latency_ms)).filter(EventLog.agent_type == 'AI', EventLog.latency_ms.isnot(None)).scalar() or 0
-    # Average response time for Human (if any)
-    avg_human = db.query(func.avg(EventLog.latency_ms)).filter(EventLog.agent_type == 'Human', EventLog.latency_ms.isnot(None)).scalar() or 0
-    
+    # Filter by client_id to prevent cross-tenant data leakage
+    avg_ai = db.query(func.avg(EventLog.latency_ms)).filter(
+        EventLog.client_id == current_client.id,
+        EventLog.agent_type == 'AI',
+        EventLog.latency_ms.isnot(None)
+    ).scalar() or 0
+
+    avg_human = db.query(func.avg(EventLog.latency_ms)).filter(
+        EventLog.client_id == current_client.id,
+        EventLog.agent_type == 'Human',
+        EventLog.latency_ms.isnot(None)
+    ).scalar() or 0
+
     return {
         "average_latency_ms": {
             "AI": round(avg_ai, 2),
@@ -643,16 +670,23 @@ async def get_speed_intelligence(db: DBSession = Depends(get_db)):
         }
     }
 
-@app.get("/api/v1/roi/source_attribution", dependencies=[Depends(verify_admin_key)])
-async def get_source_attribution(db: DBSession = Depends(get_db)):
+
+@app.get("/api/v1/roi/source_attribution")
+async def get_source_attribution(current_client: models.Client = Depends(auth.get_current_client),
+                                 db: DBSession = Depends(get_db)):
     from models import Lead
-    # Group by source
-    sources = db.query(Lead.source, func.count(Lead.id)).group_by(Lead.source).all()
-    
-    # How many appointments per source
-    appointments = db.query(Lead.source, func.count(Lead.id)).filter(Lead.visit_date.isnot(None)).group_by(Lead.source).all()
+    # Filter by client_id
+    sources = db.query(Lead.source, func.count(Lead.id)).filter(
+        Lead.client_id == current_client.id
+    ).group_by(Lead.source).all()
+
+    appointments = db.query(Lead.source, func.count(Lead.id)).filter(
+        Lead.client_id == current_client.id,
+        Lead.visit_date.isnot(None)
+    ).group_by(Lead.source).all()
+
     appt_dict = {k: v for k, v in appointments}
-    
+
     results = []
     for source, count in sources:
         appt_count = appt_dict.get(source, 0)
@@ -662,7 +696,7 @@ async def get_source_attribution(db: DBSession = Depends(get_db)):
             "appointments_booked": appt_count,
             "conversion_rate": round((appt_count / count * 100), 2) if count else 0
         })
-        
+
     return {"sources": results}
 
 @app.get("/api/v1/analytics")
@@ -743,25 +777,31 @@ async def submit_contact_form(form: ContactForm):
 @app.post("/api/v1/webhook/stripe")
 async def stripe_webhook(request: Request, db: DBSession = Depends(get_db)):
     """Listens for Stripe checkout events and activates subscriptions."""
+    webhook_secret = os.getenv("STRIPE_WEBHOOK_SECRET")
+    payload = await request.body()
+    sig_header = request.headers.get("Stripe-Signature", "")
+
     try:
-        payload = await request.json()
-        event_type = payload.get("type")
-        data = payload.get("data", {}).get("object", {})
-
-        if event_type == "checkout.session.completed":
-            customer_email = data.get("customer_details", {}).get("email")
-            if customer_email:
-                client = db.query(models.Client).filter(models.Client.email == customer_email).first()
-                if client:
-                    client.subscription_status = "active"
-                    client.stripe_customer_id = data.get("customer")
-                    db.commit()
-                    logger.info(f"STRIPE WEBHOOK | Activated subscription for {customer_email}")
-
-        return {"status": "success"}
+        # Cryptographically verify the payload actually came from Stripe
+        event = stripe.Webhook.construct_event(payload, sig_header, webhook_secret)
     except Exception as e:
-        logger.error(f"Stripe webhook error: {e}")
-        raise HTTPException(status_code=400, detail="Webhook processing failed")
+        logger.error(f"Stripe signature verification failed: {e}")
+        raise HTTPException(status_code=400, detail="Invalid signature")
+
+    event_type = event.get("type")
+    data = event.get("data", {}).get("object", {})
+
+    if event_type == "checkout.session.completed":
+        customer_email = data.get("customer_details", {}).get("email")
+        if customer_email:
+            client = db.query(models.Client).filter(models.Client.email == customer_email).first()
+            if client:
+                client.subscription_status = "active"
+                client.stripe_customer_id = data.get("customer")
+                db.commit()
+                logger.info(f"STRIPE WEBHOOK | Activated subscription for {customer_email}")
+
+    return {"status": "success"}
 
 @app.get("/api/v1/leads")
 def get_leads(
