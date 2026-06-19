@@ -892,12 +892,16 @@ async def process_chat(session_id: str, user_message: str, db: DBSession, client
 
     lead.conversion_probability = prob
 
+    # Ensure lead_temperature and score are completely aligned with the final probability
     if prob >= 82:
         lead.score = "High"
+        lead.lead_temperature = "hot"
     elif prob >= 55:
         lead.score = "Medium"
+        lead.lead_temperature = "warm"
     else:
         lead.score = "Low"
+        lead.lead_temperature = "cold"
 
     # 2. Match Best Agent
     agent_data = match_best_agent(

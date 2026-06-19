@@ -43,8 +43,8 @@ from typing import List, Dict, Any, Optional
 # ─── CONFIG ─────────────────────────────────────────────────────────────────
 DEFAULT_BASE_URL = "http://localhost:8000"
 DEFAULT_API_KEY = os.getenv("CLIENT_KEY_A", "")
-MSG_DELAY = 9.0   # Simulated human typing delay between turns
-CONV_DELAY = 10.0  # Delay between starting new conversations
+MSG_DELAY = 4.0   # Simulated human typing delay between turns
+CONV_DELAY = 2.0  # Delay between starting new conversations
 CHAT_TIMEOUT = 45.0
 
 FAILURE_PHRASES = [
@@ -175,13 +175,16 @@ def run_dynamic_checks(session_id: str, tc: TestCase, bot_replies: List[str]) ->
             else:
                 report["followup_status_correct"] = fup_status == "active"
 
+
     elif tc.category == "WARM":
-        # FIX: The ML Engine is strict. We should not blindly force leads to be "warm"
-        # unless they have actually crossed the ML's 55% threshold natively.
-        # We just verify that the system is tracking them without errors.
+
+        # Verify that active warm leads (who haven't escalated or opted out) are correctly marked
+
+        if not opted_out and not lead.get("visit_date"):
+            report["marked_warm"] = lead_temp == "warm"
 
         if lead.get("visit_date"):
-            report["temperature_escalated_to_hot"] = lead_temp == "hot"
+            report["temperature_escalated_to_hot"] = lead_temp == "hot"           
 
         if fup:
             if opted_out:
