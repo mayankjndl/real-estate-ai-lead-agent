@@ -651,22 +651,11 @@ async def process_chat(session_id: str, user_message: str, db: DBSession, client
             break  # Success — exit retry loop
         except Exception as e:
             llm_time = round((time.time() - llm_start) * 1000)
-            err_msg = str(e).lower()
-
-            # Detect if Google returned a 429 / Quota/ Limit error
-            is_rate_limit = any(term in err_msg for term in ["429", "exhausted", "quota", "limit", "rate"])
-
             logger.warning(json.dumps(
                 {"event": "llm_main_call", "latency_ms": llm_time, "attempt": attempt + 1, "success": False,
                  "error": type(e).__name__, "detail": str(e)[:200]}))
-
             if attempt < max_retries - 1:
-                if is_rate_limit:
-                    # Rate limit hit — backoff aggressively to allow the quota window to reset
-                    wait_time = 12.0 + (5.0 * attempt)
-                    logger.warning(f"RATE_LIMIT_DETECTED | Sleeping for {wait_time}s to reset quota bucket.")
-                else:
-                    wait_time = 0.5 * (2 ** attempt)  # Standard exponential backoff
+                wait_time = 0.5 * (2 ** attempt)  # Standard exponential backoff
                 await asyncio.sleep(wait_time)
             else:
                 logger.error(json.dumps({"event": "llm_main_fatal", "error": type(e).__name__, "detail": str(e)[:200],
