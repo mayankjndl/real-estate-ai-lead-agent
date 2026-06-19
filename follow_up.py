@@ -405,7 +405,9 @@ def check_and_send_followups():
                             f"We'll pause our updates for now. Feel free to reach out anytime — "
                             f"we're happy to help with your property search. Take care! 🏡"
                         )
-                        if session_id.startswith("+") and settings.TWILIO_ACCOUNT_SID:
+                        if settings.TEST_MODE:
+                            logger.info(f"[TEST MODE] Skipping Day 7 closure WhatsApp send for {session_id}")
+                        elif session_id.startswith("+") and settings.TWILIO_ACCOUNT_SID:
                             try:
                                 client = Client(settings.TWILIO_ACCOUNT_SID, settings.TWILIO_AUTH_TOKEN)
                                 to_number = f"whatsapp:{session_id}" if lead and lead.source == "whatsapp" else session_id
