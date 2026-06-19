@@ -45,6 +45,11 @@ class Settings(BaseSettings):
     FOLLOW_UP_DLQ_TEST: bool = False  # Set true alongside TEST_MODE to force a DLQ entry for QA
     TEST_MODE: bool = False
 
+    # Security & Encryption Keys
+    JWT_SECRET_KEY: str = ""
+    ADMIN_API_KEY: str = ""
+    STRIPE_WEBHOOK_SECRET: str = ""
+
     # Twilio API credentials
     TWILIO_ACCOUNT_SID: str = ""
     TWILIO_AUTH_TOKEN: str = ""

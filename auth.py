@@ -8,6 +8,9 @@ from sqlalchemy.orm import Session
 from database import get_db
 import models
 
+from dotenv import load_dotenv
+load_dotenv()
+
 # Constants
 SECRET_KEY = os.getenv("JWT_SECRET_KEY")
 if not SECRET_KEY or SECRET_KEY == "super-secret-jwt-key-replace-in-prod":
