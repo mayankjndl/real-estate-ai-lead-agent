@@ -2,7 +2,7 @@ import asyncio
 import logging
 from sqlalchemy.orm import Session
 from database import SessionLocal
-from models import DLQEvent, EventLog, Message
+from models import DLQEvent, EventLog, Message, Session as SessionModel
 from datetime import datetime, timezone
 
 from config import settings
@@ -71,11 +71,26 @@ def process_ml_followup(payload: dict, db: Session) -> bool:
                 body=payload_msg,
                 to=f"whatsapp:{session_id}" if session_id.startswith("+") else session_id
             )
-            
-        # Log successful recovery
-        event = EventLog(session_id=session_id, event_type="tracking", action_type="follow_up_sent_from_dlq")
+
+        # Resolve the correct client_id from the session metadata
+        session_record = db.query(SessionModel).filter(SessionModel.id == session_id).first()
+        client_id = session_record.client_id if session_record else 1
+
+        # Log successful recovery with mandatory multi-tenant client_id mapping
+        event = EventLog(
+            session_id=session_id,
+            client_id=client_id,
+            event_type="tracking",
+            action_type="follow_up_sent_from_dlq"
+        )
         db.add(event)
-        db.add(Message(session_id=session_id, role="assistant", content=f"[DLQ RECOVERY {current_stage.upper()}] {payload_msg}"))
+
+        db.add(Message(
+            session_id=session_id,
+            client_id=client_id,
+            role="assistant",
+            content=f"[DLQ RECOVERY {current_stage.upper()}] {payload_msg}"
+        ))
         db.commit()
         return True
     except Exception as e:

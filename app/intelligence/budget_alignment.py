@@ -62,7 +62,7 @@ def parse_budget_to_lakhs(text):
 import re
 
 
-def get_average_price(location, property_type):
+def get_average_price(location, property_type, intent="buy"):
     if not location or not property_type:
         return None
 
@@ -73,20 +73,22 @@ def get_average_price(location, property_type):
     if not location_data:
         return None
 
-    buy_data = location_data.get("buy")
-    if not buy_data:
+    # Fetch based on Rent or Buy intent
+    category = "rent" if intent and "rent" in intent.lower() else "buy"
+    market_data = location_data.get(category)
+    if not market_data:
         return None
 
     # Try to find an exact match in the dictionary first (e.g., "2BHK" or "3BHK")
     property_data = None
-    for key, val in buy_data.items():
+    for key, val in market_data.items():
         if key.upper() == property_type.upper().replace(" ", ""):
             property_data = val
             break
 
     # --- FIX: Dynamic Fallback for 1BHK, 4BHK, 5BHK+, and Villas ---
     if not property_data:
-        base_2bhk = buy_data.get("2BHK") or buy_data.get("2bhk")
+        base_2bhk = market_data.get("2BHK") or market_data.get("2bhk")
         if not base_2bhk:
             return None
 
@@ -140,7 +142,8 @@ def get_average_price(location, property_type):
 def evaluate_budget_alignment(
     budget_text,
     location,
-    property_type
+    property_type,
+    intent="buy"  # <-- Added intent keyword argument here
 ):
 
     user_budget = parse_budget_to_lakhs(
@@ -149,7 +152,8 @@ def evaluate_budget_alignment(
 
     avg_price = get_average_price(
         location,
-        property_type
+        property_type,
+        intent=intent  # <-- Pass intent forward here
     )
 
     if not user_budget or not avg_price:

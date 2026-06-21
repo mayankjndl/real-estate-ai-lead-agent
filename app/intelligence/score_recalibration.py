@@ -9,6 +9,10 @@ from app.intelligence.learning_engine import (
 # ==========================================
 
 def recalibrate_probability(base_score):
+    
+    # Don't recalibrate without enough historical feedback
+    if len(learning_engine.score_feedback) < 20:
+        return base_score
 
     accuracy = (
         learning_engine

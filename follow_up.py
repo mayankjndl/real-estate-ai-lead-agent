@@ -405,7 +405,9 @@ def check_and_send_followups():
                             f"We'll pause our updates for now. Feel free to reach out anytime — "
                             f"we're happy to help with your property search. Take care! 🏡"
                         )
-                        if session_id.startswith("+") and settings.TWILIO_ACCOUNT_SID:
+                        if settings.TEST_MODE:
+                            logger.info(f"[TEST MODE] Skipping Day 7 closure WhatsApp send for {session_id}")
+                        elif session_id.startswith("+") and settings.TWILIO_ACCOUNT_SID:
                             try:
                                 client = Client(settings.TWILIO_ACCOUNT_SID, settings.TWILIO_AUTH_TOKEN)
                                 to_number = f"whatsapp:{session_id}" if lead and lead.source == "whatsapp" else session_id
@@ -443,29 +445,40 @@ def check_and_send_followups():
                     followup_latency_ms = None
 
                     # --- FIX: Check raw lead.phone instead of prefixed session_id ---
-                    if lead and lead.phone and lead.phone.startswith("+") and settings.TWILIO_ACCOUNT_SID:
-                        try:
-                            client = Client(settings.TWILIO_ACCOUNT_SID, settings.TWILIO_AUTH_TOKEN)
-                            to_number = f"whatsapp:{lead.phone}" if lead and lead.source == "whatsapp" else lead.phone
+                    if lead and lead.phone and settings.TWILIO_ACCOUNT_SID:
+                        # Normalize phone format (ensure it starts with +)
+                        clean_phone = lead.phone.strip()
+                        if not clean_phone.startswith("+"):
+                            # If it starts with 10 digits (e.g. 9163962356), prepend +
+                            clean_phone = f"+{clean_phone}"
 
-                            @retry(stop=stop_after_attempt(5), wait=wait_exponential(multiplier=1, min=2, max=30),
-                                   reraise=True)
-                            def _send_twilio_msg():
-                                client.messages.create(
-                                    from_=settings.TWILIO_PHONE_NUMBER,
-                                    body=payload_msg,
-                                    to=to_number
-                                )
-
-                            _twilio_start = time.time()
-                            _send_twilio_msg()
-                            followup_latency_ms = round((time.time() - _twilio_start) * 1000)
-
+                        if settings.TEST_MODE:
+                            logger.info(f"[TEST MODE] Skipping WhatsApp send for {session_id}")
                             success = True
-                            logger.info(f"Follow-up {current_stage} sent to {session_id} via {'WhatsApp' if lead and lead.source == 'whatsapp' else 'SMS'} | latency={followup_latency_ms}ms")
-                        except Exception as ex:
-                            logger.error(f"Follow-up Twilio push failed for {session_id}: {ex}")
-                            raise ex
+                            followup_latency_ms = 0
+                        else:
+                            try:
+                                client = Client(settings.TWILIO_ACCOUNT_SID, settings.TWILIO_AUTH_TOKEN)
+                                to_number = f"whatsapp:{clean_phone}" if lead and lead.source == "whatsapp" else clean_phone
+
+                                @retry(stop=stop_after_attempt(5), wait=wait_exponential(multiplier=1, min=2, max=30),
+                                       reraise=True)
+                                def _send_twilio_msg():
+                                    client.messages.create(
+                                        from_=settings.TWILIO_PHONE_NUMBER,
+                                        body=payload_msg,
+                                        to=to_number
+                                    )
+
+                                _twilio_start = time.time()
+                                _send_twilio_msg()
+                                followup_latency_ms = round((time.time() - _twilio_start) * 1000)
+
+                                success = True
+                                logger.info(f"Follow-up {current_stage} sent to {session_id} via {'WhatsApp' if lead and lead.source == 'whatsapp' else 'SMS'} | latency={followup_latency_ms}ms")
+                            except Exception as ex:
+                                logger.error(f"Follow-up Twilio push failed for {session_id}: {ex}")
+                                raise ex
                     else:
                         success = True
                         logger.info(f"Simulated follow-up {current_stage} sent to {session_id}")

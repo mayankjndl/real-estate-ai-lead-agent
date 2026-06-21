@@ -22,3 +22,5 @@ numpy
 pillow
 pydantic
 pydantic-settings
+stripe
+scikit-learn
