@@ -41,7 +41,7 @@ from dataclasses import dataclass, field
 from typing import List, Dict, Any, Optional
 
 # ─── CONFIG ─────────────────────────────────────────────────────────────────
-DEFAULT_BASE_URL = "http://localhost:8000"
+DEFAULT_BASE_URL = "https://real-estate-ai-lead-agent-3.onrender.com"
 DEFAULT_API_KEY = os.getenv("CLIENT_KEY_A", "")
 MSG_DELAY = 4.0   # Simulated human typing delay between turns
 CONV_DELAY = 2.0  # Delay between starting new conversations
