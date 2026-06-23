@@ -158,43 +158,47 @@ export default async function DashboardPage(props: Props) {
         <>
           {/* Top KPIs Grid - 10 Mandatory Metrics + New Metrics */}
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-            <KPICard title="Total Leads" value={totalLeads} icon={Users} color="text-slate-500" bg="bg-slate-500/10" border="border-slate-500/20" tooltip="Total volume of leads captured by the AI agent in this period." />
-            <KPICard title="Hot Leads" value={hotCount} icon={Flame} color="text-emerald-500" bg="bg-emerald-500/10" border="border-emerald-500/20" tooltip="Leads with high purchase intent and urgency, flagged for immediate closing." />
-            <KPICard title="Warm Leads" value={warmCount} icon={Target} color="text-amber-500" bg="bg-amber-500/10" border="border-amber-500/20" tooltip="Engaged leads exploring options but not yet ready to commit." />
-            <KPICard title="Overdue Follow-ups" value={overdueFollowUps} icon={AlertCircle} color="text-rose-500" bg="bg-rose-500/10" border="border-rose-500/20" tooltip="High-urgency leads whose engagement scores have dropped. Action required." />
-            <KPICard title="Est. Pipeline Value" value={formatCurrency(activePipelineValue)} icon={Briefcase} color="text-indigo-500" bg="bg-indigo-500/10" border="border-indigo-500/20" tooltip="Sum of the stated budgets for all active leads in the pipeline." />
+            <KPICard title="Total Leads" value={totalLeads} icon={Users} color="text-slate-500" bg="bg-slate-500/10" border="border-slate-500/20" tooltip="Total number of people who interacted with your AI assistant." />
+            <KPICard title="Hot Leads" value={hotCount} icon={Flame} color="text-emerald-500" bg="bg-emerald-500/10" border="border-emerald-500/20" tooltip="Ready to buy! Call these people immediately." />
+            <KPICard title="Warm Leads" value={warmCount} icon={Target} color="text-amber-500" bg="bg-amber-500/10" border="border-amber-500/20" tooltip="Interested but still thinking. They need a little more time." />
+            <KPICard title="Overdue Follow-ups" value={overdueFollowUps} icon={AlertCircle} color="text-rose-500" bg="bg-rose-500/10" border="border-rose-500/20" tooltip="Important leads that have gone quiet. You should reach out to them now." />
+            <KPICard title="Est. Pipeline Value" value={formatCurrency(activePipelineValue)} icon={Briefcase} color="text-indigo-500" bg="bg-indigo-500/10" border="border-indigo-500/20" tooltip="The total combined budget of everyone currently looking to buy." />
             
-            <KPICard title="Closed Revenue" value={formatCurrency(closedRevenue)} icon={Banknote} color="text-emerald-600" bg="bg-emerald-600/10" border="border-emerald-600/20" tooltip="Total revenue successfully closed within the filtered period." />
-            <KPICard title="Conversion Rate" value={`${conversionRate}%`} icon={ArrowUpRight} color="text-blue-500" bg="bg-blue-500/10" border="border-blue-500/20" tooltip="Percentage of total leads that have successfully closed." />
-            <KPICard title="Stage Conversion" value={`${stageConversion}%`} icon={Target} color="text-teal-500" bg="bg-teal-500/10" border="border-teal-500/20" tooltip="Percentage of leads that successfully advanced past the initial 'New' stage." />
-            <KPICard title="Response Time" value="5m (Sample)" icon={Clock} color="text-purple-500" bg="bg-purple-500/10" border="border-purple-500/20" tooltip="Average time taken by AI to respond to initial inquiries. (Currently utilizing sample proxy data)" />
-            <KPICard title="Follow-Up Success" value={`${followUpSuccessRate}%`} icon={Activity} color="text-orange-500" bg="bg-orange-500/10" border="border-orange-500/20" tooltip="Percentage of leads maintaining an engagement score > 50 after automated follow-ups." />
+            <KPICard title="Closed Revenue" value={formatCurrency(closedRevenue)} icon={Banknote} color="text-emerald-600" bg="bg-emerald-600/10" border="border-emerald-600/20" tooltip="The total money made from deals you've successfully closed." />
+            <KPICard title="Conversion Rate" value={`${conversionRate}%`} icon={ArrowUpRight} color="text-blue-500" bg="bg-blue-500/10" border="border-blue-500/20" tooltip="The percentage of people who actually ended up buying." />
+            <KPICard title="Stage Conversion" value={`${stageConversion}%`} icon={Target} color="text-teal-500" bg="bg-teal-500/10" border="border-teal-500/20" tooltip="How many people had a meaningful conversation instead of just dropping off." />
+            <KPICard title="Response Time" value="5m (Sample)" icon={Clock} color="text-purple-500" bg="bg-purple-500/10" border="border-purple-500/20" tooltip="How quickly the AI replies to a new inquiry. (Sample data)" />
+            <KPICard title="Follow-Up Success" value={`${followUpSuccessRate}%`} icon={Activity} color="text-orange-500" bg="bg-orange-500/10" border="border-orange-500/20" tooltip="How well the AI's automatic follow-ups kept people interested." />
           </div>
 
           {/* Visual Analytics Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            <div className="bg-white dark:bg-zinc-900/40 border border-slate-200 dark:border-white/5 p-6 rounded-3xl backdrop-blur-xl shadow-sm overflow-x-auto">
+            <div className="bg-white dark:bg-zinc-900/40 border border-slate-200 dark:border-white/5 p-6 rounded-3xl backdrop-blur-xl shadow-sm relative hover:z-50 transition-all">
               <div className="flex items-center gap-2 mb-6">
                 <h3 className="text-sm font-medium text-slate-500 dark:text-zinc-400 uppercase tracking-wider">Funnel Drop-off</h3>
-                <TooltipInfo text="Visual representation of the lead journey across pipeline stages." />
+                <TooltipInfo text="Shows where people drop out of the buying process." />
               </div>
-              <div className="min-w-[300px]">
-                <FunnelChart data={funnelData} />
+              <div className="w-full overflow-x-auto">
+                <div className="min-w-[300px]">
+                  <FunnelChart data={funnelData} />
+                </div>
               </div>
             </div>
-            <div className="bg-white dark:bg-zinc-900/40 border border-slate-200 dark:border-white/5 p-6 rounded-3xl backdrop-blur-xl shadow-sm overflow-x-auto">
+            <div className="bg-white dark:bg-zinc-900/40 border border-slate-200 dark:border-white/5 p-6 rounded-3xl backdrop-blur-xl shadow-sm relative hover:z-50 transition-all">
               <div className="flex items-center gap-2 mb-6">
                 <h3 className="text-sm font-medium text-slate-500 dark:text-zinc-400 uppercase tracking-wider">Source Attribution</h3>
-                <TooltipInfo text="Breakdown of leads by their originating acquisition channel." />
+                <TooltipInfo text="Shows where your leads are coming from (like Instagram or Google)." />
               </div>
-              <div className="min-w-[250px]">
-                <SourcePieChart data={sourceData} />
+              <div className="w-full overflow-x-auto">
+                <div className="min-w-[250px]">
+                  <SourcePieChart data={sourceData} />
+                </div>
               </div>
             </div>
-            <div className="bg-white dark:bg-zinc-900/40 border border-slate-200 dark:border-white/5 p-6 rounded-3xl backdrop-blur-xl flex flex-col justify-center shadow-sm">
+            <div className="bg-white dark:bg-zinc-900/40 border border-slate-200 dark:border-white/5 p-6 rounded-3xl backdrop-blur-xl flex flex-col justify-center shadow-sm relative hover:z-50 transition-all">
               <div className="flex items-center gap-2 mb-2">
                 <h3 className="text-sm font-medium text-slate-500 dark:text-zinc-400 uppercase tracking-wider">Automated Follow-ups</h3>
-                <TooltipInfo text="Effectiveness gauge of the AI's autonomous follow-up engine." />
+                <TooltipInfo text="How successfully the AI is keeping conversations alive." />
               </div>
               <FollowUpGauge percentage={followUpSuccessRate} />
             </div>
@@ -283,7 +287,12 @@ export default async function DashboardPage(props: Props) {
 
 function KPICard({ title, value, icon: Icon, color, bg, border, trend, tooltip }: any) {
   return (
-    <Link href={`/crm?filter=${encodeURIComponent(title)}`} className={`bg-white dark:bg-zinc-900/40 border border-slate-200 dark:border-white/5 p-4 md:p-6 rounded-3xl backdrop-blur-xl relative overflow-hidden group hover:border-slate-300 dark:hover:border-white/10 transition-colors duration-300 shadow-sm block`}>
+    <Link href={`/crm?filter=${encodeURIComponent(title)}`} className={`bg-white dark:bg-zinc-900/40 border border-slate-200 dark:border-white/5 p-4 md:p-6 rounded-3xl backdrop-blur-xl relative group hover:z-50 hover:border-slate-300 dark:hover:border-white/10 transition-colors duration-300 shadow-sm block`}>
+      {/* Background glow container */}
+      <div className="absolute inset-0 rounded-3xl overflow-hidden pointer-events-none">
+        <div className={`absolute -bottom-10 -right-10 w-32 h-32 ${bg} rounded-full blur-3xl opacity-0 group-hover:opacity-30 dark:group-hover:opacity-50 transition-opacity duration-500`} />
+      </div>
+
       <div className="flex items-center justify-between mb-4 relative z-10">
         <div className={`h-10 w-10 rounded-xl ${bg} flex items-center justify-center border ${border}`}>
           <Icon className={`${color} w-5 h-5`} />
@@ -297,8 +306,6 @@ function KPICard({ title, value, icon: Icon, color, bg, border, trend, tooltip }
         <h3 className="text-xs font-medium text-slate-500 dark:text-zinc-400 uppercase tracking-wider mb-1 line-clamp-1">{title}</h3>
         <p className="text-2xl lg:text-3xl font-bold text-slate-900 dark:text-white tracking-tight">{value}</p>
       </div>
-      {/* Subtle hover glow */}
-      <div className={`absolute -bottom-10 -right-10 w-32 h-32 ${bg} rounded-full blur-3xl opacity-0 group-hover:opacity-30 dark:group-hover:opacity-50 transition-opacity duration-500`} />
     </Link>
   )
 }
