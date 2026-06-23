@@ -2,6 +2,7 @@ import os
 import bcrypt
 from datetime import datetime, timedelta, timezone
 import jwt
+from config import tenant_id_ctx
 from fastapi import Depends, HTTPException, status, Security
 from fastapi.security import OAuth2PasswordBearer, APIKeyHeader, APIKeyQuery
 from sqlalchemy.orm import Session
@@ -58,6 +59,8 @@ def get_current_client(token: str = Depends(oauth2_scheme), db: Session = Depend
     client = db.query(models.Client).filter(models.Client.id == int(client_id)).first()
     if client is None or not client.is_active:
         raise credentials_exception
+
+    tenant_id_ctx.set(f"Client_{client.id}")
     return client
 
 # Dependency for Ingestion/Webhooks (API Key)
@@ -79,4 +82,6 @@ def get_client_by_api_key(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid or revoked API Key",
         )
+
+    tenant_id_ctx.set(f"Client_{client.id}")
     return client

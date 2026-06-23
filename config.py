@@ -102,3 +102,7 @@ if not settings.GEMINI_API_KEY:
     _cfg_logger.warning("GEMINI_API_KEY is not set — AI responses will fail.")
 if not settings.CLIENT_KEY_A:
     _cfg_logger.warning("CLIENT_KEY_A is not set — /leads and /analytics will reject all requests.")
+
+from contextvars import ContextVar
+request_id_ctx = ContextVar("request_id", default="SYS")
+tenant_id_ctx = ContextVar("tenant_id", default="None")

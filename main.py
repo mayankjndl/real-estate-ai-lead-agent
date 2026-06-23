@@ -5,6 +5,8 @@ import asyncio
 import collections
 import logging
 import json
+import re
+import uuid
 import time
 import redis.asyncio as aioredis
 import time
@@ -26,7 +28,7 @@ from typing import Optional
 from pydantic import BaseModel
 import csv
 from io import StringIO
-from config import settings
+from config import settings, tenant_id_ctx, request_id_ctx
 from database import engine, Base, get_db, SessionLocal
 from agent import process_chat
 from follow_up import check_and_send_followups
@@ -50,11 +52,29 @@ def verify_admin_key(api_key: str = Security(admin_api_key_header)):
         )
     return api_key
 
-# Configure Central App Logging (stdout so Render dashboard captures it)
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
+
+# Configure Central App Logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
+
+class SecurePIILogFilter(logging.Filter):
+    def filter(self, record):
+        req_id = request_id_ctx.get()
+        tenant_id = tenant_id_ctx.get()
+        msg = str(record.msg)
+
+        # PII MASKING: Mask Phone Numbers (e.g. +919163962356 -> +91******2356)
+        msg = re.sub(r'(\+\d{1,3})\d{6,8}(\d{4})', r'\1******\2', msg)
+        # PII MASKING: Mask Emails (e.g. aritro@gmail.com -> a***@gmail.com)
+        msg = re.sub(r'([a-zA-Z])[a-zA-Z0-9_.+-]+@([a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+)', r'\1***@\2', msg)
+
+        record.msg = f"[Req: {req_id}] [Tenant: {tenant_id}] {msg}"
+        return True
+
+
+# Apply the PII filter to all logs
+for handler in logging.root.handlers:
+    handler.addFilter(SecurePIILogFilter())
 logger = logging.getLogger("main")
 
 # Automatically orchestrate DB creation on application boot
@@ -139,6 +159,8 @@ REQUEST_LATENCY = Histogram(
 # --- Production Monitoring Middleware ---
 @app.middleware("http")
 async def production_monitoring_middleware(request: Request, call_next):
+    request_id_ctx.set(str(uuid.uuid4())[:8])
+    tenant_id_ctx.set("Pending")
     start_time = time.time()
     try:
         response = await call_next(request)
@@ -889,30 +911,43 @@ def export_leads(
     response.headers["Content-Disposition"] = f"attachment; filename=leads_export_{current_client.id}.csv"
     return response
 
+
 @app.get("/health")
-def health_check(db: DBSession = Depends(get_db)):
-    """
-    Health check endpoint for monitoring, load balancers, and cron-job.org keep-alive.
-    Returns DB status, scheduler state, and uptime for operational observability.
-    """
+async def health_check(db: DBSession = Depends(get_db)):
+    """Enterprise Provider Health Checks"""
     import datetime as _dt
+
+    # 1. Postgres Check
     try:
         db.execute(models.Session.__table__.select().limit(1))
         db_status = "connected"
     except Exception:
         db_status = "error"
+        logger.error("ALERT: PostgreSQL Database connection failed in health check!")
+
+    # 2. Redis Check
+    try:
+        await redis_client.ping()
+        redis_status = "connected"
+    except Exception:
+        redis_status = "error"
+        logger.error("ALERT: Redis Cache connection failed in health check!")
+
+    # 3. Third-Party Provider Checks
+    twilio_status = "configured" if settings.TWILIO_ACCOUNT_SID else "missing"
+    gemini_status = "configured" if settings.GEMINI_API_KEY else "missing"
 
     uptime_seconds = round((_dt.datetime.now(_dt.timezone.utc) - APP_START_TIME).total_seconds())
+    system_status = "healthy" if db_status == "connected" and redis_status == "connected" else "degraded"
 
     return {
-        "status": "healthy",
-        "version": "1.0.0",
-        "database": db_status,
+        "status": system_status,
+        "database_postgres": db_status,
+        "cache_redis": redis_status,
+        "provider_twilio": twilio_status,
+        "provider_gemini": gemini_status,
         "scheduler": "running" if scheduler.running else "stopped",
         "uptime_seconds": uptime_seconds,
-        "worker_mode": "single-worker",
-        "follow_up_delay_minutes": settings.FOLLOW_UP_DELAY_MINUTES,
-        "ai_followups_enabled": settings.USE_AI_FOLLOWUPS,
     }
 
 # Mount static files for the Dashboard
