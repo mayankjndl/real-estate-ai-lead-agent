@@ -1,0 +1,119 @@
+======================================================================
+  TASK 3 — FINAL VALIDATION SUMMARY
+  Imperion Data Systems | Real Estate Revenue OS
+  Generated: 2026-06-21 17:14:13
+  CATEGORY RUN : ALL
+======================================================================
+
+  TOTAL TESTS  : 115
+  PASSED       : 91  (79%)
+  KNOWN LIMITS : 0  (documented, not bugs)
+  FAILED       : 24
+
+  BY CATEGORY
+  --------------------------------------------------
+  REGRESSION    13 pass    2 fail    0 limit  / 15 total
+  AUTOMATION    25 pass    0 fail    0 limit  / 25 total
+  COLD          25 pass    0 fail    0 limit  / 25 total
+  WARM          19 pass    6 fail    0 limit  / 25 total
+  HOT            9 pass   16 fail    0 limit  / 25 total
+
+  ACCEPTANCE CRITERIA
+  --------------------------------------------------
+  ✓  No crashes / all sessions returned 200 (115/115)
+  ✓  Stop-on-reply verified (1/1)
+  ✓  Inactivity handling verified (1/1)
+  ✓  Lead stage transition verified (1/1)
+  ✓  Multiple location changes verified (1/1)
+  ✓  Multiple budget changes verified (1/1)
+  ✓  Mixed intent handling verified (1/1)
+  ✓  Returning lead scenario verified (1/1)
+  ✗  Messy conversation handling verified (0/1)
+  ✓  Duplicate follow-up prevention verified (1/1)
+  ✓  CRM synchronization verified (1/1)
+  ✓  Session reopen handling verified (1/1)
+
+  FAILURES DETAIL
+  --------------------------------------------------
+  [R10] Messy Real World
+       Failed Check: no_system_errors
+  [R12] Stop Follow-Ups
+       Failed Check: no_system_errors
+  [W08] Resale vs New Construction
+       Failed Check: no_system_errors
+  [W09] Budget Increased Mid Conversation
+       Failed Check: no_system_errors
+  [W10] Location Comparison
+       Failed Check: no_system_errors
+  [W13] Parent Buying For Child
+       Failed Check: no_system_errors
+  [W14] Maintenance Cost Review
+       Failed Check: no_system_errors
+  [W20] Future Appreciation Review
+       Failed Check: no_system_errors
+  [H01] Ready to Book Token Amount Today
+       Failed Check: visit_scheduled
+       Failed Check: marked_hot
+  [H06] Government Employee With Transfer Deadline
+       Failed Check: marked_hot
+  [H12] High Engagement, Multiple Questions Then Books Visit
+       Failed Check: no_system_errors
+       Failed Check: visit_scheduled
+       Failed Check: marked_hot
+  [H13] Cash Buyer, No Loan Needed
+       Failed Check: no_system_errors
+       Failed Check: visit_scheduled
+       Failed Check: marked_hot
+  [H14] Wants to Skip Visit, Book Directly
+       Failed Check: no_system_errors
+       Failed Check: marked_hot
+  [H15] Confirms Visit With Specific Agent Request
+       Failed Check: no_system_errors
+       Failed Check: visit_scheduled
+       Failed Check: marked_hot
+  [H16] Mentions Festival Deadline
+       Failed Check: no_system_errors
+       Failed Check: marked_hot
+  [H17] Wants Combined Visit for Two Properties Same Day
+       Failed Check: no_system_errors
+       Failed Check: visit_scheduled
+       Failed Check: marked_hot
+  [H18] First-Time Buyer, Nervous but Commits
+       Failed Check: no_system_errors
+       Failed Check: visit_scheduled
+       Failed Check: marked_hot
+  [H19] Rapid Escalation Despite Cold Opener
+       Failed Check: no_system_errors
+       Failed Check: visit_scheduled
+       Failed Check: marked_hot
+  [H20] Wants Non-Standard Weekday Evening Visit
+       Failed Check: no_system_errors
+       Failed Check: visit_scheduled
+       Failed Check: marked_hot
+  [H21] Reconfirms After Mid-Conversation Hesitation
+       Failed Check: no_system_errors
+       Failed Check: visit_scheduled
+       Failed Check: marked_hot
+  [H22] Budget Stated as All-Inclusive
+       Failed Check: no_system_errors
+       Failed Check: visit_scheduled
+       Failed Check: marked_hot
+  [H23] Wants Visit Confirmation via WhatsApp/SMS
+       Failed Check: no_system_errors
+       Failed Check: visit_scheduled
+       Failed Check: marked_hot
+  [H24] High-Value Investor, Multiple Units, Immediate
+       Failed Check: no_system_errors
+       Failed Check: marked_hot
+  [H25] Dense Single-Message Full Qualification
+       Failed Check: no_system_errors
+       Failed Check: visit_scheduled
+       Failed Check: marked_hot
+
+  KNOWN LIMITATIONS CONFIRMED
+  --------------------------------------------------
+
+======================================================================
+  Prepared by: Aritro, Maitri Shah, Mayank
+  Phase 2 — Task 3 Integrated Validation
+======================================================================
