@@ -1,10 +1,11 @@
-import secrets
 import argparse
-import string
 import re
-from database import SessionLocal
+import secrets
+import string
+
 import models
 from auth import get_password_hash
+from database import SessionLocal
 
 
 def generate_email(company_name: str) -> str:
@@ -59,6 +60,22 @@ def create_client(company_name: str = None, email: str = None):
         db.add(new_client)
         db.commit()
         db.refresh(new_client)
+
+        # --- NEW: AUTO-PROVISION DEFAULT MANAGER ---
+        default_phone = "+910000000000"
+        phone_input = input(f"Enter 10-Digit Manager Phone Number [{default_phone}]: ").strip()
+        manager_phone = "91"+phone_input if phone_input else default_phone
+
+        default_manager = models.Agent(
+            client_id=new_client.id,
+            name=f"{company_name} Admin",
+            phone=manager_phone,  # <-- Uses the inputted phone number!
+            email=email,
+            is_manager=True
+        )
+        db.add(default_manager)
+        db.commit()
+        # ------------------------------------------
 
         print("\n✅ SUCCESS: SAAS WORKSPACE PROVISIONED")
         print("-" * 50)

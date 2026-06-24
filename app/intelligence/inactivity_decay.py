@@ -1,7 +1,5 @@
 # app/intelligence/inactivity_decay.py
 
-from datetime import datetime
-
 # ==========================================
 # INACTIVITY PENALTY ENGINE
 # ==========================================

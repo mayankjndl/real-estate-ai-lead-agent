@@ -5,18 +5,18 @@ Now integrated with Anohita's ML Intelligence Layer.
 """
 import logging
 import time
-import pytz
 from datetime import datetime, timezone, timedelta
-from twilio.rest import Client
-from tenacity import retry, stop_after_attempt, wait_exponential
 
-from config import settings
-from database import SessionLocal
-from models import Session, Message, Lead, FollowUpState, EventLog, DLQEvent
+import pytz
+from tenacity import retry, stop_after_attempt, wait_exponential
+from twilio.rest import Client
 
 from app.intelligence.followup_engine import generate_followup_sequence
 from app.intelligence.push_wait_engine import decide_push_vs_wait
+from config import settings
+from database import SessionLocal
 from metrics import BACKGROUND_FAILURE_COUNT, SCHEDULER_JOB_DURATION, SCHEDULER_JOB_FAILURES
+from models import Session, Message, Lead, FollowUpState, EventLog, DLQEvent
 
 logger = logging.getLogger("follow_up")
 logging.basicConfig(level=logging.INFO)

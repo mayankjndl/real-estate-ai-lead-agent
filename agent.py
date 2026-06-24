@@ -1,18 +1,21 @@
+import asyncio
 import json
 import logging
 import string
 import time
-import asyncio
 from datetime import datetime, timezone
+
 import google.generativeai as genai
-from config import settings
-from system_prompt import REAL_ESTATE_SYSTEM_PROMPT
 from sqlalchemy.orm import Session as DBSession
-from models import Session, Message, Lead, EventLog
-from rag import retrieve
-from app.intelligence.lead_scoring import calculate_lead_score
+
 from app.intelligence.agent_matcher import match_best_agent
+from app.intelligence.lead_scoring import calculate_lead_score
+from config import settings
 from crm_sync import sync_lead_to_crm
+from models import Session, Message, Lead, EventLog
+from notification_service import trigger_hot_lead_notification
+from rag import retrieve
+from system_prompt import REAL_ESTATE_SYSTEM_PROMPT
 
 # 1. Gemini Initialization
 genai.configure(api_key=settings.GEMINI_API_KEY)
@@ -462,6 +465,11 @@ async def process_chat(session_id: str, user_message: str, db: DBSession, client
         # 4. Alert Backend & Frontend
         logger.info(f"🚨 HUMAN HANDOFF TRIGGERED: Lead {lead.phone} requested an agent!")
 
+        # --> TRIGGER NOTIFICATION (Fire & Forget) <--
+        asyncio.create_task(
+            trigger_hot_lead_notification(lead.id, "Explicit human agent requested.")
+        )
+
         handoff_reply = "I completely understand. I have paused my automated responses and alerted our human team. An expert will review our chat and reach out to you shortly!"
         db.add(Message(session_id=session_id, client_id=client_id, role="assistant", content=handoff_reply))
         db.commit()
@@ -905,6 +913,12 @@ async def process_chat(session_id: str, user_message: str, db: DBSession, client
     # Ensure lead_temperature and score are completely aligned with the final probability
     if prob >= 82:
         logger.info(f"🔔 HUMAN HANDOFF NOTIFICATION: Lead {lead.phone} has crossed HOT threshold! Immediate agent action required.")
+
+        # --> TRIGGER NOTIFICATION (Fire & Forget) <--
+        asyncio.create_task(
+            trigger_hot_lead_notification(lead.id, "Explicit human agent requested.")
+        )
+
         lead.score = "High"
         lead.lead_temperature = "hot"
     elif prob >= 45:

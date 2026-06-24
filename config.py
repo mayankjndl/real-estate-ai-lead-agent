@@ -1,9 +1,9 @@
-import logging
-import os
 import json
-from pydantic_settings import BaseSettings, SettingsConfigDict
+import logging
+
 import boto3
 from botocore.exceptions import ClientError
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 _cfg_logger = logging.getLogger("config")
 

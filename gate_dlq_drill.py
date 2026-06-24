@@ -1,4 +1,3 @@
-import asyncio
 from database import SessionLocal
 from models import DLQEvent
 

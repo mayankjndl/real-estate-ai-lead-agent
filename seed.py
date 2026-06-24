@@ -1,6 +1,6 @@
-from database import SessionLocal, engine
 import models
 from auth import get_password_hash
+from database import SessionLocal, engine
 
 
 def seed_test_clients():
@@ -27,6 +27,34 @@ def seed_test_clients():
             print(f"✅ Created Client 1: {client_1_email}")
         else:
             print(f"[*] Client 1 already exists: {client_1_email}")
+
+        db.flush()  # <--- Forces DB to generate client_1.id
+
+        # --- SEED DEFAULT MANAGER FOR CLIENT 1 ---
+        manager_1 = db.query(models.Agent).filter_by(client_id=client_1.id, is_manager=True).first()
+        if not manager_1:
+            manager_1 = models.Agent(
+                client_id=client_1.id,
+                name="System Admin",
+                phone="+919163962356",  # <--- REPLACE WITH YOUR TWILIO TEST NUMBER
+                email=client_1.email,
+                is_manager=True
+            )
+            db.add(manager_1)
+            print(f"✅ Created Default Manager for Client 1")
+
+        # --- SEED HIGH-INTENT LOCAL AGENT FOR CLIENT 1 (For testing direct routing) ---
+        agent_1 = db.query(models.Agent).filter_by(client_id=client_1.id, name="Sneha Patil").first()
+        if not agent_1:
+            agent_1 = models.Agent(
+                client_id=client_1.id,
+                name="Sneha Patil",
+                phone="+919163962356",  # <--- ALSO YOUR TWILIO TEST NUMBER
+                email="sneha@revenueos.com",
+                is_manager=False
+            )
+            db.add(agent_1)
+            print(f"✅ Created Agent 1 (Sneha Patil) for Client 1")
 
         # --- CLIENT 2: Secondary Test Account (For Isolation Drills) ---
         client_2_email = "client2@revenueos.com"

@@ -1,9 +1,5 @@
 # app/intelligence/budget_alignment.py
 
-import re
-
-from app.data_manager import PUNE_LOCATIONS
-
 # ==========================================
 # PREMIUM LOCATIONS
 # ==========================================

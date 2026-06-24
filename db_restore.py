@@ -1,7 +1,8 @@
-import os
-import sys
-import subprocess
 import logging
+import os
+import subprocess
+import sys
+
 from config import settings
 
 logger = logging.getLogger("db_restore")
