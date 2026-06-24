@@ -1,0 +1,2126 @@
+[
+  {
+    "id": "R01",
+    "category": "REGRESSION",
+    "passed": true,
+    "known_limit": false,
+    "details": {
+      "bot_responded": true,
+      "no_system_errors": true,
+      "lead_created": true,
+      "extracted_location_wakad": true,
+      "crm_sync_status": "success",
+      "funnel_stage": "New"
+    },
+    "error": "",
+    "duration": 46531
+  },
+  {
+    "id": "R02",
+    "category": "REGRESSION",
+    "passed": true,
+    "known_limit": false,
+    "details": {
+      "bot_responded": true,
+      "no_system_errors": true,
+      "lead_created": true,
+      "crm_sync_status": "success",
+      "funnel_stage": "New"
+    },
+    "error": "",
+    "duration": 28655
+  },
+  {
+    "id": "R03",
+    "category": "REGRESSION",
+    "passed": true,
+    "known_limit": false,
+    "details": {
+      "bot_responded": true,
+      "no_system_errors": true,
+      "lead_created": true,
+      "extracted_location_aundh": true,
+      "extracted_budget_85": true,
+      "extracted_proptype_2bhk": true,
+      "crm_sync_status": "success",
+      "funnel_stage": "Appointment Scheduled"
+    },
+    "error": "",
+    "duration": 71907
+  },
+  {
+    "id": "R04",
+    "category": "REGRESSION",
+    "passed": true,
+    "known_limit": false,
+    "details": {
+      "bot_responded": true,
+      "no_system_errors": true,
+      "lead_created": true,
+      "extracted_location_balewadi": true,
+      "extracted_proptype_2bhk": true,
+      "crm_sync_status": "success",
+      "funnel_stage": "New"
+    },
+    "error": "",
+    "duration": 67062
+  },
+  {
+    "id": "R05",
+    "category": "REGRESSION",
+    "passed": true,
+    "known_limit": false,
+    "details": {
+      "bot_responded": true,
+      "no_system_errors": true,
+      "lead_created": true,
+      "extracted_location_baner": true,
+      "extracted_budget_95": true,
+      "extracted_proptype_2bhk": true,
+      "crm_sync_status": "success",
+      "funnel_stage": "Contacted"
+    },
+    "error": "",
+    "duration": 82342
+  },
+  {
+    "id": "R06",
+    "category": "REGRESSION",
+    "passed": true,
+    "known_limit": false,
+    "details": {
+      "bot_responded": true,
+      "no_system_errors": true,
+      "lead_created": true,
+      "extracted_location_wakad": true,
+      "extracted_budget_80": true,
+      "extracted_proptype_2bhk": true,
+      "crm_sync_status": "success",
+      "funnel_stage": "Contacted"
+    },
+    "error": "",
+    "duration": 67782
+  },
+  {
+    "id": "R07",
+    "category": "REGRESSION",
+    "passed": true,
+    "known_limit": false,
+    "details": {
+      "bot_responded": true,
+      "no_system_errors": true,
+      "lead_created": true,
+      "extracted_location_baner": true,
+      "crm_sync_status": "success",
+      "funnel_stage": "New"
+    },
+    "error": "",
+    "duration": 46937
+  },
+  {
+    "id": "R08",
+    "category": "REGRESSION",
+    "passed": true,
+    "known_limit": false,
+    "details": {
+      "bot_responded": true,
+      "no_system_errors": true,
+      "lead_created": true,
+      "extracted_location_baner": true,
+      "extracted_budget_80": true,
+      "crm_sync_status": "success",
+      "funnel_stage": "New"
+    },
+    "error": "",
+    "duration": 72562
+  },
+  {
+    "id": "R09",
+    "category": "REGRESSION",
+    "passed": true,
+    "known_limit": false,
+    "details": {
+      "bot_responded": true,
+      "no_system_errors": true,
+      "lead_created": true,
+      "extracted_location_baner": true,
+      "extracted_proptype_2bhk": true,
+      "crm_sync_status": "success",
+      "funnel_stage": "New"
+    },
+    "error": "",
+    "duration": 59625
+  },
+  {
+    "id": "R10",
+    "category": "REGRESSION",
+    "passed": false,
+    "known_limit": false,
+    "details": {
+      "bot_responded": true,
+      "no_system_errors": false,
+      "lead_created": true,
+      "extracted_location_wakad": true,
+      "crm_sync_status": "success",
+      "funnel_stage": "New"
+    },
+    "error": "",
+    "duration": 103000
+  },
+  {
+    "id": "R11",
+    "category": "REGRESSION",
+    "passed": true,
+    "known_limit": false,
+    "details": {
+      "bot_responded": true,
+      "no_system_errors": true,
+      "lead_created": true,
+      "extracted_location_wakad": true,
+      "extracted_budget_80": true,
+      "extracted_proptype_2bhk": true,
+      "crm_sync_status": "success",
+      "funnel_stage": "Contacted"
+    },
+    "error": "",
+    "duration": 74812
+  },
+  {
+    "id": "R12",
+    "category": "REGRESSION",
+    "passed": false,
+    "known_limit": false,
+    "details": {
+      "bot_responded": true,
+      "no_system_errors": false,
+      "lead_created": true,
+      "extracted_location_baner": true,
+      "extracted_budget_80": true,
+      "extracted_proptype_2bhk": true,
+      "crm_sync_status": "success",
+      "funnel_stage": "Contacted"
+    },
+    "error": "",
+    "duration": 55062
+  },
+  {
+    "id": "R13",
+    "category": "REGRESSION",
+    "passed": true,
+    "known_limit": false,
+    "details": {
+      "bot_responded": true,
+      "no_system_errors": true,
+      "lead_created": true,
+      "extracted_location_baner": true,
+      "extracted_budget_80": true,
+      "extracted_proptype_2bhk": true,
+      "crm_sync_status": "success",
+      "funnel_stage": "Contacted"
+    },
+    "error": "",
+    "duration": 57546
+  },
+  {
+    "id": "R14",
+    "category": "REGRESSION",
+    "passed": true,
+    "known_limit": false,
+    "details": {
+      "bot_responded": true,
+      "no_system_errors": true,
+      "lead_created": true,
+      "extracted_location_aundh": true,
+      "extracted_budget_1": true,
+      "extracted_proptype_3bhk": true,
+      "crm_sync_status": "success",
+      "funnel_stage": "Appointment Scheduled"
+    },
+    "error": "",
+    "duration": 32608
+  },
+  {
+    "id": "R15",
+    "category": "REGRESSION",
+    "passed": true,
+    "known_limit": false,
+    "details": {
+      "bot_responded": true,
+      "no_system_errors": true,
+      "lead_created": true,
+      "extracted_location_baner": true,
+      "extracted_budget_80": true,
+      "extracted_proptype_2bhk": true,
+      "crm_sync_status": "success",
+      "funnel_stage": "Contacted"
+    },
+    "error": "",
+    "duration": 30000
+  },
+  {
+    "id": "A01",
+    "category": "AUTOMATION",
+    "passed": true,
+    "known_limit": false,
+    "details": {
+      "bot_responded": true,
+      "no_system_errors": true,
+      "lead_created": true,
+      "extracted_location_baner": true,
+      "extracted_budget_75": true,
+      "extracted_proptype_2bhk": true,
+      "crm_sync_status": "success",
+      "funnel_stage": "Appointment Scheduled"
+    },
+    "error": "",
+    "duration": 76796
+  },
+  {
+    "id": "A02",
+    "category": "AUTOMATION",
+    "passed": true,
+    "known_limit": false,
+    "details": {
+      "bot_responded": true,
+      "no_system_errors": true,
+      "lead_created": true,
+      "extracted_proptype_2bhk": true,
+      "crm_sync_status": "success",
+      "funnel_stage": "New"
+    },
+    "error": "",
+    "duration": 38108
+  },
+  {
+    "id": "A03",
+    "category": "AUTOMATION",
+    "passed": true,
+    "known_limit": false,
+    "details": {
+      "bot_responded": true,
+      "no_system_errors": true,
+      "lead_created": true,
+      "extracted_location_wakad": true,
+      "crm_sync_status": "success",
+      "funnel_stage": "New"
+    },
+    "error": "",
+    "duration": 62735
+  },
+  {
+    "id": "A04",
+    "category": "AUTOMATION",
+    "passed": true,
+    "known_limit": false,
+    "details": {
+      "bot_responded": true,
+      "no_system_errors": true,
+      "lead_created": true,
+      "extracted_location_wakad": true,
+      "extracted_proptype_2bhk": true,
+      "crm_sync_status": "success",
+      "funnel_stage": "New"
+    },
+    "error": "",
+    "duration": 42062
+  },
+  {
+    "id": "A05",
+    "category": "AUTOMATION",
+    "passed": true,
+    "known_limit": false,
+    "details": {
+      "bot_responded": true,
+      "no_system_errors": true,
+      "lead_created": true,
+      "extracted_location_baner": true,
+      "extracted_budget_80": true,
+      "extracted_proptype_2bhk": true,
+      "crm_sync_status": "success",
+      "funnel_stage": "Contacted"
+    },
+    "error": "",
+    "duration": 104280
+  },
+  {
+    "id": "A06",
+    "category": "AUTOMATION",
+    "passed": true,
+    "known_limit": false,
+    "details": {
+      "bot_responded": true,
+      "no_system_errors": true,
+      "lead_created": true,
+      "extracted_location_aundh": true,
+      "extracted_budget_90": true,
+      "extracted_proptype_3bhk": true,
+      "crm_sync_status": "success",
+      "funnel_stage": "Appointment Scheduled"
+    },
+    "error": "",
+    "duration": 202171
+  },
+  {
+    "id": "A07",
+    "category": "AUTOMATION",
+    "passed": true,
+    "known_limit": false,
+    "details": {
+      "bot_responded": true,
+      "no_system_errors": true,
+      "lead_created": true,
+      "extracted_location_kothrud": true,
+      "extracted_budget_65": true,
+      "crm_sync_status": "success",
+      "funnel_stage": "New"
+    },
+    "error": "",
+    "duration": 53858
+  },
+  {
+    "id": "A08",
+    "category": "AUTOMATION",
+    "passed": true,
+    "known_limit": false,
+    "details": {
+      "bot_responded": true,
+      "no_system_errors": true,
+      "lead_created": true,
+      "extracted_location_baner": true,
+      "extracted_budget_80": true,
+      "crm_sync_status": "success",
+      "funnel_stage": "Contacted"
+    },
+    "error": "",
+    "duration": 64344
+  },
+  {
+    "id": "A09",
+    "category": "AUTOMATION",
+    "passed": true,
+    "known_limit": false,
+    "details": {
+      "bot_responded": true,
+      "no_system_errors": true,
+      "lead_created": true,
+      "extracted_location_baner": true,
+      "extracted_budget_80": true,
+      "extracted_proptype_2bhk": true,
+      "crm_sync_status": "success",
+      "funnel_stage": "Contacted"
+    },
+    "error": "",
+    "duration": 41842
+  },
+  {
+    "id": "A10",
+    "category": "AUTOMATION",
+    "passed": true,
+    "known_limit": false,
+    "details": {
+      "bot_responded": true,
+      "no_system_errors": true,
+      "lead_created": true,
+      "extracted_location_baner": true,
+      "extracted_budget_78": true,
+      "extracted_proptype_2bhk": true,
+      "crm_sync_status": "success",
+      "funnel_stage": "Appointment Scheduled"
+    },
+    "error": "",
+    "duration": 79968
+  },
+  {
+    "id": "A11",
+    "category": "AUTOMATION",
+    "passed": true,
+    "known_limit": false,
+    "details": {
+      "bot_responded": true,
+      "no_system_errors": true,
+      "lead_created": true,
+      "extracted_location_hinjewadi": true,
+      "extracted_proptype_2bhk": true,
+      "crm_sync_status": "success",
+      "funnel_stage": "New"
+    },
+    "error": "",
+    "duration": 40359
+  },
+  {
+    "id": "A12",
+    "category": "AUTOMATION",
+    "passed": true,
+    "known_limit": false,
+    "details": {
+      "bot_responded": true,
+      "no_system_errors": true,
+      "lead_created": true,
+      "extracted_location_baner": true,
+      "extracted_budget_1": true,
+      "extracted_proptype_3bhk": true,
+      "crm_sync_status": "success",
+      "funnel_stage": "Contacted"
+    },
+    "error": "",
+    "duration": 50875
+  },
+  {
+    "id": "A13",
+    "category": "AUTOMATION",
+    "passed": true,
+    "known_limit": false,
+    "details": {
+      "bot_responded": true,
+      "no_system_errors": true,
+      "lead_created": true,
+      "extracted_location_wakad": true,
+      "extracted_budget_70": true,
+      "extracted_proptype_2bhk": true,
+      "crm_sync_status": "success",
+      "funnel_stage": "New"
+    },
+    "error": "",
+    "duration": 64203
+  },
+  {
+    "id": "A14",
+    "category": "AUTOMATION",
+    "passed": true,
+    "known_limit": false,
+    "details": {
+      "bot_responded": true,
+      "no_system_errors": true,
+      "lead_created": true,
+      "extracted_location_hinjewadi": true,
+      "extracted_budget_75": true,
+      "extracted_proptype_2bhk": true,
+      "crm_sync_status": "success",
+      "funnel_stage": "Contacted"
+    },
+    "error": "",
+    "duration": 100765
+  },
+  {
+    "id": "A15",
+    "category": "AUTOMATION",
+    "passed": true,
+    "known_limit": false,
+    "details": {
+      "bot_responded": true,
+      "no_system_errors": true,
+      "lead_created": true,
+      "extracted_location_baner": true,
+      "extracted_budget_95": true,
+      "extracted_proptype_3bhk": true,
+      "crm_sync_status": "success",
+      "funnel_stage": "Contacted"
+    },
+    "error": "",
+    "duration": 100484
+  },
+  {
+    "id": "A16",
+    "category": "AUTOMATION",
+    "passed": true,
+    "known_limit": false,
+    "details": {
+      "bot_responded": true,
+      "no_system_errors": true,
+      "lead_created": true,
+      "extracted_location_baner": true,
+      "crm_sync_status": "success",
+      "funnel_stage": "New"
+    },
+    "error": "",
+    "duration": 43733
+  },
+  {
+    "id": "A17",
+    "category": "AUTOMATION",
+    "passed": true,
+    "known_limit": false,
+    "details": {
+      "bot_responded": true,
+      "no_system_errors": true,
+      "lead_created": true,
+      "extracted_location_baner": true,
+      "extracted_budget_80": true,
+      "extracted_proptype_2bhk": true,
+      "crm_sync_status": "success",
+      "funnel_stage": "Contacted"
+    },
+    "error": "",
+    "duration": 45844
+  },
+  {
+    "id": "A18",
+    "category": "AUTOMATION",
+    "passed": true,
+    "known_limit": false,
+    "details": {
+      "bot_responded": true,
+      "no_system_errors": true,
+      "lead_created": true,
+      "extracted_budget_70": true,
+      "extracted_proptype_2bhk": true,
+      "crm_sync_status": "success",
+      "funnel_stage": "New"
+    },
+    "error": "",
+    "duration": 63219
+  },
+  {
+    "id": "A19",
+    "category": "AUTOMATION",
+    "passed": true,
+    "known_limit": false,
+    "details": {
+      "bot_responded": true,
+      "no_system_errors": true,
+      "lead_created": true,
+      "extracted_location_baner": true,
+      "extracted_proptype_3bhk": true,
+      "crm_sync_status": "success",
+      "funnel_stage": "New"
+    },
+    "error": "",
+    "duration": 52780
+  },
+  {
+    "id": "A20",
+    "category": "AUTOMATION",
+    "passed": true,
+    "known_limit": false,
+    "details": {
+      "bot_responded": true,
+      "no_system_errors": true,
+      "lead_created": true,
+      "extracted_location_baner": true,
+      "extracted_budget_90": true,
+      "extracted_proptype_3bhk": true,
+      "crm_sync_status": "success",
+      "funnel_stage": "Contacted"
+    },
+    "error": "",
+    "duration": 70125
+  },
+  {
+    "id": "A21",
+    "category": "AUTOMATION",
+    "passed": true,
+    "known_limit": false,
+    "details": {
+      "bot_responded": true,
+      "no_system_errors": true,
+      "lead_created": true,
+      "extracted_location_baner": true,
+      "extracted_budget_80": true,
+      "extracted_proptype_2bhk": true,
+      "crm_sync_status": "success",
+      "funnel_stage": "Contacted"
+    },
+    "error": "",
+    "duration": 71610
+  },
+  {
+    "id": "A22",
+    "category": "AUTOMATION",
+    "passed": true,
+    "known_limit": false,
+    "details": {
+      "bot_responded": true,
+      "no_system_errors": true,
+      "lead_created": true,
+      "extracted_location_baner": true,
+      "extracted_budget_80": true,
+      "extracted_proptype_2bhk": true,
+      "crm_sync_status": "success",
+      "funnel_stage": "Contacted"
+    },
+    "error": "",
+    "duration": 44797
+  },
+  {
+    "id": "A23",
+    "category": "AUTOMATION",
+    "passed": true,
+    "known_limit": false,
+    "details": {
+      "bot_responded": true,
+      "no_system_errors": true,
+      "lead_created": true,
+      "extracted_location_baner": true,
+      "extracted_budget_75": true,
+      "extracted_proptype_2bhk": true,
+      "crm_sync_status": "success",
+      "funnel_stage": "New"
+    },
+    "error": "",
+    "duration": 37156
+  },
+  {
+    "id": "A24",
+    "category": "AUTOMATION",
+    "passed": true,
+    "known_limit": false,
+    "details": {
+      "bot_responded": true,
+      "no_system_errors": true,
+      "lead_created": true,
+      "extracted_location_baner": true,
+      "extracted_budget_80": true,
+      "extracted_proptype_2bhk": true,
+      "crm_sync_status": "success",
+      "funnel_stage": "New"
+    },
+    "error": "",
+    "duration": 43155
+  },
+  {
+    "id": "A25",
+    "category": "AUTOMATION",
+    "passed": true,
+    "known_limit": false,
+    "details": {
+      "bot_responded": true,
+      "no_system_errors": true,
+      "lead_created": true,
+      "extracted_location_baner": true,
+      "extracted_budget_80": true,
+      "extracted_proptype_2bhk": true,
+      "crm_sync_status": "success",
+      "funnel_stage": "New"
+    },
+    "error": "",
+    "duration": 25421
+  },
+  {
+    "id": "C01",
+    "category": "COLD",
+    "passed": true,
+    "known_limit": false,
+    "details": {
+      "bot_responded": true,
+      "no_system_errors": true,
+      "lead_created": true,
+      "marked_cold": true,
+      "followup_active_or_stopped": true,
+      "crm_sync_status": "success",
+      "funnel_stage": "New"
+    },
+    "error": "",
+    "duration": 50328
+  },
+  {
+    "id": "C02",
+    "category": "COLD",
+    "passed": true,
+    "known_limit": false,
+    "details": {
+      "bot_responded": true,
+      "no_system_errors": true,
+      "lead_created": true,
+      "marked_cold": true,
+      "followup_active_or_stopped": true,
+      "crm_sync_status": "success",
+      "funnel_stage": "New"
+    },
+    "error": "",
+    "duration": 26030
+  },
+  {
+    "id": "C03",
+    "category": "COLD",
+    "passed": true,
+    "known_limit": false,
+    "details": {
+      "bot_responded": true,
+      "no_system_errors": true,
+      "lead_created": true,
+      "marked_cold": true,
+      "followup_active_or_stopped": true,
+      "crm_sync_status": "success",
+      "funnel_stage": "New"
+    },
+    "error": "",
+    "duration": 34344
+  },
+  {
+    "id": "C04",
+    "category": "COLD",
+    "passed": true,
+    "known_limit": false,
+    "details": {
+      "bot_responded": true,
+      "no_system_errors": true,
+      "lead_created": true,
+      "marked_cold": true,
+      "followup_active_or_stopped": true,
+      "crm_sync_status": "success",
+      "funnel_stage": "New"
+    },
+    "error": "",
+    "duration": 28593
+  },
+  {
+    "id": "C05",
+    "category": "COLD",
+    "passed": true,
+    "known_limit": false,
+    "details": {
+      "bot_responded": true,
+      "no_system_errors": true,
+      "lead_created": true,
+      "marked_cold": true,
+      "followup_active_or_stopped": true,
+      "crm_sync_status": "success",
+      "funnel_stage": "New"
+    },
+    "error": "",
+    "duration": 21092
+  },
+  {
+    "id": "C06",
+    "category": "COLD",
+    "passed": true,
+    "known_limit": false,
+    "details": {
+      "bot_responded": true,
+      "no_system_errors": true,
+      "lead_created": true,
+      "marked_cold": true,
+      "followup_active_or_stopped": true,
+      "crm_sync_status": "success",
+      "funnel_stage": "New"
+    },
+    "error": "",
+    "duration": 40641
+  },
+  {
+    "id": "C07",
+    "category": "COLD",
+    "passed": true,
+    "known_limit": false,
+    "details": {
+      "bot_responded": true,
+      "no_system_errors": true,
+      "lead_created": true,
+      "marked_cold": true,
+      "followup_active_or_stopped": true,
+      "crm_sync_status": "success",
+      "funnel_stage": "New"
+    },
+    "error": "",
+    "duration": 23000
+  },
+  {
+    "id": "C08",
+    "category": "COLD",
+    "passed": true,
+    "known_limit": false,
+    "details": {
+      "bot_responded": true,
+      "no_system_errors": true,
+      "lead_created": true,
+      "marked_cold": true,
+      "followup_active_or_stopped": true,
+      "crm_sync_status": "success",
+      "funnel_stage": "New"
+    },
+    "error": "",
+    "duration": 34921
+  },
+  {
+    "id": "C09",
+    "category": "COLD",
+    "passed": true,
+    "known_limit": false,
+    "details": {
+      "bot_responded": true,
+      "no_system_errors": true,
+      "lead_created": true,
+      "marked_cold": true,
+      "followup_active_or_stopped": true,
+      "crm_sync_status": "success",
+      "funnel_stage": "New"
+    },
+    "error": "",
+    "duration": 25937
+  },
+  {
+    "id": "C10",
+    "category": "COLD",
+    "passed": true,
+    "known_limit": false,
+    "details": {
+      "bot_responded": true,
+      "no_system_errors": true,
+      "lead_created": true,
+      "marked_cold": true,
+      "followup_active_or_stopped": true,
+      "crm_sync_status": "success",
+      "funnel_stage": "New"
+    },
+    "error": "",
+    "duration": 21421
+  },
+  {
+    "id": "C11",
+    "category": "COLD",
+    "passed": true,
+    "known_limit": false,
+    "details": {
+      "bot_responded": true,
+      "no_system_errors": true,
+      "lead_created": true,
+      "marked_cold": true,
+      "followup_active_or_stopped": true,
+      "crm_sync_status": "success",
+      "funnel_stage": "New"
+    },
+    "error": "",
+    "duration": 21764
+  },
+  {
+    "id": "C12",
+    "category": "COLD",
+    "passed": true,
+    "known_limit": false,
+    "details": {
+      "bot_responded": true,
+      "no_system_errors": true,
+      "lead_created": true,
+      "marked_cold": true,
+      "followup_active_or_stopped": true,
+      "crm_sync_status": "success",
+      "funnel_stage": "New"
+    },
+    "error": "",
+    "duration": 23016
+  },
+  {
+    "id": "C13",
+    "category": "COLD",
+    "passed": true,
+    "known_limit": false,
+    "details": {
+      "bot_responded": true,
+      "no_system_errors": true,
+      "lead_created": true,
+      "followup_active_or_stopped": true,
+      "crm_sync_status": "success",
+      "funnel_stage": "New"
+    },
+    "error": "",
+    "duration": 52842
+  },
+  {
+    "id": "C14",
+    "category": "COLD",
+    "passed": true,
+    "known_limit": false,
+    "details": {
+      "bot_responded": true,
+      "no_system_errors": true,
+      "lead_created": true,
+      "marked_cold": true,
+      "followup_active_or_stopped": true,
+      "crm_sync_status": "success",
+      "funnel_stage": "New"
+    },
+    "error": "",
+    "duration": 17437
+  },
+  {
+    "id": "C15",
+    "category": "COLD",
+    "passed": true,
+    "known_limit": false,
+    "details": {
+      "bot_responded": true,
+      "no_system_errors": true,
+      "lead_created": true,
+      "extracted_location_baner": true,
+      "extracted_budget_3": true,
+      "marked_cold": true,
+      "followup_active_or_stopped": true,
+      "crm_sync_status": "success",
+      "funnel_stage": "New"
+    },
+    "error": "",
+    "duration": 25250
+  },
+  {
+    "id": "C16",
+    "category": "COLD",
+    "passed": true,
+    "known_limit": false,
+    "details": {
+      "bot_responded": true,
+      "no_system_errors": true,
+      "lead_created": true,
+      "followup_active_or_stopped": true,
+      "crm_sync_status": "success",
+      "funnel_stage": "New"
+    },
+    "error": "",
+    "duration": 58328
+  },
+  {
+    "id": "C17",
+    "category": "COLD",
+    "passed": true,
+    "known_limit": false,
+    "details": {
+      "bot_responded": true,
+      "no_system_errors": true,
+      "lead_created": true,
+      "marked_cold": true,
+      "followup_active_or_stopped": true,
+      "crm_sync_status": "success",
+      "funnel_stage": "New"
+    },
+    "error": "",
+    "duration": 27328
+  },
+  {
+    "id": "C18",
+    "category": "COLD",
+    "passed": true,
+    "known_limit": false,
+    "details": {
+      "bot_responded": true,
+      "no_system_errors": true,
+      "lead_created": true,
+      "marked_cold": true,
+      "followup_active_or_stopped": true,
+      "crm_sync_status": "success",
+      "funnel_stage": "New"
+    },
+    "error": "",
+    "duration": 27844
+  },
+  {
+    "id": "C19",
+    "category": "COLD",
+    "passed": true,
+    "known_limit": false,
+    "details": {
+      "bot_responded": true,
+      "no_system_errors": true,
+      "lead_created": true,
+      "marked_cold": true,
+      "followup_active_or_stopped": true,
+      "crm_sync_status": "success",
+      "funnel_stage": "New"
+    },
+    "error": "",
+    "duration": 21514
+  },
+  {
+    "id": "C20",
+    "category": "COLD",
+    "passed": true,
+    "known_limit": false,
+    "details": {
+      "bot_responded": true,
+      "no_system_errors": true,
+      "lead_created": true,
+      "marked_cold": true,
+      "followup_active_or_stopped": true,
+      "crm_sync_status": "success",
+      "funnel_stage": "New"
+    },
+    "error": "",
+    "duration": 21672
+  },
+  {
+    "id": "C21",
+    "category": "COLD",
+    "passed": true,
+    "known_limit": false,
+    "details": {
+      "bot_responded": true,
+      "no_system_errors": true,
+      "lead_created": true,
+      "marked_cold": true,
+      "followup_active_or_stopped": true,
+      "crm_sync_status": "success",
+      "funnel_stage": "New"
+    },
+    "error": "",
+    "duration": 29625
+  },
+  {
+    "id": "C22",
+    "category": "COLD",
+    "passed": true,
+    "known_limit": false,
+    "details": {
+      "bot_responded": true,
+      "no_system_errors": true,
+      "lead_created": true,
+      "marked_cold": true,
+      "followup_active_or_stopped": true,
+      "crm_sync_status": "success",
+      "funnel_stage": "New"
+    },
+    "error": "",
+    "duration": 21968
+  },
+  {
+    "id": "C23",
+    "category": "COLD",
+    "passed": true,
+    "known_limit": false,
+    "details": {
+      "bot_responded": true,
+      "no_system_errors": true,
+      "lead_created": true,
+      "marked_cold": true,
+      "followup_active_or_stopped": true,
+      "crm_sync_status": "success",
+      "funnel_stage": "New"
+    },
+    "error": "",
+    "duration": 21703
+  },
+  {
+    "id": "C24",
+    "category": "COLD",
+    "passed": true,
+    "known_limit": false,
+    "details": {
+      "bot_responded": true,
+      "no_system_errors": true,
+      "lead_created": true,
+      "marked_cold": true,
+      "followup_active_or_stopped": true,
+      "crm_sync_status": "success",
+      "funnel_stage": "New"
+    },
+    "error": "",
+    "duration": 21921
+  },
+  {
+    "id": "C25",
+    "category": "COLD",
+    "passed": true,
+    "known_limit": false,
+    "details": {
+      "bot_responded": true,
+      "no_system_errors": true,
+      "lead_created": true,
+      "marked_cold": true,
+      "followup_active_or_stopped": true,
+      "crm_sync_status": "success",
+      "funnel_stage": "New"
+    },
+    "error": "",
+    "duration": 29500
+  },
+  {
+    "id": "W01",
+    "category": "WARM",
+    "passed": true,
+    "known_limit": false,
+    "details": {
+      "bot_responded": true,
+      "no_system_errors": true,
+      "lead_created": true,
+      "extracted_location_wakad": true,
+      "extracted_budget_80": true,
+      "extracted_proptype_2bhk": true,
+      "marked_warm": true,
+      "followup_status_correct": true,
+      "actual_temperature": "warm",
+      "crm_sync_status": "success",
+      "funnel_stage": "New"
+    },
+    "error": "",
+    "duration": 65718
+  },
+  {
+    "id": "W02",
+    "category": "WARM",
+    "passed": true,
+    "known_limit": false,
+    "details": {
+      "bot_responded": true,
+      "no_system_errors": true,
+      "lead_created": true,
+      "extracted_location_baner": true,
+      "extracted_budget_80": true,
+      "extracted_proptype_2bhk": true,
+      "marked_warm": true,
+      "followup_status_correct": true,
+      "actual_temperature": "hot",
+      "crm_sync_status": "success",
+      "funnel_stage": "New"
+    },
+    "error": "",
+    "duration": 67046
+  },
+  {
+    "id": "W03",
+    "category": "WARM",
+    "passed": true,
+    "known_limit": false,
+    "details": {
+      "bot_responded": true,
+      "no_system_errors": true,
+      "lead_created": true,
+      "extracted_location_aundh": true,
+      "extracted_budget_1.1": true,
+      "extracted_proptype_3bhk": true,
+      "marked_warm": true,
+      "followup_status_correct": true,
+      "actual_temperature": "warm",
+      "crm_sync_status": "success",
+      "funnel_stage": "Contacted"
+    },
+    "error": "",
+    "duration": 78469
+  },
+  {
+    "id": "W04",
+    "category": "WARM",
+    "passed": true,
+    "known_limit": false,
+    "details": {
+      "bot_responded": true,
+      "no_system_errors": true,
+      "lead_created": true,
+      "extracted_location_baner": true,
+      "extracted_budget_90": true,
+      "extracted_proptype_2bhk": true,
+      "marked_warm": true,
+      "followup_status_correct": true,
+      "actual_temperature": "warm",
+      "crm_sync_status": "success",
+      "funnel_stage": "New"
+    },
+    "error": "",
+    "duration": 76625
+  },
+  {
+    "id": "W05",
+    "category": "WARM",
+    "passed": true,
+    "known_limit": false,
+    "details": {
+      "bot_responded": true,
+      "no_system_errors": true,
+      "lead_created": true,
+      "extracted_location_baner": true,
+      "extracted_budget_85": true,
+      "extracted_proptype_3bhk": true,
+      "marked_warm": true,
+      "followup_status_correct": true,
+      "actual_temperature": "warm",
+      "crm_sync_status": "success",
+      "funnel_stage": "New"
+    },
+    "error": "",
+    "duration": 66155
+  },
+  {
+    "id": "W06",
+    "category": "WARM",
+    "passed": true,
+    "known_limit": false,
+    "details": {
+      "bot_responded": true,
+      "no_system_errors": true,
+      "lead_created": true,
+      "extracted_location_wakad": true,
+      "extracted_budget_75": true,
+      "extracted_proptype_2bhk": true,
+      "marked_warm": true,
+      "followup_status_correct": true,
+      "actual_temperature": "hot",
+      "crm_sync_status": "success",
+      "funnel_stage": "Contacted"
+    },
+    "error": "",
+    "duration": 74657
+  },
+  {
+    "id": "W07",
+    "category": "WARM",
+    "passed": true,
+    "known_limit": false,
+    "details": {
+      "bot_responded": true,
+      "no_system_errors": true,
+      "lead_created": true,
+      "extracted_location_baner": true,
+      "extracted_budget_80": true,
+      "extracted_proptype_2bhk": true,
+      "marked_warm": true,
+      "followup_status_correct": true,
+      "actual_temperature": "warm",
+      "crm_sync_status": "success",
+      "funnel_stage": "New"
+    },
+    "error": "",
+    "duration": 59858
+  },
+  {
+    "id": "W08",
+    "category": "WARM",
+    "passed": false,
+    "known_limit": false,
+    "details": {
+      "bot_responded": true,
+      "no_system_errors": false,
+      "lead_created": true,
+      "extracted_location_baner": true,
+      "extracted_proptype_2bhk": true,
+      "marked_warm": true,
+      "followup_status_correct": true,
+      "actual_temperature": "warm",
+      "crm_sync_status": "success",
+      "funnel_stage": "New"
+    },
+    "error": "",
+    "duration": 75375
+  },
+  {
+    "id": "W09",
+    "category": "WARM",
+    "passed": false,
+    "known_limit": false,
+    "details": {
+      "bot_responded": true,
+      "no_system_errors": false,
+      "lead_created": true,
+      "extracted_location_kothrud": true,
+      "extracted_budget_90": true,
+      "extracted_proptype_2bhk": true,
+      "marked_warm": true,
+      "followup_status_correct": true,
+      "actual_temperature": "warm",
+      "crm_sync_status": "success",
+      "funnel_stage": "New"
+    },
+    "error": "",
+    "duration": 89780
+  },
+  {
+    "id": "W10",
+    "category": "WARM",
+    "passed": false,
+    "known_limit": false,
+    "details": {
+      "bot_responded": true,
+      "no_system_errors": false,
+      "lead_created": true,
+      "extracted_location_pashan": true,
+      "extracted_budget_80": true,
+      "extracted_proptype_2bhk": true,
+      "marked_warm": true,
+      "followup_status_correct": true,
+      "actual_temperature": "warm",
+      "crm_sync_status": "success",
+      "funnel_stage": "New"
+    },
+    "error": "",
+    "duration": 79907
+  },
+  {
+    "id": "W11",
+    "category": "WARM",
+    "passed": true,
+    "known_limit": false,
+    "details": {
+      "bot_responded": true,
+      "no_system_errors": true,
+      "lead_created": true,
+      "extracted_location_baner": true,
+      "extracted_budget_80": true,
+      "extracted_proptype_2bhk": true,
+      "marked_warm": true,
+      "followup_status_correct": true,
+      "actual_temperature": "warm",
+      "crm_sync_status": "success",
+      "funnel_stage": "New"
+    },
+    "error": "",
+    "duration": 67640
+  },
+  {
+    "id": "W12",
+    "category": "WARM",
+    "passed": true,
+    "known_limit": false,
+    "details": {
+      "bot_responded": true,
+      "no_system_errors": true,
+      "lead_created": true,
+      "extracted_location_baner": true,
+      "extracted_budget_80": true,
+      "extracted_proptype_2bhk": true,
+      "marked_warm": true,
+      "followup_status_correct": true,
+      "actual_temperature": "warm",
+      "crm_sync_status": "success",
+      "funnel_stage": "New"
+    },
+    "error": "",
+    "duration": 70796
+  },
+  {
+    "id": "W13",
+    "category": "WARM",
+    "passed": false,
+    "known_limit": false,
+    "details": {
+      "bot_responded": true,
+      "no_system_errors": false,
+      "lead_created": true,
+      "extracted_location_baner": true,
+      "extracted_budget_75": true,
+      "extracted_proptype_2bhk": true,
+      "marked_warm": true,
+      "followup_status_correct": true,
+      "actual_temperature": "warm",
+      "crm_sync_status": "success",
+      "funnel_stage": "New"
+    },
+    "error": "",
+    "duration": 73562
+  },
+  {
+    "id": "W14",
+    "category": "WARM",
+    "passed": false,
+    "known_limit": false,
+    "details": {
+      "bot_responded": true,
+      "no_system_errors": false,
+      "lead_created": true,
+      "extracted_location_aundh": true,
+      "extracted_budget_1": true,
+      "extracted_proptype_3bhk": true,
+      "marked_warm": true,
+      "followup_status_correct": true,
+      "actual_temperature": "warm",
+      "crm_sync_status": "success",
+      "funnel_stage": "Contacted"
+    },
+    "error": "",
+    "duration": 71733
+  },
+  {
+    "id": "W15",
+    "category": "WARM",
+    "passed": true,
+    "known_limit": false,
+    "details": {
+      "bot_responded": true,
+      "no_system_errors": true,
+      "lead_created": true,
+      "extracted_location_balewadi": true,
+      "extracted_budget_85": true,
+      "marked_warm": true,
+      "followup_status_correct": true,
+      "actual_temperature": "warm",
+      "crm_sync_status": "success",
+      "funnel_stage": "New"
+    },
+    "error": "",
+    "duration": 60875
+  },
+  {
+    "id": "W16",
+    "category": "WARM",
+    "passed": true,
+    "known_limit": false,
+    "details": {
+      "bot_responded": true,
+      "no_system_errors": true,
+      "lead_created": true,
+      "extracted_location_baner": true,
+      "extracted_budget_80": true,
+      "extracted_proptype_2bhk": true,
+      "marked_warm": true,
+      "followup_status_correct": true,
+      "actual_temperature": "warm",
+      "crm_sync_status": "success",
+      "funnel_stage": "New"
+    },
+    "error": "",
+    "duration": 59905
+  },
+  {
+    "id": "W17",
+    "category": "WARM",
+    "passed": true,
+    "known_limit": false,
+    "details": {
+      "bot_responded": true,
+      "no_system_errors": true,
+      "lead_created": true,
+      "extracted_location_baner": true,
+      "extracted_budget_80": true,
+      "extracted_proptype_2bhk": true,
+      "marked_warm": true,
+      "followup_status_correct": true,
+      "actual_temperature": "warm",
+      "crm_sync_status": "success",
+      "funnel_stage": "New"
+    },
+    "error": "",
+    "duration": 71719
+  },
+  {
+    "id": "W18",
+    "category": "WARM",
+    "passed": true,
+    "known_limit": false,
+    "details": {
+      "bot_responded": true,
+      "no_system_errors": true,
+      "lead_created": true,
+      "extracted_location_baner": true,
+      "extracted_budget_80": true,
+      "extracted_proptype_2bhk": true,
+      "marked_warm": true,
+      "followup_status_correct": true,
+      "actual_temperature": "warm",
+      "crm_sync_status": "success",
+      "funnel_stage": "Contacted"
+    },
+    "error": "",
+    "duration": 95171
+  },
+  {
+    "id": "W19",
+    "category": "WARM",
+    "passed": true,
+    "known_limit": false,
+    "details": {
+      "bot_responded": true,
+      "no_system_errors": true,
+      "lead_created": true,
+      "extracted_location_baner": true,
+      "extracted_budget_80": true,
+      "extracted_proptype_2bhk": true,
+      "marked_warm": true,
+      "followup_status_correct": true,
+      "actual_temperature": "warm",
+      "crm_sync_status": "success",
+      "funnel_stage": "New"
+    },
+    "error": "",
+    "duration": 61125
+  },
+  {
+    "id": "W20",
+    "category": "WARM",
+    "passed": false,
+    "known_limit": false,
+    "details": {
+      "bot_responded": true,
+      "no_system_errors": false,
+      "lead_created": true,
+      "extracted_location_baner": true,
+      "extracted_budget_80": true,
+      "extracted_proptype_2bhk": true,
+      "marked_warm": true,
+      "followup_status_correct": true,
+      "actual_temperature": "hot",
+      "crm_sync_status": "success",
+      "funnel_stage": "Contacted"
+    },
+    "error": "",
+    "duration": 76514
+  },
+  {
+    "id": "W21",
+    "category": "WARM",
+    "passed": true,
+    "known_limit": false,
+    "details": {
+      "bot_responded": true,
+      "no_system_errors": true,
+      "lead_created": true,
+      "extracted_location_baner": true,
+      "extracted_budget_80": true,
+      "extracted_proptype_2bhk": true,
+      "marked_warm": true,
+      "followup_status_correct": true,
+      "actual_temperature": "warm",
+      "crm_sync_status": "success",
+      "funnel_stage": "Contacted"
+    },
+    "error": "",
+    "duration": 72625
+  },
+  {
+    "id": "W22",
+    "category": "WARM",
+    "passed": true,
+    "known_limit": false,
+    "details": {
+      "bot_responded": true,
+      "no_system_errors": true,
+      "lead_created": true,
+      "extracted_location_baner": true,
+      "extracted_budget_80": true,
+      "extracted_proptype_2bhk": true,
+      "marked_warm": true,
+      "followup_status_correct": true,
+      "actual_temperature": "warm",
+      "crm_sync_status": "success",
+      "funnel_stage": "New"
+    },
+    "error": "",
+    "duration": 83125
+  },
+  {
+    "id": "W23",
+    "category": "WARM",
+    "passed": true,
+    "known_limit": false,
+    "details": {
+      "bot_responded": true,
+      "no_system_errors": true,
+      "lead_created": true,
+      "extracted_location_wakad": true,
+      "extracted_budget_80": true,
+      "extracted_proptype_2bhk": true,
+      "marked_warm": true,
+      "followup_status_correct": true,
+      "actual_temperature": "warm",
+      "crm_sync_status": "success",
+      "funnel_stage": "Contacted"
+    },
+    "error": "",
+    "duration": 64750
+  },
+  {
+    "id": "W24",
+    "category": "WARM",
+    "passed": true,
+    "known_limit": false,
+    "details": {
+      "bot_responded": true,
+      "no_system_errors": true,
+      "lead_created": true,
+      "extracted_location_aundh": true,
+      "extracted_budget_1": true,
+      "extracted_proptype_3bhk": true,
+      "marked_warm": true,
+      "followup_status_correct": true,
+      "actual_temperature": "warm",
+      "crm_sync_status": "success",
+      "funnel_stage": "Contacted"
+    },
+    "error": "",
+    "duration": 75531
+  },
+  {
+    "id": "W25",
+    "category": "WARM",
+    "passed": true,
+    "known_limit": false,
+    "details": {
+      "bot_responded": true,
+      "no_system_errors": true,
+      "lead_created": true,
+      "extracted_location_baner": true,
+      "extracted_budget_95": true,
+      "extracted_proptype_3bhk": true,
+      "temperature_escalated_to_hot": true,
+      "followup_status_correct": true,
+      "actual_temperature": "hot",
+      "crm_sync_status": "success",
+      "funnel_stage": "Contacted"
+    },
+    "error": "",
+    "duration": 76344
+  },
+  {
+    "id": "H01",
+    "category": "HOT",
+    "passed": false,
+    "known_limit": false,
+    "details": {
+      "bot_responded": true,
+      "no_system_errors": true,
+      "lead_created": true,
+      "extracted_location_baner": true,
+      "extracted_budget_80": true,
+      "extracted_proptype_2bhk": true,
+      "visit_scheduled": false,
+      "marked_hot": false,
+      "followup_status_correct": true,
+      "crm_sync_status": "success",
+      "funnel_stage": "Contacted"
+    },
+    "error": "",
+    "duration": 35000
+  },
+  {
+    "id": "H02",
+    "category": "HOT",
+    "passed": true,
+    "known_limit": false,
+    "details": {
+      "bot_responded": true,
+      "no_system_errors": true,
+      "lead_created": true,
+      "extracted_location_baner": true,
+      "extracted_budget_85": true,
+      "visit_scheduled": true,
+      "marked_hot": true,
+      "followup_status_correct": true,
+      "crm_sync_status": "success",
+      "funnel_stage": "New"
+    },
+    "error": "",
+    "duration": 24890
+  },
+  {
+    "id": "H03",
+    "category": "HOT",
+    "passed": true,
+    "known_limit": false,
+    "details": {
+      "bot_responded": true,
+      "no_system_errors": true,
+      "lead_created": true,
+      "extracted_location_baner": true,
+      "extracted_budget_80": true,
+      "extracted_proptype_2bhk": true,
+      "visit_scheduled": true,
+      "marked_hot": true,
+      "followup_status_correct": true,
+      "crm_sync_status": "success",
+      "funnel_stage": "Appointment Scheduled"
+    },
+    "error": "",
+    "duration": 33047
+  },
+  {
+    "id": "H04",
+    "category": "HOT",
+    "passed": true,
+    "known_limit": false,
+    "details": {
+      "bot_responded": true,
+      "no_system_errors": true,
+      "lead_created": true,
+      "extracted_location_wakad": true,
+      "extracted_budget_75": true,
+      "extracted_proptype_2bhk": true,
+      "marked_hot": true,
+      "followup_status_correct": true,
+      "crm_sync_status": "success",
+      "funnel_stage": "Contacted"
+    },
+    "error": "",
+    "duration": 32032
+  },
+  {
+    "id": "H05",
+    "category": "HOT",
+    "passed": true,
+    "known_limit": false,
+    "details": {
+      "bot_responded": true,
+      "no_system_errors": true,
+      "lead_created": true,
+      "extracted_location_aundh": true,
+      "extracted_budget_1.1": true,
+      "extracted_proptype_3bhk": true,
+      "visit_scheduled": true,
+      "marked_hot": true,
+      "followup_status_correct": true,
+      "crm_sync_status": "success",
+      "funnel_stage": "Appointment Scheduled"
+    },
+    "error": "",
+    "duration": 48734
+  },
+  {
+    "id": "H06",
+    "category": "HOT",
+    "passed": false,
+    "known_limit": false,
+    "details": {
+      "bot_responded": true,
+      "no_system_errors": true,
+      "lead_created": true,
+      "extracted_location_baner": true,
+      "extracted_budget_80": true,
+      "extracted_proptype_2bhk": true,
+      "marked_hot": false,
+      "followup_status_correct": true,
+      "crm_sync_status": "success",
+      "funnel_stage": "New"
+    },
+    "error": "",
+    "duration": 27265
+  },
+  {
+    "id": "H07",
+    "category": "HOT",
+    "passed": true,
+    "known_limit": false,
+    "details": {
+      "bot_responded": true,
+      "no_system_errors": true,
+      "lead_created": true,
+      "extracted_location_baner": true,
+      "extracted_budget_90": true,
+      "extracted_proptype_2bhk": true,
+      "visit_scheduled": true,
+      "marked_hot": true,
+      "followup_status_correct": true,
+      "crm_sync_status": "success",
+      "funnel_stage": "New"
+    },
+    "error": "",
+    "duration": 29484
+  },
+  {
+    "id": "H08",
+    "category": "HOT",
+    "passed": true,
+    "known_limit": false,
+    "details": {
+      "bot_responded": true,
+      "no_system_errors": true,
+      "lead_created": true,
+      "extracted_location_wakad": true,
+      "extracted_budget_85": true,
+      "extracted_proptype_2bhk": true,
+      "visit_scheduled": true,
+      "marked_hot": true,
+      "followup_status_correct": true,
+      "crm_sync_status": "success",
+      "funnel_stage": "Contacted"
+    },
+    "error": "",
+    "duration": 28484
+  },
+  {
+    "id": "H09",
+    "category": "HOT",
+    "passed": true,
+    "known_limit": false,
+    "details": {
+      "bot_responded": true,
+      "no_system_errors": true,
+      "lead_created": true,
+      "extracted_location_baner": true,
+      "extracted_budget_1.2": true,
+      "extracted_proptype_3bhk": true,
+      "visit_scheduled": true,
+      "marked_hot": true,
+      "followup_status_correct": true,
+      "crm_sync_status": "success",
+      "funnel_stage": "Appointment Scheduled"
+    },
+    "error": "",
+    "duration": 44546
+  },
+  {
+    "id": "H10",
+    "category": "HOT",
+    "passed": true,
+    "known_limit": false,
+    "details": {
+      "bot_responded": true,
+      "no_system_errors": true,
+      "lead_created": true,
+      "extracted_location_baner": true,
+      "extracted_budget_80": true,
+      "extracted_proptype_2bhk": true,
+      "visit_scheduled": true,
+      "marked_hot": true,
+      "followup_status_correct": true,
+      "crm_sync_status": "success",
+      "funnel_stage": "New"
+    },
+    "error": "",
+    "duration": 56796
+  },
+  {
+    "id": "H11",
+    "category": "HOT",
+    "passed": true,
+    "known_limit": false,
+    "details": {
+      "bot_responded": true,
+      "no_system_errors": true,
+      "lead_created": true,
+      "extracted_location_baner": true,
+      "extracted_budget_80": true,
+      "extracted_proptype_2bhk": true,
+      "visit_scheduled": true,
+      "marked_hot": true,
+      "followup_status_correct": true,
+      "crm_sync_status": "success",
+      "funnel_stage": "New"
+    },
+    "error": "",
+    "duration": 25516
+  },
+  {
+    "id": "H12",
+    "category": "HOT",
+    "passed": false,
+    "known_limit": false,
+    "details": {
+      "bot_responded": true,
+      "no_system_errors": false,
+      "lead_created": true,
+      "extracted_location_baner": true,
+      "extracted_budget_80": true,
+      "extracted_proptype_2bhk": true,
+      "visit_scheduled": false,
+      "marked_hot": false,
+      "followup_status_correct": true,
+      "crm_sync_status": "success",
+      "funnel_stage": "New"
+    },
+    "error": "",
+    "duration": 59187
+  },
+  {
+    "id": "H13",
+    "category": "HOT",
+    "passed": false,
+    "known_limit": false,
+    "details": {
+      "bot_responded": true,
+      "no_system_errors": false,
+      "lead_created": true,
+      "visit_scheduled": false,
+      "marked_hot": false,
+      "followup_status_correct": true,
+      "crm_sync_status": "success",
+      "funnel_stage": "New"
+    },
+    "error": "",
+    "duration": 19515
+  },
+  {
+    "id": "H14",
+    "category": "HOT",
+    "passed": false,
+    "known_limit": false,
+    "details": {
+      "bot_responded": true,
+      "no_system_errors": false,
+      "lead_created": true,
+      "marked_hot": false,
+      "followup_status_correct": true,
+      "crm_sync_status": "success",
+      "funnel_stage": "New"
+    },
+    "error": "",
+    "duration": 19734
+  },
+  {
+    "id": "H15",
+    "category": "HOT",
+    "passed": false,
+    "known_limit": false,
+    "details": {
+      "bot_responded": true,
+      "no_system_errors": false,
+      "lead_created": true,
+      "visit_scheduled": false,
+      "marked_hot": false,
+      "followup_status_correct": true,
+      "crm_sync_status": "success",
+      "funnel_stage": "New"
+    },
+    "error": "",
+    "duration": 19922
+  },
+  {
+    "id": "H16",
+    "category": "HOT",
+    "passed": false,
+    "known_limit": false,
+    "details": {
+      "bot_responded": true,
+      "no_system_errors": false,
+      "lead_created": true,
+      "marked_hot": false,
+      "followup_status_correct": true,
+      "crm_sync_status": "success",
+      "funnel_stage": "New"
+    },
+    "error": "",
+    "duration": 19514
+  },
+  {
+    "id": "H17",
+    "category": "HOT",
+    "passed": false,
+    "known_limit": false,
+    "details": {
+      "bot_responded": true,
+      "no_system_errors": false,
+      "lead_created": true,
+      "visit_scheduled": false,
+      "marked_hot": false,
+      "followup_status_correct": true,
+      "crm_sync_status": "success",
+      "funnel_stage": "New"
+    },
+    "error": "",
+    "duration": 19641
+  },
+  {
+    "id": "H18",
+    "category": "HOT",
+    "passed": false,
+    "known_limit": false,
+    "details": {
+      "bot_responded": true,
+      "no_system_errors": false,
+      "lead_created": true,
+      "visit_scheduled": false,
+      "marked_hot": false,
+      "followup_status_correct": true,
+      "crm_sync_status": "success",
+      "funnel_stage": "New"
+    },
+    "error": "",
+    "duration": 46781
+  },
+  {
+    "id": "H19",
+    "category": "HOT",
+    "passed": false,
+    "known_limit": false,
+    "details": {
+      "bot_responded": true,
+      "no_system_errors": false,
+      "lead_created": true,
+      "visit_scheduled": false,
+      "marked_hot": false,
+      "followup_status_correct": true,
+      "crm_sync_status": "success",
+      "funnel_stage": "New"
+    },
+    "error": "",
+    "duration": 34687
+  },
+  {
+    "id": "H20",
+    "category": "HOT",
+    "passed": false,
+    "known_limit": false,
+    "details": {
+      "bot_responded": true,
+      "no_system_errors": false,
+      "lead_created": true,
+      "visit_scheduled": false,
+      "marked_hot": false,
+      "followup_status_correct": true,
+      "crm_sync_status": "success",
+      "funnel_stage": "New"
+    },
+    "error": "",
+    "duration": 19672
+  },
+  {
+    "id": "H21",
+    "category": "HOT",
+    "passed": false,
+    "known_limit": false,
+    "details": {
+      "bot_responded": true,
+      "no_system_errors": false,
+      "lead_created": true,
+      "visit_scheduled": false,
+      "marked_hot": false,
+      "followup_status_correct": true,
+      "crm_sync_status": "success",
+      "funnel_stage": "New"
+    },
+    "error": "",
+    "duration": 46405
+  },
+  {
+    "id": "H22",
+    "category": "HOT",
+    "passed": false,
+    "known_limit": false,
+    "details": {
+      "bot_responded": true,
+      "no_system_errors": false,
+      "lead_created": true,
+      "visit_scheduled": false,
+      "marked_hot": false,
+      "followup_status_correct": true,
+      "crm_sync_status": "success",
+      "funnel_stage": "New"
+    },
+    "error": "",
+    "duration": 19296
+  },
+  {
+    "id": "H23",
+    "category": "HOT",
+    "passed": false,
+    "known_limit": false,
+    "details": {
+      "bot_responded": true,
+      "no_system_errors": false,
+      "lead_created": true,
+      "visit_scheduled": false,
+      "marked_hot": false,
+      "followup_status_correct": true,
+      "crm_sync_status": "success",
+      "funnel_stage": "New"
+    },
+    "error": "",
+    "duration": 19797
+  },
+  {
+    "id": "H24",
+    "category": "HOT",
+    "passed": false,
+    "known_limit": false,
+    "details": {
+      "bot_responded": true,
+      "no_system_errors": false,
+      "lead_created": true,
+      "marked_hot": false,
+      "followup_status_correct": true,
+      "crm_sync_status": "success",
+      "funnel_stage": "New"
+    },
+    "error": "",
+    "duration": 18812
+  },
+  {
+    "id": "H25",
+    "category": "HOT",
+    "passed": false,
+    "known_limit": false,
+    "details": {
+      "bot_responded": true,
+      "no_system_errors": false,
+      "lead_created": true,
+      "visit_scheduled": false,
+      "marked_hot": false,
+      "followup_status_correct": true,
+      "crm_sync_status": "success",
+      "funnel_stage": "New"
+    },
+    "error": "",
+    "duration": 19172
+  }
+]

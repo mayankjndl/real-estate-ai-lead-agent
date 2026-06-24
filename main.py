@@ -38,6 +38,10 @@ import models
 import os
 from crm_sync import sync_lead_to_crm
 
+def send_critical_alert(title: str, detail: str):
+    """Simulates sending a webhook alert to Slack/Discord/Email"""
+    logger.error(f"🚨 [CRITICAL ALERT DISPATCHED TO TEAM] {title}: {detail}")
+
 # Admin Security for Revenue Phase
 ADMIN_API_KEY_NAME = "X-Admin-Token"
 admin_api_key_header = APIKeyHeader(name=ADMIN_API_KEY_NAME, auto_error=True)
@@ -831,7 +835,9 @@ def get_leads(
     db: DBSession = Depends(get_db),
     intent: Optional[str] = None,
     location: Optional[str] = None,
-    score: Optional[str] = None
+    score: Optional[str] = None,
+    source: Optional[str] = None,
+    assigned_agent: Optional[str] = None
 ):
     """
     Client-secured lead extraction endpoint filtering by depth, intent, location, and score.
@@ -846,6 +852,10 @@ def get_leads(
         query = query.filter(models.Lead.location.ilike(f"%{location}%"))
     if score:
         query = query.filter(models.Lead.score.ilike(f"%{score}%"))
+    if source:
+        query = query.filter(models.Lead.source.ilike(f"%{source}%"))
+    if assigned_agent:
+        query = query.filter(models.Lead.assigned_agent.ilike(f"%{assigned_agent}%"))
         
     leads = query.all()
     
@@ -923,7 +933,7 @@ async def health_check(db: DBSession = Depends(get_db)):
         db_status = "connected"
     except Exception:
         db_status = "error"
-        logger.error("ALERT: PostgreSQL Database connection failed in health check!")
+        send_critical_alert("Database Outage", "PostgreSQL connection refused.")
 
     # 2. Redis Check
     try:

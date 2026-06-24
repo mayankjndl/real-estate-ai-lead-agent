@@ -441,6 +441,32 @@ async def process_chat(session_id: str, user_message: str, db: DBSession, client
         logger.info(f"GUARDRAIL_INTERCEPT | session={session_id} | bypassed LLM")
         return guardrail_reply
 
+    # -----------------------------------
+    # HUMAN HANDOFF INTERCEPT
+    # -----------------------------------
+    handoff_phrases = ["human", "agent", "real person", "call me", "speak to someone", "customer service"]
+    if any(phrase in msg_clean for phrase in handoff_phrases):
+        # 1. Force the lead to HOT and update Funnel Stage
+        lead.lead_temperature = "hot"
+        lead.funnel_stage = "Human Handoff"
+
+        # 2. Close the session so the AI stops talking
+        session.status = "closed"
+        if f_state:
+            f_state.follow_up_status = "stopped"
+            f_state.next_follow_up_at = None
+
+        # 3. Save to DB
+        db.commit()
+
+        # 4. Alert Backend & Frontend
+        logger.info(f"🚨 HUMAN HANDOFF TRIGGERED: Lead {lead.phone} requested an agent!")
+
+        handoff_reply = "I completely understand. I have paused my automated responses and alerted our human team. An expert will review our chat and reach out to you shortly!"
+        db.add(Message(session_id=session_id, client_id=client_id, role="assistant", content=handoff_reply))
+        db.commit()
+        return handoff_reply
+
     # LIMIT CONTEXT: last 6 turns (12 messages) — keeps enough history for the full
     # conversation to remain coherent. CRM fields are always protected by the DB summary
     # so they are never lost even if the extraction turn scrolls out of the window.
@@ -878,6 +904,7 @@ async def process_chat(session_id: str, user_message: str, db: DBSession, client
 
     # Ensure lead_temperature and score are completely aligned with the final probability
     if prob >= 82:
+        logger.info(f"🔔 HUMAN HANDOFF NOTIFICATION: Lead {lead.phone} has crossed HOT threshold! Immediate agent action required.")
         lead.score = "High"
         lead.lead_temperature = "hot"
     elif prob >= 45:

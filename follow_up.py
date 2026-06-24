@@ -5,6 +5,7 @@ Now integrated with Anohita's ML Intelligence Layer.
 """
 import logging
 import time
+import pytz
 from datetime import datetime, timezone, timedelta
 from twilio.rest import Client
 from tenacity import retry, stop_after_attempt, wait_exponential
@@ -295,6 +296,20 @@ def generate_followup_payload(
 # MAIN SCHEDULER LOOP
 # ==========================================
 
+def apply_quiet_hours(target_utc_time: datetime) -> datetime:
+    """Shifts follow-up times to 8:00 AM if they fall between 9 PM and 8 AM IST."""
+    ist = pytz.timezone('Asia/Kolkata')
+    target_ist = target_utc_time.astimezone(ist)
+
+    if target_ist.hour >= 22:  # After 9 PM
+        target_ist += timedelta(days=1)
+        target_ist = target_ist.replace(hour=8, minute=0, second=0)
+    elif target_ist.hour < 8:  # Before 8 AM
+        target_ist = target_ist.replace(hour=8, minute=0, second=0)
+
+    return target_ist.astimezone(timezone.utc)
+
+
 def check_and_send_followups():
     """
     State machine execution engine for follow-ups.
@@ -523,15 +538,15 @@ def check_and_send_followups():
                         if current_stage == "Day 0" and len(followups) > 1:
                             state.follow_up_stage = "Day 1"
                             prod_hours = followups[1].get("day", 24) - followups[0].get("day", 0)
-                            state.next_follow_up_at = now + _next_delay(prod_hours)
+                            state.next_follow_up_at = apply_quiet_hours(now + _next_delay(prod_hours))
                         elif current_stage == "Day 1" and len(followups) > 2:
                             state.follow_up_stage = "Day 3"
                             prod_hours = followups[2].get("day", 72) - followups[1].get("day", 24)
-                            state.next_follow_up_at = now + _next_delay(prod_hours)
+                            state.next_follow_up_at = apply_quiet_hours(now + _next_delay(prod_hours))
                         elif current_stage == "Day 3" and len(followups) > 3:
                             state.follow_up_stage = "Day 7"
                             prod_hours = followups[3].get("day", 168) - followups[2].get("day", 72)
-                            state.next_follow_up_at = now + _next_delay(prod_hours)
+                            state.next_follow_up_at = apply_quiet_hours(now + _next_delay(prod_hours))
                         elif current_stage == "Day 7" or len(followups) <= 1:
                             state.follow_up_status = "stopped"
                             state.next_follow_up_at = None
