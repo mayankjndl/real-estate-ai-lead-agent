@@ -295,14 +295,13 @@ async def process_chat(session_id: str, user_message: str, db: DBSession, client
     msg_lower = user_message.lower().strip()
     # Remove punctuation
     msg_clean = msg_lower.translate(str.maketrans('', '', string.punctuation))
-    closing_phrases = ["thanks", "thank you", "goodbye", "ok thanks", "perfect thanks", "done", "great thanks",
-                       "thanks a lot", "stop"]
+    closing_phrases = ["thanks", "thank you", "goodbye", "ok thanks", "perfect thanks", "done", "great thanks", "thanks a lot", "stop", "unsubscribe"]
 
     logger.info(f"DEBUG_MSG_CLEAN: '{msg_clean}' (original: '{user_message}')")
 
     # --- FIX: Support explicit opt-out phrases to stop follow-ups ---
     opt_out_phrases = ["dont message", "stop messaging", "dont contact", "please stop"]
-    is_opt_out = any(phrase in msg_clean for phrase in opt_out_phrases)
+    is_opt_out = any(phrase in msg_clean.lower() for phrase in opt_out_phrases)
 
     if any(msg_clean == p for p in closing_phrases) or msg_clean.startswith(
             "stop") or "bye" in msg_clean or is_opt_out or msg_clean.endswith(" thanks"):
