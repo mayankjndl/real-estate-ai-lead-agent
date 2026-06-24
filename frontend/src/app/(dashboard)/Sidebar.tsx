@@ -2,13 +2,29 @@
 
 import { useState } from 'react'
 import { Building2, LayoutDashboard, Inbox, Users, Settings, LogOut, Menu, X } from 'lucide-react'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { logoutClient } from '@/lib/auth'
 import { ThemeToggle } from '@/components/ThemeToggle'
 
 export default function Sidebar() {
   const [isOpen, setIsOpen] = useState(false)
   const pathname = usePathname()
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const currentRole = searchParams.get('role') || 'Owner'
+
+  const handleRoleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const newRole = e.target.value
+    const params = new URLSearchParams(searchParams.toString())
+    params.set('role', newRole)
+    router.push(`${pathname}?${params.toString()}`)
+  }
+
+  const handleRestartTour = () => {
+    const userEmail = localStorage.getItem('revenue_os_user_email') || 'default'
+    localStorage.removeItem(`revenue_os_onboarding_${userEmail}`)
+    window.location.reload()
+  }
 
   return (
     <>
@@ -58,10 +74,32 @@ export default function Sidebar() {
         </nav>
 
         <div className="p-4 border-t border-slate-200 dark:border-zinc-900 space-y-2">
+          {/* Simulated RBAC Switcher for Demo */}
+          <div className="px-3 py-2 mb-2 bg-slate-50 dark:bg-zinc-900/50 rounded-lg border border-slate-200 dark:border-zinc-800">
+            <label className="text-xs font-semibold text-slate-500 dark:text-zinc-400 uppercase tracking-wider mb-1 block">Simulate Role</label>
+            <select 
+              value={currentRole}
+              onChange={handleRoleChange}
+              className="w-full bg-transparent text-sm font-medium text-slate-700 dark:text-zinc-300 focus:outline-none"
+            >
+              <option value="Owner">Owner</option>
+              <option value="Sales Manager">Sales Manager</option>
+              <option value="Sales Agent">Sales Agent</option>
+              <option value="Agency Partner">Agency Partner</option>
+            </select>
+          </div>
+
           <div className="flex items-center justify-between px-3 py-2 mb-2">
             <span className="text-sm font-medium text-slate-500 dark:text-zinc-400">Theme</span>
             <ThemeToggle />
           </div>
+          
+          <button 
+            onClick={handleRestartTour}
+            className="w-full flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-indigo-600 hover:bg-indigo-50 dark:text-indigo-400 dark:hover:bg-indigo-500/10 rounded-lg transition-colors text-left"
+          >
+            <Settings className="w-4 h-4" /> Restart Product Tour
+          </button>
           <a href="/settings" onClick={() => setIsOpen(false)} className={`flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-lg transition-all duration-300 ${pathname === '/settings' ? 'text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-400/10' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100 dark:text-zinc-400 dark:hover:text-white dark:hover:bg-zinc-900'}`}>
             <Settings className={`w-4 h-4 transition-transform duration-300 ${pathname === '/settings' ? 'scale-110' : ''}`} /> Settings
           </a>

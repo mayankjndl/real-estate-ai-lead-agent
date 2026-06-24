@@ -8,8 +8,10 @@ export default function OnboardingWalkthrough() {
   const [step, setStep] = useState(0)
 
   useEffect(() => {
-    // Only show once per browser
-    const hasSeen = localStorage.getItem('revenue_os_onboarding')
+    // Save completion per user. Fallback to generic if not logged in.
+    const userEmail = localStorage.getItem('revenue_os_user_email') || 'default'
+    const storageKey = `revenue_os_onboarding_${userEmail}`
+    const hasSeen = localStorage.getItem(storageKey)
     if (!hasSeen) {
       setIsOpen(true)
     }
@@ -17,7 +19,8 @@ export default function OnboardingWalkthrough() {
 
   const handleClose = () => {
     setIsOpen(false)
-    localStorage.setItem('revenue_os_onboarding', 'true')
+    const userEmail = localStorage.getItem('revenue_os_user_email') || 'default'
+    localStorage.setItem(`revenue_os_onboarding_${userEmail}`, 'true')
   }
 
   const handleNext = () => {
@@ -33,7 +36,7 @@ export default function OnboardingWalkthrough() {
   const steps = [
     {
       title: "Welcome to Revenue OS! 🚀",
-      desc: "This dashboard gives you a live executive overview of your real estate pipeline. Let's take a quick 3-step tour."
+      desc: "This dashboard gives you a live executive overview of your real estate pipeline. Let's take a quick tour."
     },
     {
       title: "Actionable KPIs 📊",
@@ -42,6 +45,10 @@ export default function OnboardingWalkthrough() {
     {
       title: "Global Filtering 🔎",
       desc: "Use the top filters to instantly slice your data by Date Range, Lead Source, or assigned Agent. The entire dashboard will update in real-time."
+    },
+    {
+      title: "Your Next Action 🎯",
+      desc: "See the 'Priority AI Alerts' and 'Overdue Follow-Ups' sections below? They highlight exactly who needs your attention right now. Click any alert to instantly open their CRM profile!"
     }
   ]
 
@@ -68,7 +75,7 @@ export default function OnboardingWalkthrough() {
           <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-3">
             {steps[step].title}
           </h2>
-          <p className="text-slate-600 dark:text-zinc-400 leading-relaxed mb-8">
+          <p className="text-slate-600 dark:text-zinc-400 leading-relaxed mb-8 h-20">
             {steps[step].desc}
           </p>
 
@@ -77,7 +84,7 @@ export default function OnboardingWalkthrough() {
               onClick={handleClose}
               className="text-sm font-medium text-slate-500 hover:text-slate-700 dark:hover:text-zinc-300 px-2"
             >
-              Skip Tour
+              Skip Tour & Do Not Show Again
             </button>
             <button 
               onClick={handleNext}
