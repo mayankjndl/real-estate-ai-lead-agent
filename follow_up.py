@@ -13,7 +13,7 @@ from twilio.rest import Client
 
 from app.intelligence.followup_engine import generate_followup_sequence
 from app.intelligence.push_wait_engine import decide_push_vs_wait
-from config import settings
+from config import settings, tenant_id_ctx
 from database import SessionLocal
 from metrics import BACKGROUND_FAILURE_COUNT, SCHEDULER_JOB_DURATION, SCHEDULER_JOB_FAILURES
 from models import Session, Message, Lead, FollowUpState, EventLog, DLQEvent
@@ -333,12 +333,22 @@ def check_and_send_followups():
             for state in triggered_states:
                 session_id = state.session_id
 
+                # Set the logging context for this background worker thread
+                tenant_id_ctx.set(f"Client_{state.client_id}")
+
                 # Double check the session/lead to make sure it shouldn't be stopped
                 session = db.query(Session).filter(Session.id == session_id).first()
                 lead = db.query(Lead).filter(Lead.session_id == session_id).first()
 
                 if not session:
                     continue
+
+                # --- NEW: RESOLVE AND NORMALIZE PHONE NUMBER AT START OF TURN ---
+                clean_phone = None
+                if lead and lead.phone:
+                    clean_phone = lead.phone.strip()
+                    if not clean_phone.startswith("+"):
+                        clean_phone = f"+{clean_phone}"
 
                 if session.status == "closed" or (lead and lead.visit_date):
                     state.follow_up_status = "stopped"
@@ -422,10 +432,10 @@ def check_and_send_followups():
                         )
                         if settings.TEST_MODE:
                             logger.info(f"[TEST MODE] Skipping Day 7 closure WhatsApp send for {session_id}")
-                        elif session_id.startswith("+") and settings.TWILIO_ACCOUNT_SID:
+                        elif clean_phone and settings.TWILIO_ACCOUNT_SID:
                             try:
                                 client = Client(settings.TWILIO_ACCOUNT_SID, settings.TWILIO_AUTH_TOKEN)
-                                to_number = f"whatsapp:{session_id}" if lead and lead.source == "whatsapp" else session_id
+                                to_number = f"whatsapp:{clean_phone}" if lead and lead.source == "whatsapp" else session_id
                                 client.messages.create(
                                     from_=settings.TWILIO_PHONE_NUMBER,
                                     body=closure_msg,

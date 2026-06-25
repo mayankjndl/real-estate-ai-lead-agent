@@ -130,6 +130,7 @@ def escalation_cron_job():
         ).all()
 
         for log in expired_logs:
+            tenant_id_ctx.set(f"Client_{log.client_id}")
             logger.error(
                 f"⚠️ ESCALATION TRIGGERED: Lead {log.lead_id} was ignored by {log.assigned_agent} for 15 minutes!")
             # Here you would dispatch the Twilio message to the Manager

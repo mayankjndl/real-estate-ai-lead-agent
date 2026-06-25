@@ -13,6 +13,15 @@ def generate_email(company_name: str) -> str:
     clean_name = re.sub(r'[^a-zA-Z0-9]', '', company_name.lower())
     return f"admin@{clean_name}.com"
 
+def is_valid_email(email: str) -> bool:
+    """Uses a standard RFC 5322 regex pattern to validate email formatting."""
+    pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    return bool(re.match(pattern, email))
+
+def is_valid_email(email: str) -> bool:
+    """Uses a standard RFC 5322 regex pattern to validate email formatting."""
+    pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    return bool(re.match(pattern, email))
 
 def create_client(company_name: str = None, email: str = None):
     """
@@ -31,8 +40,16 @@ def create_client(company_name: str = None, email: str = None):
 
     if not email:
         suggested_email = generate_email(company_name)
-        email_input = input(f"Enter Admin Email [{suggested_email}]: ").strip()
-        email = email_input if email_input else suggested_email
+        while True:
+            email_input = input(f"Enter Admin Email [{suggested_email}]: ").strip()
+            selected_email = email_input if email_input else suggested_email
+
+            # Enforce strict email formatting validation
+            if is_valid_email(selected_email):
+                email = selected_email
+                break
+            else:
+                print("  ❌ INVALID FORMAT: Please enter a valid email address (e.g., admin@company.com).")
 
     # 2. Generate secure 12-character random password and 32-byte API Key
     alphabet = string.ascii_letters + string.digits
@@ -64,7 +81,7 @@ def create_client(company_name: str = None, email: str = None):
         # --- NEW: AUTO-PROVISION DEFAULT MANAGER ---
         default_phone = "+910000000000"
         phone_input = input(f"Enter 10-Digit Manager Phone Number [{default_phone}]: ").strip()
-        manager_phone = "91"+phone_input if phone_input else default_phone
+        manager_phone = "+91"+phone_input if phone_input else default_phone
 
         default_manager = models.Agent(
             client_id=new_client.id,
