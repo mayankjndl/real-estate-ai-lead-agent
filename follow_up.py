@@ -430,22 +430,45 @@ def check_and_send_followups():
                             f"We'll pause our updates for now. Feel free to reach out anytime — "
                             f"we're happy to help with your property search. Take care! 🏡"
                         )
+
+                        # --- INITIALIZE TIMER ---
+                        followup_latency_ms = 0
+
                         if settings.TEST_MODE:
                             logger.info(f"[TEST MODE] Skipping Day 7 closure WhatsApp send for {session_id}")
                         elif clean_phone and settings.TWILIO_ACCOUNT_SID:
                             try:
                                 client = Client(settings.TWILIO_ACCOUNT_SID, settings.TWILIO_AUTH_TOKEN)
                                 to_number = f"whatsapp:{clean_phone}" if lead and lead.source == "whatsapp" else session_id
+
+                                # Start Latency Clock
+                                _twilio_start = time.time()
                                 client.messages.create(
                                     from_=settings.TWILIO_PHONE_NUMBER,
                                     body=closure_msg,
                                     to=to_number
                                 )
+
+                                # Calculate actual millisecond latency
+                                followup_latency_ms = round((time.time() - _twilio_start) * 1000)
+
                             except Exception as ex:
                                 logger.error(f"Closure message failed for {session_id}: {ex}")
                         state.follow_up_status = "stopped"
                         state.next_follow_up_at = None
                         session.status = "closed"
+
+                        # --- FIX: Log Day 7 Closure Event to Audit Trail ---
+                        event = EventLog(
+                            session_id=session_id,
+                            client_id=state.client_id,
+                            event_type="tracking",
+                            action_type="Day 7 follow_up_sent",
+                            latency_ms=followup_latency_ms
+                        )
+                        db.add(event)
+                        # ---------------------------------------------------
+
                         db.add(Message(session_id=session_id, client_id=state.client_id, role="assistant", content=f"[AUTO DAY7 CLOSURE] {closure_msg}"))
                         db.add(Message(session_id=session_id, client_id=state.client_id, role="assistant", content="[SESSION CLOSED DUE TO INACTIVITY]"))
                         db.commit()
