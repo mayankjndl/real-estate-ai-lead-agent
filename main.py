@@ -880,6 +880,35 @@ async def stripe_webhook(request: Request, db: DBSession = Depends(get_db)):
 
     return {"status": "success"}
 
+# --- AGENT MANAGEMENT ROUTES FOR FRONTEND ---
+class AgentCreate(BaseModel):
+    name: str
+    phone: str
+    email: str
+    is_manager: bool = False
+    locations: Optional[str] = None
+    speciality: Optional[str] = None
+    deal_size: Optional[str] = None
+    lead_type: Optional[str] = None
+
+@app.get("/api/v1/agents")
+def get_agents(current_client: models.Client = Depends(auth.get_current_client), db: DBSession = Depends(get_db)):
+    """Returns all human agents belonging to the authenticated client."""
+    agents = db.query(models.Agent).filter(models.Agent.client_id == current_client.id).all()
+    return {"status": "success", "agents": agents}
+
+@app.post("/api/v1/agents")
+def create_agent(agent: AgentCreate, current_client: models.Client = Depends(auth.get_current_client), db: DBSession = Depends(get_db)):
+    """Creates a new human agent for the authenticated client's workspace."""
+    new_agent = models.Agent(
+        client_id=current_client.id,
+        **agent.model_dump()
+    )
+    db.add(new_agent)
+    db.commit()
+    db.refresh(new_agent)
+    return {"status": "success", "agent": new_agent}
+
 @app.get("/api/v1/leads")
 def get_leads(
     current_client: models.Client = Depends(auth.get_current_client),
@@ -932,17 +961,18 @@ def update_lead_stage(
     lead = db.query(models.Lead).filter(models.Lead.id == lead_id, models.Lead.client_id == current_client.id).first()
     if not lead:
         raise HTTPException(status_code=404, detail="Lead not found")
-    
+
     lead.funnel_stage = stage_update.stage
 
-    # --- LOGGING BLOCK ---
-    if stage_update.stage == "Site Visit Done":
-        db.add(models.EventLog(session_id=lead.session_id, client_id=current_client.id, event_type="tracking",
-                               action_type="site_visit_done", agent_type="Human"))
-    elif stage_update.stage == "Closed Won":
-        db.add(models.EventLog(session_id=lead.session_id, client_id=current_client.id, event_type="tracking",
-                               action_type="deal_closed", agent_type="Human"))
-    # ------------------------------
+    # --- AUDIT TRAIL FOR FUNNEL STAGE CHANGES ---
+    safe_stage_name = stage_update.stage.replace(' ', '_').lower()
+    db.add(models.EventLog(
+        session_id=lead.session_id,
+        client_id=current_client.id,
+        event_type="audit",
+        action_type=f"stage_changed_to_{safe_stage_name}",
+        agent_type="Human_User"
+    ))
 
     db.commit()
     return {"status": "success", "lead_id": lead.id, "stage": lead.funnel_stage}

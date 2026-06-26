@@ -314,6 +314,12 @@ async def process_chat(session_id: str, user_message: str, db: DBSession, client
             f_state.follow_up_status = "stopped"
             f_state.next_follow_up_at = None
         # -----------------------------------------------------
+
+        # --- NEW: HONOR OPT-OUT PREFERENCE ---
+        if is_opt_out or msg_clean.startswith("stop") or "unsubscribe" in msg_clean:
+            lead.whatsapp_opt_in = False
+        # -------------------------------------
+
         logger.info(f"Session {session_id} marked as CLOSED (user concluded conversation).")
     else:
         session.status = "active"
@@ -930,12 +936,25 @@ async def process_chat(session_id: str, user_message: str, db: DBSession, client
 
     # 2. Match Best Agent
     agent_data = match_best_agent(
+        db=db,
+        client_id=client_id,
         location=lead.location,
         query=history_text
     )
 
     if agent_data.get("assigned_agent"):
+        previous_agent = lead.assigned_agent
         lead.assigned_agent = agent_data["assigned_agent"]
+
+        # --- AUDIT TRAIL FOR ASSIGNMENT CHANGES ---
+        if previous_agent != lead.assigned_agent:
+            db.add(EventLog(
+                session_id=session_id,
+                client_id=client_id,
+                event_type="audit",
+                action_type=f"assigned_to_{lead.assigned_agent.replace(' ', '_').lower()}",
+                agent_type="System"
+            ))
 
         # --- FIX: SYNCHRONIZE FUNNEL STAGE WITH EVENT LOGS ---
         is_fully_qualified_now = bool(

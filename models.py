@@ -186,7 +186,16 @@ class Agent(Base):
     name = Column(String, nullable=False)
     phone = Column(String, nullable=False)
     email = Column(String, nullable=False)
-    is_manager = Column(Boolean, default=False)  # True if they receive escalations
+    is_manager = Column(Boolean, default=False)  # True if they receive default escalations
+
+    # --- PRODUCTION ROUTING METADATA (Clears agent_matcher warnings) ---
+    locations = Column(Text, nullable=True)             # Comma-separated list e.g., "Baner, Wakad, Balewadi"
+    speciality = Column(String, nullable=True)          # "luxury", "mid_range", "investment", "rental"
+    deal_size = Column(String, nullable=True)           # "high", "medium", "low"
+    lead_type = Column(String, nullable=True)           # "buyer", "tenant", "investor"
+    conversion_rate = Column(Integer, default=30)       # Historical win rate percentage
+    response_speed_score = Column(Integer, default=50)  # Average response rating
+    active_leads = Column(Integer, default=0)           # Active workload count
 
     client = relationship("Client")
 

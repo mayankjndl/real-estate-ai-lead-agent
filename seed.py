@@ -36,9 +36,13 @@ def seed_test_clients():
             manager_1 = models.Agent(
                 client_id=client_1.id,
                 name="System Admin",
-                phone="+919163962356",  # <--- REPLACE WITH YOUR TWILIO TEST NUMBER
+                phone="+919163962356",
                 email=client_1.email,
-                is_manager=True
+                is_manager=True,
+                locations="Pune, Baner, Wakad",  # <-- ADD THESE METADATA FIELDS
+                speciality="luxury",
+                deal_size="high",
+                lead_type="buyer"
             )
             db.add(manager_1)
             print(f"✅ Created Default Manager for Client 1")
@@ -49,9 +53,13 @@ def seed_test_clients():
             agent_1 = models.Agent(
                 client_id=client_1.id,
                 name="Sneha Patil",
-                phone="+919163962356",  # <--- ALSO YOUR TWILIO TEST NUMBER
+                phone="+919163962356",
                 email="sneha@revenueos.com",
-                is_manager=False
+                is_manager=False,
+                locations="Wakad, Hinjewadi, Tathawade",  # <-- ADD THESE METADATA FIELDS
+                speciality="mid_range",
+                deal_size="medium",
+                lead_type="buyer"
             )
             db.add(agent_1)
             print(f"✅ Created Agent 1 (Sneha Patil) for Client 1")
