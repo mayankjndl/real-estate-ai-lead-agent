@@ -37,36 +37,44 @@ def get_query_embedding_cached(text: str):
 
 # Load FAQ data and initialize FAISS index (fail-safe for cloud deploys)
 import logging as _rag_log
+import threading
 _logger = _rag_log.getLogger("rag")
 
 RAG_AVAILABLE = False
 data = []
 index = None
 
-try:
-    faq_path = os.path.join(os.path.dirname(__file__), "data", "faq.json")
-    with open(faq_path, "r", encoding="utf-8") as f:
-        data = json.load(f)
+def _build_rag_index():
+    global RAG_AVAILABLE, data, index
+    try:
+        faq_path = os.path.join(os.path.dirname(__file__), "data", "faq.json")
+        with open(faq_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
 
-    texts = [
-        f"{item['location']} {item['type']} property {item['details']} {item['description']}"
-        for item in data
-    ]
+        texts = [
+            f"{item['location']} {item['type']} property {item['details']} {item['description']}"
+            for item in data
+        ]
 
-    # Compute embeddings once at startup (cached in FAISS index)
-    embeddings = np.array([get_embedding(t) for t in texts], dtype=np.float32)
+        # Compute embeddings once at startup (cached in FAISS index)
+        embeddings = np.array([get_embedding(t) for t in texts], dtype=np.float32)
 
-    dimension = embeddings.shape[1]
-    index = faiss.IndexFlatL2(dimension)
-    index.add(embeddings)
-    RAG_AVAILABLE = True
-    _logger.info(f"RAG index built with {len(data)} FAQ items.")
-except Exception as _e:
-    _logger.warning(f"RAG index failed to build (degraded mode, no context injection): {_e}")
+        dimension = embeddings.shape[1]
+        _idx = faiss.IndexFlatL2(dimension)
+        _idx.add(embeddings)
+        index = _idx
+        RAG_AVAILABLE = True
+        _logger.info(f"RAG index built with {len(data)} FAQ items.")
+    except Exception as _e:
+        _logger.warning(f"RAG index failed to build (degraded mode, no context injection): {_e}")
+
+# Build in background so we don't block Uvicorn startup and hit Render's port timeout
+threading.Thread(target=_build_rag_index, daemon=True).start()
 
 def retrieve(query: str, k: int = 1):
     if not RAG_AVAILABLE or index is None:
-        raise RuntimeError("RAG index not available")
+        _logger.warning("RAG index is still building or failed, returning empty context.")
+        return [], 0.0
     # Use cached embedding — avoids network call for repeated/similar queries
     q_emb = np.array([get_query_embedding_cached(query)], dtype=np.float32)
     D, I = index.search(q_emb, k)
