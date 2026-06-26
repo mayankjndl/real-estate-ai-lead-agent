@@ -27,18 +27,19 @@ Output Artifacts:
     test_task3_maitri_summary.txt    — Human-readable pass/fail summary report
 """
 
-import asyncio
-import httpx
-import json
-import time
-import sys
-import os
 import argparse
-import uuid
+import asyncio
+import json
+import os
 import re
-from datetime import datetime
+import sys
+import time
+import uuid
 from dataclasses import dataclass, field
-from typing import List, Dict, Any, Optional
+from datetime import datetime
+from typing import List, Dict, Any
+
+import httpx
 
 # ─── CONFIG ─────────────────────────────────────────────────────────────────
 DEFAULT_BASE_URL = "https://real-estate-ai-lead-agent-3.onrender.com"

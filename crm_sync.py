@@ -1,11 +1,12 @@
-import os
 import logging
-import json
+import os
+
 import httpx
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
+
 from database import SessionLocal
-from models import Lead, DLQEvent
 from metrics import BACKGROUND_FAILURE_COUNT, INTEGRATION_FAILURES
+from models import Lead, DLQEvent
 
 logger = logging.getLogger("crm_sync")
 logging.basicConfig(level=logging.INFO)

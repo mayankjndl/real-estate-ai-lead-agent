@@ -1,30 +1,24 @@
 # app/intelligence/lead_scoring.py
 
-import re
-
 from app.intelligence.behavior_signals import (
     extract_behavior_signals
 )
-
+from app.intelligence.budget_alignment import (
+    evaluate_budget_alignment
+)
+from app.intelligence.inactivity_decay import (
+    calculate_inactivity_penalty
+)
+from app.intelligence.response_speed import (
+    calculate_response_speed_score
+)
+from app.intelligence.score_recalibration import (
+    recalibrate_probability
+)
 from app.intelligence.urgency_detector import (
     detect_urgency
 )
 
-from app.intelligence.response_speed import (
-    calculate_response_speed_score
-)
-
-from app.intelligence.inactivity_decay import (
-    calculate_inactivity_penalty
-)
-
-from app.intelligence.budget_alignment import (
-    evaluate_budget_alignment
-)
-
-from app.intelligence.score_recalibration import (
-    recalibrate_probability
-)
 
 # ==========================================
 # MAIN LEAD SCORING

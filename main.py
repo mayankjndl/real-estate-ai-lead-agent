@@ -1,40 +1,47 @@
-from contextlib import asynccontextmanager
-from twilio.request_validator import RequestValidator
-import stripe
 import asyncio
-import collections
-import logging
-import json
-import time
-import redis.asyncio as aioredis
-import time
-from fastapi import FastAPI, Depends, HTTPException, Security, status, Request, Form, Response, BackgroundTasks
-from twilio.rest import Client
-from fastapi.responses import StreamingResponse, PlainTextResponse
-from fastapi.security.api_key import APIKeyHeader, APIKeyQuery
-from fastapi.security import OAuth2PasswordRequestForm
-import auth
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
-from twilio.twiml.messaging_response import MessagingResponse
-from sqlalchemy.orm import Session as DBSession
-from sqlalchemy import func
-from datetime import datetime, timedelta, timezone
-from prometheus_client import Counter, Histogram, generate_latest, CONTENT_TYPE_LATEST
-from fastapi.middleware.httpsredirect import HTTPSRedirectMiddleware
-from typing import Optional
-from pydantic import BaseModel
 import csv
-from io import StringIO
-from config import settings
-from database import engine, Base, get_db, SessionLocal
-from agent import process_chat
-from follow_up import check_and_send_followups
-from apscheduler.schedulers.background import BackgroundScheduler
-from metrics import BACKGROUND_FAILURE_COUNT, INTEGRATION_FAILURES
-import models
+import json
+import logging
 import os
+import re
+import time
+import uuid
+from contextlib import asynccontextmanager
+from datetime import datetime, timedelta, timezone
+from io import StringIO
+from typing import Optional
+
+import redis.asyncio as aioredis
+import stripe
+from apscheduler.schedulers.background import BackgroundScheduler
+from fastapi import FastAPI, Depends, HTTPException, Security, status, Request, Form, Response, BackgroundTasks
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.httpsredirect import HTTPSRedirectMiddleware
+from fastapi.responses import StreamingResponse
+from fastapi.security import OAuth2PasswordRequestForm
+from fastapi.security.api_key import APIKeyHeader
+from fastapi.staticfiles import StaticFiles
+from prometheus_client import Counter, Histogram, generate_latest, CONTENT_TYPE_LATEST
+from pydantic import BaseModel
+from sqlalchemy import func
+from sqlalchemy.orm import Session as DBSession
+from twilio.request_validator import RequestValidator
+from twilio.rest import Client
+from twilio.twiml.messaging_response import MessagingResponse
+
+import auth
+import models
+from agent import process_chat
+from config import settings, tenant_id_ctx, request_id_ctx
 from crm_sync import sync_lead_to_crm
+from database import engine, Base, get_db, SessionLocal
+from follow_up import check_and_send_followups
+from metrics import BACKGROUND_FAILURE_COUNT, INTEGRATION_FAILURES
+
+
+def send_critical_alert(title: str, detail: str):
+    """Simulates sending a webhook alert to Slack/Discord/Email"""
+    logger.error(f"🚨 [CRITICAL ALERT DISPATCHED TO TEAM] {title}: {detail}")
 
 # Admin Security for Revenue Phase
 ADMIN_API_KEY_NAME = "X-Admin-Token"
@@ -50,11 +57,29 @@ def verify_admin_key(api_key: str = Security(admin_api_key_header)):
         )
     return api_key
 
-# Configure Central App Logging (stdout so Render dashboard captures it)
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
+
+# Configure Central App Logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
+
+class SecurePIILogFilter(logging.Filter):
+    def filter(self, record):
+        req_id = request_id_ctx.get()
+        tenant_id = tenant_id_ctx.get()
+        msg = str(record.msg)
+
+        # PII MASKING: Mask Phone Numbers (e.g. +919163962356 -> +91******2356)
+        msg = re.sub(r'(\+\d{1,3})\d{6,8}(\d{4})', r'\1******\2', msg)
+        # PII MASKING: Mask Emails (e.g. aritro@gmail.com -> a***@gmail.com)
+        msg = re.sub(r'([a-zA-Z])[a-zA-Z0-9_.+-]+@([a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+)', r'\1***@\2', msg)
+
+        record.msg = f"[Req: {req_id}] [Tenant: {tenant_id}] {msg}"
+        return True
+
+
+# Apply the PII filter to all logs
+for handler in logging.root.handlers:
+    handler.addFilter(SecurePIILogFilter())
 logger = logging.getLogger("main")
 
 # Automatically orchestrate DB creation on application boot
@@ -87,10 +112,42 @@ def daily_cleanup_job():
     finally:
         db.close()
 
+
+def escalation_cron_job():
+    """Checks for unacknowledged hot leads and escalates to managers."""
+    from models import NotificationLog
+    from database import SessionLocal
+    from datetime import datetime, timezone
+    import logging
+
+    logger = logging.getLogger("escalation_engine")
+    db = SessionLocal()
+    try:
+        now = datetime.now(timezone.utc)
+        expired_logs = db.query(NotificationLog).filter(
+            NotificationLog.status == "pending_ack",
+            NotificationLog.escalate_at <= now
+        ).all()
+
+        for log in expired_logs:
+            tenant_id_ctx.set(f"Client_{log.client_id}")
+            logger.error(
+                f"⚠️ ESCALATION TRIGGERED: Lead {log.lead_id} was ignored by {log.assigned_agent} for 15 minutes!")
+            # Here you would dispatch the Twilio message to the Manager
+            log.status = "escalated"
+
+        db.commit()
+    except Exception as e:
+        logger.error(f"Escalation job failed: {e}")
+        db.rollback()
+    finally:
+        db.close()
+
 scheduler = BackgroundScheduler()
 scheduler.add_job(check_and_send_followups, "interval", minutes=1, id="follow_up_checker")
 scheduler.add_job(backup_postgres, "cron", hour=2, minute=0, id="nightly_backup")
 scheduler.add_job(daily_cleanup_job, "cron", hour=3, minute=0, id="nightly_cleanup")
+scheduler.add_job(escalation_cron_job, "interval", minutes=1, id="escalation_checker")
 
 @asynccontextmanager
 async def lifespan(app):
@@ -139,6 +196,8 @@ REQUEST_LATENCY = Histogram(
 # --- Production Monitoring Middleware ---
 @app.middleware("http")
 async def production_monitoring_middleware(request: Request, call_next):
+    request_id_ctx.set(str(uuid.uuid4())[:8])
+    tenant_id_ctx.set("Pending")
     start_time = time.time()
     try:
         response = await call_next(request)
@@ -433,6 +492,24 @@ async def portals_webhook(payload: dict, current_client: models.Client = Depends
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
+
+@app.post("/api/v1/notifications/acknowledge")
+def acknowledge_notification(lead_id: int, current_client: models.Client = Depends(auth.get_current_client),
+                             db: DBSession = Depends(get_db)):
+    """Allows human agents to clear the Priority Alert from the dashboard."""
+    from models import NotificationLog
+    # Strict tenant isolation
+    log = db.query(NotificationLog).filter(
+        NotificationLog.lead_id == lead_id,
+        NotificationLog.client_id == current_client.id,
+        NotificationLog.status == "pending_ack"
+    ).first()
+
+    if log:
+        log.status = "acknowledged"
+        db.commit()
+        return {"status": "success", "message": "Alert acknowledged and escalation canceled."}
+    return {"status": "ignored", "message": "No pending alerts found."}
 
 @app.post("/api/v1/whatsapp")
 async def whatsapp_webhook(
@@ -809,7 +886,9 @@ def get_leads(
     db: DBSession = Depends(get_db),
     intent: Optional[str] = None,
     location: Optional[str] = None,
-    score: Optional[str] = None
+    score: Optional[str] = None,
+    source: Optional[str] = None,
+    assigned_agent: Optional[str] = None
 ):
     """
     Client-secured lead extraction endpoint filtering by depth, intent, location, and score.
@@ -824,6 +903,10 @@ def get_leads(
         query = query.filter(models.Lead.location.ilike(f"%{location}%"))
     if score:
         query = query.filter(models.Lead.score.ilike(f"%{score}%"))
+    if source:
+        query = query.filter(models.Lead.source.ilike(f"%{source}%"))
+    if assigned_agent:
+        query = query.filter(models.Lead.assigned_agent.ilike(f"%{assigned_agent}%"))
         
     leads = query.all()
     
@@ -889,30 +972,43 @@ def export_leads(
     response.headers["Content-Disposition"] = f"attachment; filename=leads_export_{current_client.id}.csv"
     return response
 
+
 @app.get("/health")
-def health_check(db: DBSession = Depends(get_db)):
-    """
-    Health check endpoint for monitoring, load balancers, and cron-job.org keep-alive.
-    Returns DB status, scheduler state, and uptime for operational observability.
-    """
+async def health_check(db: DBSession = Depends(get_db)):
+    """Enterprise Provider Health Checks"""
     import datetime as _dt
+
+    # 1. Postgres Check
     try:
         db.execute(models.Session.__table__.select().limit(1))
         db_status = "connected"
     except Exception:
         db_status = "error"
+        send_critical_alert("Database Outage", "PostgreSQL connection refused.")
+
+    # 2. Redis Check
+    try:
+        await redis_client.ping()
+        redis_status = "connected"
+    except Exception:
+        redis_status = "error"
+        logger.error("ALERT: Redis Cache connection failed in health check!")
+
+    # 3. Third-Party Provider Checks
+    twilio_status = "configured" if settings.TWILIO_ACCOUNT_SID else "missing"
+    gemini_status = "configured" if settings.GEMINI_API_KEY else "missing"
 
     uptime_seconds = round((_dt.datetime.now(_dt.timezone.utc) - APP_START_TIME).total_seconds())
+    system_status = "healthy" if db_status == "connected" and redis_status == "connected" else "degraded"
 
     return {
-        "status": "healthy",
-        "version": "1.0.0",
-        "database": db_status,
+        "status": system_status,
+        "database_postgres": db_status,
+        "cache_redis": redis_status,
+        "provider_twilio": twilio_status,
+        "provider_gemini": gemini_status,
         "scheduler": "running" if scheduler.running else "stopped",
         "uptime_seconds": uptime_seconds,
-        "worker_mode": "single-worker",
-        "follow_up_delay_minutes": settings.FOLLOW_UP_DELAY_MINUTES,
-        "ai_followups_enabled": settings.USE_AI_FOLLOWUPS,
     }
 
 # Mount static files for the Dashboard

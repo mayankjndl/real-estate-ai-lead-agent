@@ -1,16 +1,15 @@
 from datetime import datetime
 
+from app.intelligence.feedback_loop import (
+    get_feedback_summary
+)
+from app.intelligence.followup_ab_testing import (
+    calculate_ab_performance
+)
 from app.intelligence.live_model_evaluator import (
     calculate_live_model_metrics
 )
 
-from app.intelligence.followup_ab_testing import (
-    calculate_ab_performance
-)
-
-from app.intelligence.feedback_loop import (
-    get_feedback_summary
-)
 
 # ==========================================
 # WEEKLY REPORT

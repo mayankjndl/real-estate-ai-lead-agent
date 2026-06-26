@@ -213,7 +213,7 @@ venv\Scripts\activate
 pip install -r requirements.lock
 
 # 4. Seed the database — creates tables and generates your API key
-python seed.py
+python add_client.py (for production)/seed.py (for local testing)
 # Output example:
 #   Database seeded successfully!
 #   Email: admin@revenueos.com

@@ -6,16 +6,17 @@ Now integrated with Anohita's ML Intelligence Layer.
 import logging
 import time
 from datetime import datetime, timezone, timedelta
-from twilio.rest import Client
-from tenacity import retry, stop_after_attempt, wait_exponential
 
-from config import settings
-from database import SessionLocal
-from models import Session, Message, Lead, FollowUpState, EventLog, DLQEvent
+import pytz
+from tenacity import retry, stop_after_attempt, wait_exponential
+from twilio.rest import Client
 
 from app.intelligence.followup_engine import generate_followup_sequence
 from app.intelligence.push_wait_engine import decide_push_vs_wait
+from config import settings, tenant_id_ctx
+from database import SessionLocal
 from metrics import BACKGROUND_FAILURE_COUNT, SCHEDULER_JOB_DURATION, SCHEDULER_JOB_FAILURES
+from models import Session, Message, Lead, FollowUpState, EventLog, DLQEvent
 
 logger = logging.getLogger("follow_up")
 logging.basicConfig(level=logging.INFO)
@@ -295,6 +296,20 @@ def generate_followup_payload(
 # MAIN SCHEDULER LOOP
 # ==========================================
 
+def apply_quiet_hours(target_utc_time: datetime) -> datetime:
+    """Shifts follow-up times to 8:00 AM if they fall between 9 PM and 8 AM IST."""
+    ist = pytz.timezone('Asia/Kolkata')
+    target_ist = target_utc_time.astimezone(ist)
+
+    if target_ist.hour >= 22:  # After 9 PM
+        target_ist += timedelta(days=1)
+        target_ist = target_ist.replace(hour=8, minute=0, second=0)
+    elif target_ist.hour < 8:  # Before 8 AM
+        target_ist = target_ist.replace(hour=8, minute=0, second=0)
+
+    return target_ist.astimezone(timezone.utc)
+
+
 def check_and_send_followups():
     """
     State machine execution engine for follow-ups.
@@ -318,12 +333,22 @@ def check_and_send_followups():
             for state in triggered_states:
                 session_id = state.session_id
 
+                # Set the logging context for this background worker thread
+                tenant_id_ctx.set(f"Client_{state.client_id}")
+
                 # Double check the session/lead to make sure it shouldn't be stopped
                 session = db.query(Session).filter(Session.id == session_id).first()
                 lead = db.query(Lead).filter(Lead.session_id == session_id).first()
 
                 if not session:
                     continue
+
+                # --- NEW: RESOLVE AND NORMALIZE PHONE NUMBER AT START OF TURN ---
+                clean_phone = None
+                if lead and lead.phone:
+                    clean_phone = lead.phone.strip()
+                    if not clean_phone.startswith("+"):
+                        clean_phone = f"+{clean_phone}"
 
                 if session.status == "closed" or (lead and lead.visit_date):
                     state.follow_up_status = "stopped"
@@ -405,22 +430,45 @@ def check_and_send_followups():
                             f"We'll pause our updates for now. Feel free to reach out anytime — "
                             f"we're happy to help with your property search. Take care! 🏡"
                         )
+
+                        # --- INITIALIZE TIMER ---
+                        followup_latency_ms = 0
+
                         if settings.TEST_MODE:
                             logger.info(f"[TEST MODE] Skipping Day 7 closure WhatsApp send for {session_id}")
-                        elif session_id.startswith("+") and settings.TWILIO_ACCOUNT_SID:
+                        elif clean_phone and settings.TWILIO_ACCOUNT_SID:
                             try:
                                 client = Client(settings.TWILIO_ACCOUNT_SID, settings.TWILIO_AUTH_TOKEN)
-                                to_number = f"whatsapp:{session_id}" if lead and lead.source == "whatsapp" else session_id
+                                to_number = f"whatsapp:{clean_phone}" if lead and lead.source == "whatsapp" else session_id
+
+                                # Start Latency Clock
+                                _twilio_start = time.time()
                                 client.messages.create(
                                     from_=settings.TWILIO_PHONE_NUMBER,
                                     body=closure_msg,
                                     to=to_number
                                 )
+
+                                # Calculate actual millisecond latency
+                                followup_latency_ms = round((time.time() - _twilio_start) * 1000)
+
                             except Exception as ex:
                                 logger.error(f"Closure message failed for {session_id}: {ex}")
                         state.follow_up_status = "stopped"
                         state.next_follow_up_at = None
                         session.status = "closed"
+
+                        # --- FIX: Log Day 7 Closure Event to Audit Trail ---
+                        event = EventLog(
+                            session_id=session_id,
+                            client_id=state.client_id,
+                            event_type="tracking",
+                            action_type="Day 7 follow_up_sent",
+                            latency_ms=followup_latency_ms
+                        )
+                        db.add(event)
+                        # ---------------------------------------------------
+
                         db.add(Message(session_id=session_id, client_id=state.client_id, role="assistant", content=f"[AUTO DAY7 CLOSURE] {closure_msg}"))
                         db.add(Message(session_id=session_id, client_id=state.client_id, role="assistant", content="[SESSION CLOSED DUE TO INACTIVITY]"))
                         db.commit()
@@ -523,15 +571,15 @@ def check_and_send_followups():
                         if current_stage == "Day 0" and len(followups) > 1:
                             state.follow_up_stage = "Day 1"
                             prod_hours = followups[1].get("day", 24) - followups[0].get("day", 0)
-                            state.next_follow_up_at = now + _next_delay(prod_hours)
+                            state.next_follow_up_at = apply_quiet_hours(now + _next_delay(prod_hours))
                         elif current_stage == "Day 1" and len(followups) > 2:
                             state.follow_up_stage = "Day 3"
                             prod_hours = followups[2].get("day", 72) - followups[1].get("day", 24)
-                            state.next_follow_up_at = now + _next_delay(prod_hours)
+                            state.next_follow_up_at = apply_quiet_hours(now + _next_delay(prod_hours))
                         elif current_stage == "Day 3" and len(followups) > 3:
                             state.follow_up_stage = "Day 7"
                             prod_hours = followups[3].get("day", 168) - followups[2].get("day", 72)
-                            state.next_follow_up_at = now + _next_delay(prod_hours)
+                            state.next_follow_up_at = apply_quiet_hours(now + _next_delay(prod_hours))
                         elif current_stage == "Day 7" or len(followups) <= 1:
                             state.follow_up_status = "stopped"
                             state.next_follow_up_at = None
