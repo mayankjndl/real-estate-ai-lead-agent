@@ -23,6 +23,27 @@ export default async function DashboardPage(props: Props) {
   let rawLeads = leadsData?.leads || []
   let leads = [...rawLeads]
 
+  // --- Stress Test Generator (1000+ Leads) ---
+  const isStressTest = searchParams?.stressTest === 'true'
+  if (isStressTest) {
+    const mockLeads = Array.from({ length: 1200 }).map((_, i) => ({
+      id: 10000 + i,
+      name: `Stress Lead ${i}`,
+      phone: `+1555${String(i).padStart(4, '0')}`,
+      budget: '1Cr',
+      location: 'Dubai',
+      funnel_stage: i % 5 === 0 ? 'Closed Won' : 'New',
+      lead_temperature: i % 10 === 0 ? 'Hot' : 'Cold',
+      engagement_score: i % 4 === 0 ? 30 : 80,
+      urgency_level: i % 4 === 0 ? 'High' : 'Low',
+      source: i % 2 === 0 ? 'Facebook' : 'Direct',
+      updated_at: new Date().toISOString(),
+      assigned_agent: i % 3 === 0 ? 'Jane Doe' : 'John Smith'
+    }))
+    // @ts-ignore
+    leads = [...leads, ...mockLeads]
+  }
+
   // --- RBAC Implementation (Simulated for Demo) ---
   const role = (searchParams?.role as string) || 'Owner'
   const isSalesAgent = role === 'Sales Agent'
@@ -106,7 +127,13 @@ export default async function DashboardPage(props: Props) {
     .filter(l => l.lead_temperature?.toLowerCase() === 'hot')
     .slice(0, 3)
 
-  const recentLeads = [...leads].sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()).slice(0, 5)
+  const recentLeads = [...leads].sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())
+  
+  // Pagination
+  const pageParam = parseInt((searchParams?.page as string) || '1', 10)
+  const pageSize = 50
+  const totalPages = Math.ceil(recentLeads.length / pageSize)
+  const paginatedRecentLeads = recentLeads.slice((pageParam - 1) * pageSize, pageParam * pageSize)
 
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-700 relative">
@@ -184,7 +211,7 @@ export default async function DashboardPage(props: Props) {
           {/* Action Queues Row */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* Alerts / AI Summary */}
-            <div className="bg-gradient-to-br from-emerald-50 to-white dark:from-emerald-900/20 dark:to-zinc-900/40 border border-emerald-200 dark:border-emerald-500/20 p-6 rounded-3xl backdrop-blur-xl shadow-sm">
+            <div id="priority-alerts" className="bg-gradient-to-br from-emerald-50 to-white dark:from-emerald-900/20 dark:to-zinc-900/40 border border-emerald-200 dark:border-emerald-500/20 p-6 rounded-3xl backdrop-blur-xl shadow-sm">
               <div className="flex items-center gap-3 mb-6">
                 <AlertCircle className="text-emerald-600 dark:text-emerald-400 w-5 h-5" />
                 <h3 className="text-sm font-medium text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">Priority AI Alerts</h3>
@@ -287,7 +314,7 @@ export default async function DashboardPage(props: Props) {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-zinc-800">
-                  {recentLeads.map((lead) => (
+                  {paginatedRecentLeads.map((lead) => (
                     <tr key={lead.id} className="hover:bg-slate-50 dark:hover:bg-zinc-800/30 transition-colors">
                       <td className="px-4 py-3 max-w-[200px]">
                         <div className="font-medium text-slate-900 dark:text-white truncate">{lead.name || 'Anonymous'}</div>
@@ -308,12 +335,28 @@ export default async function DashboardPage(props: Props) {
                       </td>
                     </tr>
                   ))}
-                  {recentLeads.length === 0 && (
+                  {paginatedRecentLeads.length === 0 && (
                     <tr><td colSpan={4} className="px-4 py-8 text-center text-slate-500 dark:text-zinc-500">No recent leads found.</td></tr>
                   )}
                 </tbody>
               </table>
             </div>
+            
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between px-4 py-3 border-t border-slate-200 dark:border-zinc-800 mt-4">
+                <span className="text-sm text-slate-500 dark:text-zinc-400">
+                  Showing {(pageParam - 1) * pageSize + 1} to {Math.min(pageParam * pageSize, recentLeads.length)} of {recentLeads.length} leads
+                </span>
+                <div className="flex gap-2">
+                  {pageParam > 1 && (
+                    <Link href={`/dashboard?page=${pageParam - 1}${isStressTest ? '&stressTest=true' : ''}`} className="px-3 py-1 bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg text-sm text-slate-700 dark:text-zinc-300 hover:bg-slate-50 dark:hover:bg-zinc-700 transition-colors">Previous</Link>
+                  )}
+                  {pageParam < totalPages && (
+                    <Link href={`/dashboard?page=${pageParam + 1}${isStressTest ? '&stressTest=true' : ''}`} className="px-3 py-1 bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg text-sm text-slate-700 dark:text-zinc-300 hover:bg-slate-50 dark:hover:bg-zinc-700 transition-colors">Next</Link>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
 
         </>

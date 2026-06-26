@@ -28,6 +28,7 @@ export default function OnboardingWalkthrough() {
       setStep(s => s + 1)
     } else {
       handleClose()
+      document.getElementById('priority-alerts')?.scrollIntoView({ behavior: 'smooth' })
     }
   }
 
@@ -47,7 +48,7 @@ export default function OnboardingWalkthrough() {
       desc: "Use the top filters to instantly slice your data by Date Range, Lead Source, or assigned Agent. The entire dashboard will update in real-time."
     },
     {
-      title: "Your Next Action 🎯",
+      title: "Next Action - Contact Hot Leads! 🎯",
       desc: "See the 'Priority AI Alerts' and 'Overdue Follow-Ups' sections below? They highlight exactly who needs your attention right now. Click any alert to instantly open their CRM profile!"
     }
   ]
