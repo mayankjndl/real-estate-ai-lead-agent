@@ -1,18 +1,21 @@
+import asyncio
 import json
 import logging
 import string
 import time
-import asyncio
 from datetime import datetime, timezone
+
 import google.generativeai as genai
-from config import settings
-from system_prompt import REAL_ESTATE_SYSTEM_PROMPT
 from sqlalchemy.orm import Session as DBSession
-from models import Session, Message, Lead, EventLog
-from rag import retrieve
-from app.intelligence.lead_scoring import calculate_lead_score
+
 from app.intelligence.agent_matcher import match_best_agent
+from app.intelligence.lead_scoring import calculate_lead_score
+from config import settings
 from crm_sync import sync_lead_to_crm
+from models import Session, Message, Lead, EventLog
+from notification_service import trigger_hot_lead_notification
+from rag import retrieve
+from system_prompt import REAL_ESTATE_SYSTEM_PROMPT
 
 # 1. Gemini Initialization
 genai.configure(api_key=settings.GEMINI_API_KEY)
@@ -295,14 +298,13 @@ async def process_chat(session_id: str, user_message: str, db: DBSession, client
     msg_lower = user_message.lower().strip()
     # Remove punctuation
     msg_clean = msg_lower.translate(str.maketrans('', '', string.punctuation))
-    closing_phrases = ["thanks", "thank you", "goodbye", "ok thanks", "perfect thanks", "done", "great thanks",
-                       "thanks a lot", "stop"]
+    closing_phrases = ["thanks", "thank you", "goodbye", "ok thanks", "perfect thanks", "done", "great thanks", "thanks a lot", "stop", "unsubscribe"]
 
     logger.info(f"DEBUG_MSG_CLEAN: '{msg_clean}' (original: '{user_message}')")
 
     # --- FIX: Support explicit opt-out phrases to stop follow-ups ---
     opt_out_phrases = ["dont message", "stop messaging", "dont contact", "please stop"]
-    is_opt_out = any(phrase in msg_clean for phrase in opt_out_phrases)
+    is_opt_out = any(phrase in msg_clean.lower() for phrase in opt_out_phrases)
 
     if any(msg_clean == p for p in closing_phrases) or msg_clean.startswith(
             "stop") or "bye" in msg_clean or is_opt_out or msg_clean.endswith(" thanks"):
@@ -441,6 +443,37 @@ async def process_chat(session_id: str, user_message: str, db: DBSession, client
         db.commit()
         logger.info(f"GUARDRAIL_INTERCEPT | session={session_id} | bypassed LLM")
         return guardrail_reply
+
+    # -----------------------------------
+    # HUMAN HANDOFF INTERCEPT
+    # -----------------------------------
+    handoff_phrases = ["human", "agent", "real person", "call me", "speak to someone", "customer service"]
+    if any(phrase in msg_clean for phrase in handoff_phrases):
+        # 1. Force the lead to HOT and update Funnel Stage
+        lead.lead_temperature = "hot"
+        lead.funnel_stage = "Human Handoff"
+
+        # 2. Close the session so the AI stops talking
+        session.status = "closed"
+        if f_state:
+            f_state.follow_up_status = "stopped"
+            f_state.next_follow_up_at = None
+
+        # 3. Save to DB
+        db.commit()
+
+        # 4. Alert Backend & Frontend
+        logger.info(f"🚨 HUMAN HANDOFF TRIGGERED: Lead {lead.phone} requested an agent!")
+
+        # --> TRIGGER NOTIFICATION (Fire & Forget) <--
+        asyncio.create_task(
+            trigger_hot_lead_notification(lead.id, "Explicit human agent requested.")
+        )
+
+        handoff_reply = "I completely understand. I have paused my automated responses and alerted our human team. An expert will review our chat and reach out to you shortly!"
+        db.add(Message(session_id=session_id, client_id=client_id, role="assistant", content=handoff_reply))
+        db.commit()
+        return handoff_reply
 
     # LIMIT CONTEXT: last 6 turns (12 messages) — keeps enough history for the full
     # conversation to remain coherent. CRM fields are always protected by the DB summary
@@ -879,6 +912,13 @@ async def process_chat(session_id: str, user_message: str, db: DBSession, client
 
     # Ensure lead_temperature and score are completely aligned with the final probability
     if prob >= 82:
+        logger.info(f"🔔 HUMAN HANDOFF NOTIFICATION: Lead {lead.phone} has crossed HOT threshold! Immediate agent action required.")
+
+        # --> TRIGGER NOTIFICATION (Fire & Forget) <--
+        asyncio.create_task(
+            trigger_hot_lead_notification(lead.id, "Explicit human agent requested.")
+        )
+
         lead.score = "High"
         lead.lead_temperature = "hot"
     elif prob >= 45:

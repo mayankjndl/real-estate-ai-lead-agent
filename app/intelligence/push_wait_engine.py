@@ -4,8 +4,6 @@
 
 # app/intelligence/push_wait_engine.py
 
-from datetime import datetime
-
 
 FOLLOWUP_COOLDOWN_HOURS = 6
 

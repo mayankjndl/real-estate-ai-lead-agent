@@ -1,17 +1,16 @@
 from datetime import datetime
 
+from app.intelligence.conversion_learning import (
+    get_learning_summary
+)
 from app.intelligence.live_model_evaluator import (
     should_trigger_live_retraining,
     calculate_live_model_metrics
 )
-
-from app.intelligence.conversion_learning import (
-    get_learning_summary
-)
-
 from app.intelligence.refresh_dataset_predictions import (
     refresh_predictions
 )
+
 
 # ==========================================
 # RETRAINING ENGINE

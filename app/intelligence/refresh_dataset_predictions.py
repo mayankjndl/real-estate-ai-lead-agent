@@ -1,5 +1,4 @@
 import json
-
 from pathlib import Path
 
 from app.intelligence.lead_scoring import (

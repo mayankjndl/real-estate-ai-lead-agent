@@ -1,8 +1,10 @@
 from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Text, Boolean
-from sqlalchemy.sql import func
-from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.orm import relationship
+from sqlalchemy.sql import func
+
 from database import Base
+
 
 class Client(Base):
     """
@@ -167,3 +169,46 @@ class DLQEvent(Base):
     status = Column(String, default="pending")
 
     client = relationship("Client", back_populates="dlq_events")
+
+
+import uuid
+
+
+class Agent(Base):
+    """
+    Directory of human agents available for assignment and escalation.
+    """
+    __tablename__ = "agents"
+
+    id = Column(Integer, primary_key=True, index=True)
+    client_id = Column(Integer, ForeignKey("clients.id", ondelete="CASCADE"), nullable=False, index=True)
+
+    name = Column(String, nullable=False)
+    phone = Column(String, nullable=False)
+    email = Column(String, nullable=False)
+    is_manager = Column(Boolean, default=False)  # True if they receive escalations
+
+    client = relationship("Client")
+
+class NotificationLog(Base):
+    """
+    Audit log for human handoff and hot-lead notifications.
+    Tracks acknowledgments and escalation timelines.
+    """
+    __tablename__ = "notification_logs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    client_id = Column(Integer, ForeignKey("clients.id", ondelete="CASCADE"), nullable=False, index=True)
+    lead_id = Column(Integer, ForeignKey("leads.id", ondelete="CASCADE"), nullable=False, index=True)
+
+    correlation_id = Column(String, default=lambda: str(uuid.uuid4()), unique=True, index=True, nullable=False)
+    assigned_agent = Column(String, nullable=True)
+
+    # Statuses: pending_ack, acknowledged, escalated, failed
+    status = Column(String, default="pending_ack")
+
+    sent_at = Column(DateTime(timezone=True), server_default=func.now())
+    escalate_at = Column(DateTime(timezone=True), nullable=False)  # The 15-minute deadline
+
+    client = relationship("Client")
+    lead = relationship("Lead")

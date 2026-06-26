@@ -1,9 +1,11 @@
 import json
-import faiss
-import numpy as np
-import google.generativeai as genai
 import os
 from functools import lru_cache
+
+import faiss
+import google.generativeai as genai
+import numpy as np
+
 from config import settings
 
 genai.configure(api_key=settings.GEMINI_API_KEY)
