@@ -73,7 +73,7 @@ def calculate_lead_score(
 
             response_speed_score = (
                 response_speed_data.get(
-                    "response_speed_score",
+                    "speed_score",
                     50
                 )
             )

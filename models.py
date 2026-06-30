@@ -199,6 +199,7 @@ class Agent(Base):
 
     client = relationship("Client")
 
+
 class NotificationLog(Base):
     """
     Audit log for human handoff and hot-lead notifications.
@@ -213,11 +214,15 @@ class NotificationLog(Base):
     correlation_id = Column(String, default=lambda: str(uuid.uuid4()), unique=True, index=True, nullable=False)
     assigned_agent = Column(String, nullable=True)
 
-    # Statuses: pending_ack, acknowledged, escalated, failed
+    # Statuses: pending_ack, acknowledged, escalated_10m, escalated_30m, failed
     status = Column(String, default="pending_ack")
 
+    # --- NEW: Twilio Tracking Columns ---
+    twilio_message_sid = Column(String, nullable=True, index=True)
+    twilio_delivery_status = Column(String, nullable=True)
+
     sent_at = Column(DateTime(timezone=True), server_default=func.now())
-    escalate_at = Column(DateTime(timezone=True), nullable=False)  # The 15-minute deadline
+    escalate_at = Column(DateTime(timezone=True), nullable=False)  # The escalation deadline
 
     client = relationship("Client")
     lead = relationship("Lead")

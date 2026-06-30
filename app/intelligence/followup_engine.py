@@ -1,6 +1,6 @@
 # app/intelligence/followup_engine.py
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 from app.intelligence.conversation_optimizer import (
     conversation_optimizer
@@ -202,7 +202,7 @@ def generate_followup_sequence(
 
     return {
 
-        "generated_at": str(datetime.utcnow()),
+        "generated_at": str(datetime.now(timezone.utc)),
 
         "lead_priority": (
             "critical"

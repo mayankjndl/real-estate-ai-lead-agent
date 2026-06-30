@@ -2,6 +2,15 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
 export default function middleware(request: NextRequest) {
+  // --- FIX FOR NEXT.JS SERVER ACTION WEBHOOK BUG ---
+  // If the request is a Server Action, bypass middleware processing
+  // to prevent response header corruption
+  const isServerAction = request.headers.has('next-action') || request.headers.has('x-action');
+  if (isServerAction) {
+    return NextResponse.next();
+  }
+  // -------------------------------------------------
+
   // Extract the JWT securely from HttpOnly cookie
   const token = request.cookies.get('jwt')?.value;
 

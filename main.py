@@ -33,7 +33,6 @@ import auth
 import models
 from agent import process_chat
 from config import settings, tenant_id_ctx, request_id_ctx
-from crm_sync import sync_lead_to_crm
 from database import engine, Base, get_db, SessionLocal
 from follow_up import check_and_send_followups
 from metrics import BACKGROUND_FAILURE_COUNT, INTEGRATION_FAILURES
@@ -114,34 +113,78 @@ def daily_cleanup_job():
 
 
 def escalation_cron_job():
-    """Checks for unacknowledged hot leads and escalates to managers."""
-    from models import NotificationLog
+    """Checks for unacknowledged hot leads and escalates to managers at 10m and Directors at 30m."""
+    from models import NotificationLog, Agent
     from database import SessionLocal
-    from datetime import datetime, timezone
+    from datetime import datetime, timezone, timedelta
+    from twilio.rest import Client
+    from config import settings, tenant_id_ctx
     import logging
 
     logger = logging.getLogger("escalation_engine")
-    db = SessionLocal()
-    try:
-        now = datetime.now(timezone.utc)
-        expired_logs = db.query(NotificationLog).filter(
-            NotificationLog.status == "pending_ack",
-            NotificationLog.escalate_at <= now
-        ).all()
+    with SessionLocal() as db:
+        try:
+            now = datetime.now(timezone.utc)
 
-        for log in expired_logs:
-            tenant_id_ctx.set(f"Client_{log.client_id}")
-            logger.error(
-                f"⚠️ ESCALATION TRIGGERED: Lead {log.lead_id} was ignored by {log.assigned_agent} for 15 minutes!")
-            # Here you would dispatch the Twilio message to the Manager
-            log.status = "escalated"
+            # --- 10-MINUTE ESCALATION ---
+            expired_10m = db.query(NotificationLog).filter(
+                NotificationLog.status == "pending_ack",
+                NotificationLog.escalate_at <= now
+            ).all()
 
-        db.commit()
-    except Exception as e:
-        logger.error(f"Escalation job failed: {e}")
-        db.rollback()
-    finally:
-        db.close()
+            for log in expired_10m:
+                tenant_id_ctx.set(f"Client_{log.client_id}")
+                logger.warning(f"⚠️ 10M ESCALATION TRIGGERED: Lead {log.lead_id} ignored by {log.assigned_agent}.")
+
+                manager = db.query(Agent).filter(Agent.client_id == log.client_id, Agent.is_manager == True).first()
+                if manager and settings.TWILIO_ACCOUNT_SID:
+                    try:
+                        client = Client(settings.TWILIO_ACCOUNT_SID, settings.TWILIO_AUTH_TOKEN)
+                        msg = f"🚨 *10-Min Escalation:* Lead #{log.lead_id} was ignored by {log.assigned_agent}. Please review immediately."
+                        to_phone = f"whatsapp:{manager.phone}" if not manager.phone.startswith(
+                            "whatsapp:") else manager.phone
+                        client.messages.create(
+                            from_=settings.TWILIO_PHONE_NUMBER,
+                            body=msg,
+                            to=to_phone
+                        )
+                    except Exception as e:
+                        logger.error(f"10m escalation Twilio failed: {e}")
+
+                log.status = "escalated_10m"
+                log.escalate_at = now + timedelta(minutes=20)  # Schedule next check 20 mins from now (30 mins total)
+
+            # --- 30-MINUTE ESCALATION ---
+            expired_30m = db.query(NotificationLog).filter(
+                NotificationLog.status == "escalated_10m",
+                NotificationLog.escalate_at <= now
+            ).all()
+
+            for log in expired_30m:
+                tenant_id_ctx.set(f"Client_{log.client_id}")
+                logger.error(
+                    f"🚨 30M CRITICAL ESCALATION TRIGGERED: Lead {log.lead_id} still unacknowledged! Alerting Director.")
+
+                director = db.query(Agent).filter(Agent.client_id == log.client_id, Agent.is_manager == True).first()
+                if director and settings.TWILIO_ACCOUNT_SID:
+                    try:
+                        client = Client(settings.TWILIO_ACCOUNT_SID, settings.TWILIO_AUTH_TOKEN)
+                        msg = f"🚨 *URGENT ESCALATION (30 Min)*\nLead #{log.lead_id} requires immediate Director intervention."
+                        to_phone = f"whatsapp:{director.phone}" if not director.phone.startswith(
+                            "whatsapp:") else director.phone
+                        client.messages.create(
+                            from_=settings.TWILIO_PHONE_NUMBER,
+                            body=msg,
+                            to=to_phone
+                        )
+                    except Exception as e:
+                        logger.error(f"30m escalation Twilio failed: {e}")
+
+                log.status = "escalated_30m"
+
+            db.commit()
+        except Exception as e:
+            logger.error(f"Escalation job failed: {e}")
 
 scheduler = BackgroundScheduler()
 scheduler.add_job(check_and_send_followups, "interval", minutes=1, id="follow_up_checker")
@@ -298,57 +341,56 @@ async def background_process_and_push(session_id: str, Body: str, client_id: int
     Executes if the LLM exceeds 15s timeout. Uses Twilio REST API to push the reply out-of-band.
     If the LLM still fails in the background, sends a graceful fallback so the user is never left with no response.
     """
-    db = next(get_db())
-    try:
-        payload = LeadIngestionPayload(
-            session_id=session_id,
-            source="whatsapp",
-            message=Body,
-            whatsapp_opt_in=True
-        )
-        reply_text = await process_unified_lead(payload, db, client_id, background=True)
-        if settings.TWILIO_ACCOUNT_SID:
-            client = Client(settings.TWILIO_ACCOUNT_SID, settings.TWILIO_AUTH_TOKEN)
-            await asyncio.to_thread(
-                client.messages.create,
-                from_=settings.TWILIO_PHONE_NUMBER,
-                body=reply_text,
-                to=f"whatsapp:{session_id}"
-            )
-            logger.info(f"Background task pushed response to {session_id}")
-    except Exception as e:
-        logger.error(f"Background task failed for {session_id}: {e}")
-        # Always guarantee the user gets a response — send fallback via Twilio REST
+    # --- FIX 3: Use context manager to prevent session leak ---
+    with SessionLocal() as db:
         try:
+            payload = LeadIngestionPayload(
+                session_id=session_id,
+                source="whatsapp",
+                message=Body,
+                whatsapp_opt_in=True
+            )
+            reply_text = await process_unified_lead(payload, db, client_id, background=True)
             if settings.TWILIO_ACCOUNT_SID:
-                fallback_client = Client(settings.TWILIO_ACCOUNT_SID, settings.TWILIO_AUTH_TOKEN)
+                client = Client(settings.TWILIO_ACCOUNT_SID, settings.TWILIO_AUTH_TOKEN)
                 await asyncio.to_thread(
-                    fallback_client.messages.create,
+                    client.messages.create,
                     from_=settings.TWILIO_PHONE_NUMBER,
-                    body="I'm experiencing a brief connectivity issue. Please try again in a moment, or reach our team directly at +91 9876543210.",
+                    body=reply_text,
                     to=f"whatsapp:{session_id}"
                 )
-                logger.warning(f"FALLBACK | session={session_id} | reason=background_task_failure | detail=graceful_fallback_sent_via_twilio")
-        except Exception as fallback_err:
-            logger.error(f"FALLBACK push also failed for {session_id}: {fallback_err}")
-            # Phase 2 Hardening: Dead-Letter Queue integration for Twilio outbound
-            BACKGROUND_FAILURE_COUNT.labels(component="twilio").inc()
-            INTEGRATION_FAILURES.labels(integration="twilio").inc()
-            payload = {
-                "session_id": session_id,
-                "body": "I'm experiencing a brief connectivity issue. Please try again in a moment, or reach our team directly at +91 9876543210.",
-                "to": f"whatsapp:{session_id}"
-            }
-            dlq_entry = models.DLQEvent(
-                target_endpoint="twilio_outbound",
-                payload=payload,
-                error_trace=str(fallback_err),
-                status="pending"
-            )
-            db.add(dlq_entry)
-            db.commit()
-    finally:
-        db.close()
+                logger.info(f"Background task pushed response to {session_id}")
+        except Exception as e:
+            logger.error(f"Background task failed for {session_id}: {e}")
+            # Always guarantee the user gets a response — send fallback via Twilio REST
+            try:
+                if settings.TWILIO_ACCOUNT_SID:
+                    fallback_client = Client(settings.TWILIO_ACCOUNT_SID, settings.TWILIO_AUTH_TOKEN)
+                    await asyncio.to_thread(
+                        fallback_client.messages.create,
+                        from_=settings.TWILIO_PHONE_NUMBER,
+                        body="I'm experiencing a brief connectivity issue. Please try again in a moment, or reach our team directly at +91 9876543210.",
+                        to=f"whatsapp:{session_id}"
+                    )
+                    logger.warning(f"FALLBACK | session={session_id} | reason=background_task_failure | detail=graceful_fallback_sent_via_twilio")
+            except Exception as fallback_err:
+                logger.error(f"FALLBACK push also failed for {session_id}: {fallback_err}")
+                # Phase 2 Hardening: Dead-Letter Queue integration for Twilio outbound
+                BACKGROUND_FAILURE_COUNT.labels(component="twilio").inc()
+                INTEGRATION_FAILURES.labels(integration="twilio").inc()
+                payload_dlq = {
+                    "session_id": session_id,
+                    "body": "I'm experiencing a brief connectivity issue. Please try again in a moment, or reach our team directly at +91 9876543210.",
+                    "to": f"whatsapp:{session_id}"
+                }
+                dlq_entry = models.DLQEvent(
+                    target_endpoint="twilio_outbound",
+                    payload=payload_dlq,
+                    error_trace=str(fallback_err),
+                    status="pending"
+                )
+                db.add(dlq_entry)
+                db.commit()
 
 class LeadIngestionPayload(BaseModel):
     session_id: str
@@ -362,90 +404,53 @@ class LeadIngestionPayload(BaseModel):
     property_type: Optional[str] = None
     whatsapp_opt_in: bool = False
 
+
 async def process_unified_lead(payload: LeadIngestionPayload, db: DBSession, client_id: int, background: bool = False):
-    # --- FIX: Isolate Session ID per Client ---
+    """
+    Unified entry point for lead ingestion.
+    Refactored to call process_chat for Gemini processing to avoid logic duplication.
+    """
     raw_session_id = payload.session_id
     prefix = f"{client_id}_"
     scoped_session_id = raw_session_id if raw_session_id.startswith(prefix) else f"{prefix}{raw_session_id}"
-    # ------------------------------------------
 
-    # 1. Ensure Session exists (Using the scoped ID)
+    # --- FIX: Ensure Session exists BEFORE creating the Lead ---
     session = db.query(models.Session).filter(models.Session.id == scoped_session_id).first()
     if not session:
         session = models.Session(id=scoped_session_id, client_id=client_id)
         db.add(session)
         db.commit()
-    
-    # 2. Ensure Lead exists, preventing duplicates by session_id
+    # -------------------------------------------------------------------------
+
+    # Pre-sync lead data from payload if provided
     lead = db.query(models.Lead).filter(models.Lead.session_id == scoped_session_id).first()
-    is_new_lead = False
     if not lead:
         lead = models.Lead(
             session_id=scoped_session_id,
             client_id=client_id,
             source=payload.source,
-            whatsapp_opt_in=payload.whatsapp_opt_in
+            whatsapp_opt_in=payload.whatsapp_opt_in,
+            name=payload.name,
+            phone=payload.phone,
+            budget=payload.budget,
+            location=payload.location,
+            property_type=payload.property_type,
+            intent=payload.intent
         )
         db.add(lead)
-        is_new_lead = True
-    
-    # Update fields if provided
-    if payload.name: lead.name = payload.name
-    if payload.phone: lead.phone = payload.phone
-    if payload.intent: lead.intent = payload.intent
-    if payload.budget: lead.budget = payload.budget
-    if payload.location: lead.location = payload.location
-    if payload.property_type: lead.property_type = payload.property_type
-    
+    else:
+        if payload.name: lead.name = payload.name
+        if payload.phone: lead.phone = payload.phone
+        if payload.budget: lead.budget = payload.budget
+        if payload.location: lead.location = payload.location
+        if payload.property_type: lead.property_type = payload.property_type
+        if payload.intent: lead.intent = payload.intent
+
     db.commit()
 
-    if is_new_lead:
-        lead.funnel_stage = "New"
-        # FIX: Added action_type and latency_ms=0
-        db.add(models.EventLog(
-            session_id=scoped_session_id,
-            client_id=client_id,
-            event_type="tracking",
-            action_type="lead_created",
-            latency_ms=0
-        ))
-        db.commit()
-        # Fire background CRM Sync
-        asyncio.create_task(sync_lead_to_crm(lead.id))
-        
-    # Check for Appointment
-    if lead.visit_date and lead.funnel_stage not in ["Appointment Scheduled", "Closed Won"]:
-        lead.funnel_stage = "Appointment Scheduled"
-        db.commit()
-
-    # 3. Handle Initial Outbound Message for Passive Sources
-    if is_new_lead and payload.source != "whatsapp" and payload.whatsapp_opt_in:
-        outbound_text = f"Hi {lead.name or 'there'}, thanks for your interest! I'm the AI assistant for ABC Properties. Are you looking to buy or rent?"
-        if settings.TWILIO_ACCOUNT_SID and lead.phone:
-            try:
-                client = Client(settings.TWILIO_ACCOUNT_SID, settings.TWILIO_AUTH_TOKEN)
-                client.messages.create(
-                    from_=settings.TWILIO_PHONE_NUMBER,
-                    body=outbound_text,
-                    to=f"whatsapp:{lead.phone}"
-                )
-                db.add(models.EventLog(session_id=scoped_session_id, client_id=client_id, event_type="message_sent"))
-                db.add(models.Message(session_id=scoped_session_id, client_id=client_id, role="assistant", content=outbound_text))
-                
-                # Update Funnel Stage
-                if lead.funnel_stage == "New":
-                    lead.funnel_stage = "Contacted"
-                    
-                db.commit()
-            except Exception as e:
-                logger.error(f"Failed to send outbound to {lead.phone}: {e}")
-
-    # 4. If a message was sent, process via AI
-    if payload.message:
-        reply_text = await process_chat(scoped_session_id, payload.message, db, client_id=client_id, is_background=background)
-        return reply_text
-    
-    return "Lead processed successfully."
+    # Now delegate the core logic to process_chat
+    return await process_chat(scoped_session_id, payload.message or "", db, client_id=client_id,
+                              is_background=background)
 
 @app.post("/api/v1/ingest")
 async def ingest_lead(payload: LeadIngestionPayload, current_client: models.Client = Depends(auth.get_client_by_api_key), db: DBSession = Depends(get_db)):
@@ -502,7 +507,7 @@ def acknowledge_notification(lead_id: int, current_client: models.Client = Depen
     log = db.query(NotificationLog).filter(
         NotificationLog.lead_id == lead_id,
         NotificationLog.client_id == current_client.id,
-        NotificationLog.status == "pending_ack"
+        NotificationLog.status.in_(["pending_ack", "escalated_10m", "escalated_30m"])
     ).first()
 
     if log:
@@ -592,6 +597,34 @@ async def whatsapp_webhook(
         twiml = MessagingResponse()
         twiml.message("I'm experiencing a brief connectivity issue. Let me connect you with our expert at +91 9876543210.")
         return Response(content=str(twiml), media_type="application/xml")
+
+
+@app.post("/api/v1/webhook/twilio-status")
+async def twilio_status_webhook(
+        request: Request,
+        MessageSid: str = Form(None),
+        MessageStatus: str = Form(None),
+        db: DBSession = Depends(get_db)
+):
+    """
+    Twilio Status Callback Endpoint.
+    Tracks exact delivery status (sent, delivered, read, failed).
+    Safely ignores unexpected payloads via Form(None).
+    """
+    if MessageSid and MessageStatus:
+        logger.info(f"Twilio Delivery Tracking | SID: {MessageSid} | Status: {MessageStatus.upper()}")
+        log = db.query(models.NotificationLog).filter(models.NotificationLog.twilio_message_sid == MessageSid).first()
+
+        if log and log.status in ["pending_ack", "sent", "delivered", "failed"]:
+            log.twilio_delivery_status = MessageStatus
+
+            # If Twilio physically failed to deliver, mark it failed to halt escalation
+            if MessageStatus.lower() == "failed":
+                log.status = "failed"
+            db.commit()
+
+    # Twilio requires an empty TwiML response to acknowledge receipt
+    return Response(content="<Response></Response>", media_type="application/xml")
 
 @app.post("/api/v1/incoming_sms")
 async def incoming_sms_webhook(

@@ -10,10 +10,10 @@ from config import settings
 
 genai.configure(api_key=settings.GEMINI_API_KEY)
 
-def get_embedding(text: str):
+def get_embeddings(texts: list[str]):
     result = genai.embed_content(
         model="models/gemini-embedding-001",
-        content=text,
+        content=texts,
         task_type="retrieval_document"
     )
     return result['embedding']
@@ -43,6 +43,7 @@ _logger = _rag_log.getLogger("rag")
 RAG_AVAILABLE = False
 data = []
 index = None
+_index_ready_event = threading.Event()
 
 def _build_rag_index():
     global RAG_AVAILABLE, data, index
@@ -56,14 +57,16 @@ def _build_rag_index():
             for item in data
         ]
 
-        # Compute embeddings once at startup (cached in FAISS index)
-        embeddings = np.array([get_embedding(t) for t in texts], dtype=np.float32)
+        # Compute embeddings in batch
+        embeddings_list = get_embeddings(texts)
+        embeddings = np.array(embeddings_list, dtype=np.float32)
 
         dimension = embeddings.shape[1]
         _idx = faiss.IndexFlatL2(dimension)
         _idx.add(embeddings)
         index = _idx
         RAG_AVAILABLE = True
+        _index_ready_event.set()
         _logger.info(f"RAG index built with {len(data)} FAQ items.")
     except Exception as _e:
         _logger.warning(f"RAG index failed to build (degraded mode, no context injection): {_e}")
@@ -72,6 +75,10 @@ def _build_rag_index():
 threading.Thread(target=_build_rag_index, daemon=True).start()
 
 def retrieve(query: str, k: int = 1):
+    # Wait up to 5 seconds if index is still building (prevents empty results on early requests)
+    if not RAG_AVAILABLE:
+        _index_ready_event.wait(timeout=5.0)
+
     if not RAG_AVAILABLE or index is None:
         _logger.warning("RAG index is still building or failed, returning empty context.")
         return [], 0.0

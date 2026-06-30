@@ -55,6 +55,14 @@ class Settings(BaseSettings):
     TWILIO_AUTH_TOKEN: str = ""
     TWILIO_PHONE_NUMBER: str = ""
 
+    # --- Notification & Escalation Variables ---
+    SMTP_HOST: str = ""
+    SMTP_PORT: int = 0
+    SMTP_USER: str = ""
+    SMTP_PASS: str = ""
+    ADMIN_EMAIL: str = ""
+    WEBHOOK_BASE_URL: str = ""
+
     # Production flag — set to true on Render
     IS_PRODUCTION: bool = False
 

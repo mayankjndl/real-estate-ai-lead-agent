@@ -227,6 +227,7 @@ async def process_chat(session_id: str, user_message: str, db: DBSession, client
     extracts function calls for lead generation, and commits all data to DB.
     """
     start_time = time.time()
+    final_text = ""
 
     # Ensure session and lead exist in the database exactly once to prevent redundant queries
     session = db.query(Session).filter(Session.id == session_id).first()
@@ -240,11 +241,20 @@ async def process_chat(session_id: str, user_message: str, db: DBSession, client
         db.add(lead)
         db.commit()
 
+        # --- FIX 7: Added error handling to background tasks ---
+        def handle_task_result(task):
+            try:
+                task.result()
+            except Exception as e:
+                logger.error(f"Background task failed: {e}")
+
         latency = round((time.time() - start_time) * 1000)
-        asyncio.create_task(log_event_async(session_id, "lead_created", latency_ms=latency, client_id=client_id))
+        task1 = asyncio.create_task(log_event_async(session_id, "lead_created", latency_ms=latency, client_id=client_id))
+        task1.add_done_callback(handle_task_result)
 
         # --- FIX: Trigger HubSpot CRM sync for organically created chats ---
-        asyncio.create_task(sync_lead_to_crm(lead.id))
+        task2 = asyncio.create_task(sync_lead_to_crm(lead.id))
+        task2.add_done_callback(handle_task_result)
 
     # --- FIX: Extract raw phone number from the tenant-prefixed Session ID ---
     if not lead.phone:
@@ -277,17 +287,17 @@ async def process_chat(session_id: str, user_message: str, db: DBSession, client
     # If the lead already has a visit date booked, mark follow-up as completed (not just stopped).
     # "stopped" = paused mid-sequence by user reply; "completed" = goal achieved, no further action needed.
 
+    # --- FIX 4: Corrected indentation for Qualification Logic ---
+    # Ensure ALL mandatory fields are present before marking follow-up complete
+    is_qualified_now = bool(
+        lead and lead.visit_date and lead.phone and lead.name and lead.location and lead.budget and lead.property_type)
 
-        # Ensure ALL mandatory fields are present before marking follow-up complete
-        is_fully_qualified = bool(
-            lead and lead.visit_date and lead.phone and lead.name and lead.location and lead.budget and lead.property_type)
-
-        if is_fully_qualified:
-            f_state.follow_up_status = "completed"
-            f_state.next_follow_up_at = None
-            session.status = "closed"
-        else:
-            f_state.follow_up_status = "stopped"  # User replied, so we stop active automated follow-ups for now.
+    if is_qualified_now:
+        f_state.follow_up_status = "completed"
+        f_state.next_follow_up_at = None
+        session.status = "closed"
+    else:
+        f_state.follow_up_status = "stopped"  # User replied, so we stop active automated follow-ups for now.
 
     # User replied — reset old follow-up state (for backwards compatibility temporarily)
     session.follow_up_count = 0
@@ -740,7 +750,8 @@ async def process_chat(session_id: str, user_message: str, db: DBSession, client
                     prev_name = lead.name
                     prev_visit_date = lead.visit_date
                     prev_property_type = lead.property_type
-                    was_fully_qualified = bool(lead.visit_date and lead.phone and lead.name and lead.location and lead.budget and lead.property_type)
+                    # --- FIX 5: Use distinct name for initial state tracking ---
+                    initial_was_fully_qualified = bool(lead.visit_date and lead.phone and lead.name and lead.location and lead.budget and lead.property_type)
 
                     # Update Lead table fields dynamically (using the in-memory lead object)
                     # OPTIMIZATION: Only overwrite DB fields if Gemini passes a non-null, valid value.
@@ -785,8 +796,13 @@ async def process_chat(session_id: str, user_message: str, db: DBSession, client
                                 text_from_response = part.text.strip()
                                 break
 
-                    is_fully_qualified = bool(
+                    # --- FIX 5: Use transition tracking logic ---
+                    is_now_fully_qualified = bool(
                         lead and lead.visit_date and lead.phone and lead.name and lead.location and lead.budget and lead.property_type)
+                    
+                    if is_now_fully_qualified and not initial_was_fully_qualified:
+                        logger.info(f"🏆 LEAD FULLY QUALIFIED: {lead.phone} | Session {session_id}")
+                        # You could trigger specific 'qualified' events here
                     captured_fields = [k for k in
                                        ["name", "phone", "budget", "location", "property_type", "intent", "visit_date"]
                                        if k in args]
@@ -847,6 +863,18 @@ async def process_chat(session_id: str, user_message: str, db: DBSession, client
     # ==========================================
     history_text = " ".join([m.content for m in past_messages if m.role == "user"]).lower() + " " + user_message.lower()
 
+    # --- FIX 1: Initialize ml_score_data to prevent UnboundLocalError ---
+    ml_score_data = {
+        "conversion_probability": 0,
+        "lead_temperature": "cold",
+        "expected_closure_days": 60,
+        "engagement_score": 0,
+        "urgency_level": "low",
+        "response_speed_score": 0,
+        "inactivity_penalty": 0,
+        "budget_alignment_status": "unknown"
+    }
+
     memory_dicts = []
     for m in past_messages:
         memory_dicts.append({
@@ -855,6 +883,8 @@ async def process_chat(session_id: str, user_message: str, db: DBSession, client
             "timestamp": m.timestamp.isoformat() if hasattr(m, "timestamp") and m.timestamp else None
         })
 
+    # --- FIX 1: Calculate advanced lead score outside the loop or with proper check ---
+    if True: # Ensure it runs even if past_messages is empty
         # 1. Calculate advanced lead score
         # Map Gemini's database intent strings to the scoring engine's expected weights
         _raw_intent = (lead.intent or "").lower()

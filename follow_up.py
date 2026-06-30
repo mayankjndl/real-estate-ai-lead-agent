@@ -203,7 +203,7 @@ def generate_followup_payload(
         "session_id": session_id,
 
         "generated_at": str(
-            datetime.utcnow()
+            datetime.now(timezone.utc)
         ),
 
         # ======================================
@@ -561,6 +561,10 @@ def check_and_send_followups():
 
                         # Transition State Machine
                         followups = generated_payload.get("followups", [])
+                        if not followups:
+                            # Fallback to 'sequence' key if 'followups' is missing (key mismatch fix)
+                            followups = generated_payload.get("sequence", [])
+
                         # TEST MODE: collapse inter-stage gaps to 1 minute each.
                         # Production: gaps come from the ML payload (24h, 48h, 96h).
                         def _next_delay(prod_hours):
