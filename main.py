@@ -997,6 +997,16 @@ def update_lead_stage(
 
     lead.funnel_stage = stage_update.stage
 
+    # --- AUTO-ACKNOWLEDGE ALERTS ON STAGE UPDATE ---
+    # If they drag the lead out of "New" (e.g., to Contacted, Scheduled, etc.)
+    if stage_update.stage != "New":
+        db.query(models.NotificationLog).filter(
+            models.NotificationLog.lead_id == lead_id,
+            models.NotificationLog.client_id == current_client.id,
+            models.NotificationLog.status.in_(["pending_ack", "escalated_10m", "escalated_30m"])
+        ).update({models.NotificationLog.status: "acknowledged"}, synchronize_session=False)
+    # -----------------------------------------------
+
     # --- AUDIT TRAIL FOR FUNNEL STAGE CHANGES ---
     safe_stage_name = stage_update.stage.replace(' ', '_').lower()
     db.add(models.EventLog(
