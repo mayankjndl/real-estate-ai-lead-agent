@@ -116,30 +116,44 @@ async def trigger_hot_lead_notification(lead_id: int, reason: str = "High-intent
             twilio_sid = None
 
             # 4. DISPATCH VIA TWILIO
+            delivery_status = "pending_ack"
+            twilio_sid = None
+            twilio_success = False
+
             if settings.TEST_MODE:
                 logger.info(f"[TEST MODE] Simulated WhatsApp Alert to {agent_name} ({agent_phone})")
+                twilio_success = True
             elif settings.TWILIO_ACCOUNT_SID:
-                try:
-                    client = Client(settings.TWILIO_ACCOUNT_SID, settings.TWILIO_AUTH_TOKEN)
-                    to_number = f"whatsapp:{agent_phone}" if not agent_phone.startswith("whatsapp:") else agent_phone
+                client = Client(settings.TWILIO_ACCOUNT_SID, settings.TWILIO_AUTH_TOKEN)
+                to_number = f"whatsapp:{agent_phone}" if not agent_phone.startswith("whatsapp:") else agent_phone
 
-                    # Construct status callback URL
-                    base_url = settings.WEBHOOK_BASE_URL
-                    status_callback_url = f"{base_url}/api/v1/webhook/twilio-status" if base_url else None
+                base_url = settings.WEBHOOK_BASE_URL
+                status_callback_url = f"{base_url}/api/v1/webhook/twilio-status" if base_url else None
 
-                    message = client.messages.create(
-                        from_=settings.TWILIO_PHONE_NUMBER,
-                        body=message_body,
-                        to=to_number,
-                        status_callback=status_callback_url
-                    )
-                    twilio_sid = message.sid
-                    delivery_status = "pending_ack"
-                    logger.info(f"WhatsApp Alert dispatched to {agent_name} | SID: {twilio_sid}")
-                except Exception as e:
-                    logger.error(f"WhatsApp Alert failed: {e}. Triggering Email Fallback.")
+                # --- FIX: 3 Retry Loop ---
+                for attempt in range(3):
+                    try:
+                        message = client.messages.create(
+                            from_=settings.TWILIO_PHONE_NUMBER,
+                            body=message_body,
+                            to=to_number,
+                            status_callback=status_callback_url
+                        )
+                        twilio_sid = message.sid
+                        delivery_status = "pending_ack"
+                        twilio_success = True
+                        logger.info(
+                            f"WhatsApp Alert dispatched to {agent_name} | SID: {twilio_sid} | Attempt: {attempt + 1}")
+                        break  # Success, break out of the retry loop
+                    except Exception as e:
+                        logger.warning(f"WhatsApp Alert attempt {attempt + 1} failed: {e}")
+                        import asyncio
+                        await asyncio.sleep(1)  # Wait 1 second before retrying
+
+                # If all 3 attempts failed, trigger the email
+                if not twilio_success:
+                    logger.error("All 3 Twilio attempts failed. Triggering Email Fallback.")
                     delivery_status = "failed"
-                    # Trigger Email Fallback gracefully
                     send_fallback_email(agent_email, agent_name, lead, reason)
 
             # 5. CREATE AUDIT LOG (10-minute escalation timer)

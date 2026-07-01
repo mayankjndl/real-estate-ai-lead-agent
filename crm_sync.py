@@ -1,6 +1,8 @@
 import logging
 import os
 
+import asyncio
+
 import httpx
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 
@@ -55,6 +57,11 @@ async def sync_lead_to_crm(lead_id: int):
     Background task wrapper to extract lead data, format it, 
     push to the CRM, and update the Lead table with the external CRM ID.
     """
+
+    # FIX: Wait 2 seconds to ensure agent.py has finished its main database commit!
+    # This prevents the race condition where agent.py overwrites the success status.
+    await asyncio.sleep(2)
+
     with SessionLocal() as db:
         try:
             lead = db.query(Lead).filter(Lead.id == lead_id).first()

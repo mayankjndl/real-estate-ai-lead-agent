@@ -161,13 +161,14 @@ def extract_lead_info(
         intent: str = None,
         score: str = None,
         visit_date: str = None,
-        conversational_reply: str = None
+        conversational_reply: str = None,
+        confidence_score: int = 100
 ):
     """
     Saves the lead's property search details to the CRM database.
 
     ⚠️  WHEN TO CALL THIS TOOL:
-    ONLY call this tool when the user explicitly provides NEW personal search information:
+    YOU MUST call this tool IMMEDIATELY the very first time the user provides ANY of these:
     - Their name
     - Their phone number
     - Their budget (e.g. "80 lakhs", "25k per month", "1.2 crores")
@@ -175,6 +176,7 @@ def extract_lead_info(
     - Their property type preference (e.g. "2BHK", "3BHK", "Villa")
     - Their intent (buy / rent / investment)
     - A requested visit date or time
+    Do NOT wait to gather more information. Extract what you have immediately.
 
     ⛔ DO NOT CALL THIS TOOL for:
     - General property questions ("What are prices in Baner?")
@@ -194,6 +196,7 @@ def extract_lead_info(
         score: Your internal lead scoring evaluation (High, Medium, Low).
         visit_date: The user's requested visit date/time (e.g., 'Tuesday 2pm', 'Saturday morning').
         conversational_reply: Your natural, conversational response to the user's message. MUST NOT BE EMPTY.
+        confidence_score: Rate your confidence in the extracted data from 0 to 100. If the user is ambiguous, unsure, giving contradictory statements (e.g. changing locations or budgets), output a score below 75.
 
     INTENT-BASED BEHAVIOR:
     - HIGH: Be proactive. Offer a specific next step like shortlisting or a site visit.
@@ -764,6 +767,14 @@ async def process_chat(session_id: str, user_message: str, db: DBSession, client
                     if "intent" in args and args["intent"]: lead.intent = args["intent"]
                     if "score" in args and args["score"]: lead.score = args["score"]
                     if "visit_date" in args and args["visit_date"]: lead.visit_date = args["visit_date"]
+
+                    # --- FIX: Process Confidence Score & Manual Review ---
+                    if "confidence_score" in args:
+                        lead.confidence_score = args["confidence_score"]
+                        if args["confidence_score"] < 75:
+                            lead.requires_manual_review = True
+                            logger.info(f"⚠️ Low confidence ({lead.confidence_score}%). Flagged for manual review.")
+                    # -----------------------------------------------------
 
                     db.commit()
 

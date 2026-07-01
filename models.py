@@ -107,6 +107,10 @@ class Lead(Base):
     external_crm_id = Column(String, nullable=True)
     crm_sync_status = Column(String, default="pending")
 
+    # --- NEW CONFIDENCE THRESHOLD COLUMNS ---
+    confidence_score = Column(Integer, default=100)
+    requires_manual_review = Column(Boolean, default=False)
+
     session = relationship("Session", back_populates="lead")
     client = relationship("Client", back_populates="leads")
 
