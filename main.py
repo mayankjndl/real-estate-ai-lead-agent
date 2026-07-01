@@ -33,10 +33,13 @@ import auth
 import models
 from agent import process_chat
 from config import settings, tenant_id_ctx, request_id_ctx
+from crm_sync import sync_lead_to_crm
 from database import engine, Base, get_db, SessionLocal
 from follow_up import check_and_send_followups
 from metrics import BACKGROUND_FAILURE_COUNT, INTEGRATION_FAILURES
 
+# Create a global set to protect background tasks from garbage collection
+running_bg_tasks = set()
 
 def send_critical_alert(title: str, detail: str):
     """Simulates sending a webhook alert to Slack/Discord/Email"""
@@ -414,16 +417,16 @@ async def process_unified_lead(payload: LeadIngestionPayload, db: DBSession, cli
     prefix = f"{client_id}_"
     scoped_session_id = raw_session_id if raw_session_id.startswith(prefix) else f"{prefix}{raw_session_id}"
 
-    # --- FIX: Ensure Session exists BEFORE creating the Lead ---
+    # Ensure Session exists BEFORE creating the Lead
     session = db.query(models.Session).filter(models.Session.id == scoped_session_id).first()
     if not session:
         session = models.Session(id=scoped_session_id, client_id=client_id)
         db.add(session)
         db.commit()
-    # -------------------------------------------------------------------------
 
     # Pre-sync lead data from payload if provided
     lead = db.query(models.Lead).filter(models.Lead.session_id == scoped_session_id).first()
+    is_new_lead = False
     if not lead:
         lead = models.Lead(
             session_id=scoped_session_id,
@@ -438,6 +441,7 @@ async def process_unified_lead(payload: LeadIngestionPayload, db: DBSession, cli
             intent=payload.intent
         )
         db.add(lead)
+        is_new_lead = True
     else:
         if payload.name: lead.name = payload.name
         if payload.phone: lead.phone = payload.phone
@@ -447,6 +451,24 @@ async def process_unified_lead(payload: LeadIngestionPayload, db: DBSession, cli
         if payload.intent: lead.intent = payload.intent
 
     db.commit()
+
+    # --- FIX: FIRE THE CRM SYNC SAFELY ---
+    if is_new_lead:
+        lead.funnel_stage = "New"
+        db.add(models.EventLog(
+            session_id=scoped_session_id,
+            client_id=client_id,
+            event_type="tracking",
+            action_type="lead_created",
+            latency_ms=0
+        ))
+        db.commit()
+
+        # Launch the CRM Sync and protect it from Garbage Collection
+        task = asyncio.create_task(sync_lead_to_crm(lead.id))
+        running_bg_tasks.add(task)
+        task.add_done_callback(running_bg_tasks.discard)
+    # --------------------------------------------------------
 
     # Now delegate the core logic to process_chat
     return await process_chat(scoped_session_id, payload.message or "", db, client_id=client_id,

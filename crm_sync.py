@@ -40,6 +40,14 @@ async def _push_to_hubspot(payload: dict) -> dict:
         "Authorization": f"Bearer {CRM_API_KEY}",
         "Content-Type": "application/json"
     }
+
+    # --- RESTORED DEMO SIMULATION BLOCK ---
+    # Since HubSpot is not part of your active local workflow, this block
+    # intercepts the call, returns a fake CRM ID, and sets status to success!
+    if CRM_API_URL == "https://api.hubapi.com/crm/v3/objects/contacts" and CRM_API_KEY == "demo-hubspot-key":
+        import uuid
+        return {"id": str(uuid.uuid4())}
+    # --------------------------------------
     
     async with httpx.AsyncClient() as client:
         logger.info(f"Syncing to CRM: {payload}")
