@@ -7,7 +7,9 @@ const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL;
 if (!BACKEND_URL) {
   throw new Error("CRITICAL: NEXT_PUBLIC_API_URL is not set in environment variables.");
 }
-export async function loginClient(prevState: any, formData: FormData) {
+export type LoginState = { error: string } | null
+
+export async function loginClient(prevState: LoginState, formData: FormData): Promise<LoginState> {
   const email = formData.get('email')
   const password = formData.get('password')
 
@@ -44,7 +46,7 @@ export async function loginClient(prevState: any, formData: FormData) {
       path: '/',
     })
 
-  } catch (err) {
+  } catch {
     return { error: 'Failed to connect to the authentication server.' }
   }
 

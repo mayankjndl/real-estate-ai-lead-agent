@@ -1,4 +1,4 @@
-import { ArrowRight, Bot, Target, Zap, Building2, Smartphone, BarChart3, ChevronRight } from 'lucide-react'
+import { ArrowRight, Bot, Target, Zap, Smartphone, BarChart3 } from 'lucide-react'
 
 export default function HomePage() {
   return (

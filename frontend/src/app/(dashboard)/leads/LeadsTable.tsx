@@ -2,7 +2,9 @@
 
 import { useState } from 'react'
 import { Lead } from '@/lib/api'
-import { Flame, ThermometerSnowflake, AlertCircle, Clock, Zap, ArrowUpDown, Filter } from 'lucide-react'
+import { Flame, ThermometerSnowflake, AlertCircle, Clock, Zap, ArrowUpDown, Filter, Cpu } from 'lucide-react'
+import { runSalesAi } from '@/app/(command-center)/sales-copilot/actions'
+import SalesAiModal, { type SalesAiResult } from '@/components/SalesAiModal'
 
 function getTempBadge(temp: string) {
   const t = temp?.toLowerCase() || 'cold'
@@ -29,6 +31,58 @@ export default function LeadsTable({ initialLeads }: { initialLeads: Lead[] }) {
   const [filterStage, setFilterStage] = useState<string>('All')
   const [filterTemp, setFilterTemp] = useState<string>('All')
 
+  const [salesOpen, setSalesOpen] = useState(false)
+  const [salesResult, setSalesResult] = useState<SalesAiResult | null>(null)
+  const [salesLeadId, setSalesLeadId] = useState<number | null>(null)
+  const [salesLoading, setSalesLoading] = useState(false)
+  const [salesExecuting, setSalesExecuting] = useState(false)
+  const [salesError, setSalesError] = useState<string | null>(null)
+
+  const openSalesAi = async (leadId: number) => {
+    setSalesLeadId(leadId)
+    setSalesLoading(true)
+    setSalesError(null)
+    setSalesOpen(true)
+    try {
+      const data = await runSalesAi(leadId, 'preview')
+      setSalesResult(data)
+    } catch (e) {
+      setSalesResult(null)
+      setSalesError(e instanceof Error ? e.message : 'Preview failed')
+    } finally {
+      setSalesLoading(false)
+    }
+  }
+
+  const confirmSalesAi = async () => {
+    if (salesLeadId == null || salesExecuting) return
+    setSalesExecuting(true)
+    setSalesError(null)
+    try {
+      const data = await runSalesAi(salesLeadId, 'execute')
+      setSalesResult(data)
+      setLeads((prev) =>
+        prev.map((l) =>
+          l.id === salesLeadId
+            ? {
+                ...l,
+                funnel_stage: data.funnel_stage || l.funnel_stage,
+                assigned_agent: data.assigned_agent ?? l.assigned_agent,
+                conversion_probability:
+                  data.scores?.conversion_probability ?? l.conversion_probability,
+                lead_temperature: data.scores?.lead_temperature || l.lead_temperature,
+              }
+            : l
+        )
+      )
+      setTimeout(() => setSalesOpen(false), 600)
+    } catch (e) {
+      setSalesError(e instanceof Error ? e.message : 'Execute failed')
+    } finally {
+      setSalesExecuting(false)
+    }
+  }
+
   const handleSort = (field: SortField) => {
     const isAsc = sortField === field && sortOrder === 'asc'
     setSortOrder(isAsc ? 'desc' : 'asc')
@@ -43,8 +97,8 @@ export default function LeadsTable({ initialLeads }: { initialLeads: Lead[] }) {
       return true
     })
     .sort((a, b) => {
-      let valA: any = 0;
-      let valB: any = 0;
+      let valA: string | number = 0;
+      let valB: string | number = 0;
 
       if (sortField === 'name') {
         valA = a.name?.toLowerCase() || ''
@@ -122,12 +176,13 @@ export default function LeadsTable({ initialLeads }: { initialLeads: Lead[] }) {
                 </th>
                 <th className="px-6 py-4 text-xs font-medium text-slate-500 dark:text-zinc-400 uppercase tracking-wider">Stage</th>
                 <th className="px-6 py-4 text-xs font-medium text-slate-500 dark:text-zinc-400 uppercase tracking-wider">Assignee</th>
+                <th className="px-6 py-4 text-xs font-medium text-slate-500 dark:text-zinc-400 uppercase tracking-wider">AI</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-zinc-800/50">
               {filteredAndSortedLeads.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-12 text-center text-sm text-slate-500 dark:text-zinc-500">
+                  <td colSpan={7} className="px-6 py-12 text-center text-sm text-slate-500 dark:text-zinc-500">
                     No leads found matching criteria.
                   </td>
                 </tr>
@@ -179,12 +234,36 @@ export default function LeadsTable({ initialLeads }: { initialLeads: Lead[] }) {
                       {lead.assigned_agent || 'Unassigned'}
                     </span>
                   </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <button
+                      type="button"
+                      onClick={() => openSalesAi(lead.id)}
+                      disabled={salesLoading && salesLeadId === lead.id}
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-indigo-50 text-indigo-700 border border-indigo-200 hover:bg-indigo-100 dark:bg-indigo-500/10 dark:text-indigo-300 dark:border-indigo-500/30 dark:hover:bg-indigo-500/20 disabled:opacity-50"
+                    >
+                      <Cpu className="w-3.5 h-3.5" />
+                      Sales AI
+                    </button>
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
       </div>
+
+      {salesOpen && (
+        <SalesAiModal
+          result={salesResult || {}}
+          isExecuting={salesExecuting || salesLoading}
+          error={salesError}
+          onCancel={() => {
+            setSalesOpen(false)
+            setSalesError(null)
+          }}
+          onConfirm={confirmSalesAi}
+        />
+      )}
     </div>
   )
 }

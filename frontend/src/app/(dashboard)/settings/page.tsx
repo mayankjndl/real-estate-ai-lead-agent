@@ -102,7 +102,7 @@ export default function SettingsPage() {
         }
       })
       .catch(() => {})  // Silently fall back to localStorage
-  }, [])
+  }, [setCompany, setDefaultView, setDisplayName, setEmailDigest, setLeadsPerPage, setNewLeadNotif, setWeeklyReport, setWhatsappAlerts])
 
   const handleSave = () => {
     // Persist all current state values to localStorage

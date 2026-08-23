@@ -1,4 +1,4 @@
-import { fetchLeads, Lead } from '@/lib/api'
+import { fetchLeads } from '@/lib/api'
 import KanbanBoard from './KanbanBoard'
 
 export default async function CRMPage() {

@@ -156,15 +156,20 @@ def test_competitor_scan_matches(monkeypatch):
 
     with __import__("database").SessionLocal() as db:
         _clean(db, "sess_cm_1")
-        db.add(Session(id="sess_cm_1", client_id=1, status="active"))
-        lead = Lead(session_id="sess_cm_1", client_id=1, name="Buyer",
+        db.query(Client).filter(Client.id == 999).delete()
+        db.commit()
+        db.add(Client(id=999, company_name="TestCompany", email="test@test.com", hashed_password="fake", api_key="fake_key"))
+        db.add(Session(id="sess_cm_1", client_id=999, status="active"))
+        lead = Lead(session_id="sess_cm_1", client_id=999, name="Buyer",
                     location="Wakad", intent="comparing with Lodha towers",
                     conversion_status="open")
         db.add(lead)
         db.commit()
-        client = db.query(Client).filter(Client.id == 1).first()
+        client = db.query(Client).filter(Client.id == 999).first()
         envelopes = cm._scan_client(db, client)
         _clean(db, "sess_cm_1")
+        db.query(Client).filter(Client.id == 999).delete()
+        db.commit()
 
     assert any(e["event_type"] == "market.alert.generated" for e in envelopes)
     assert any("lodha" in e["payload"]["matches"] for e in envelopes)

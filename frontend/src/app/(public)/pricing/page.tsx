@@ -1,6 +1,6 @@
 'use client'
 import { useState } from 'react'
-import { Building2, Check } from 'lucide-react'
+import { Check } from 'lucide-react'
 
 export default function PricingPage() {
   const [isAnnual, setIsAnnual] = useState(true)

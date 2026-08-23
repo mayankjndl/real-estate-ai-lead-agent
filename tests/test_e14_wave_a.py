@@ -113,6 +113,10 @@ def test_lifecycle_inject_booking_confirmed_wakes_cs(monkeypatch):
 
     import app.agents.customer_success_agent as cs
     monkeypatch.setattr(cs, "ae_submit", fake_submit)
+    
+    async def mock_resolve_lead_phone(lead_id):
+        return None
+    monkeypatch.setattr(cs, "_resolve_lead_phone", mock_resolve_lead_phone)
 
     envelope = {
         "event_type": "booking.confirmed",
@@ -126,10 +130,12 @@ def test_lifecycle_inject_booking_confirmed_wakes_cs(monkeypatch):
     assert submitted[0]["action_type"] == "notify_agent"
 
 
-def test_lifecycle_inject_rejects_bad_event_type():
+def test_lifecycle_inject_rejects_bad_event_type(monkeypatch):
     """A.2: unknown event_type returns 400."""
     from fastapi.testclient import TestClient
     import main as main_mod
+    from config import settings
+    monkeypatch.setattr(settings, "ADMIN_API_KEY", os.environ["ADMIN_API_KEY"])
     client = TestClient(main_mod.app)
 
     resp = client.post(
@@ -141,10 +147,12 @@ def test_lifecycle_inject_rejects_bad_event_type():
     assert "Invalid event_type" in resp.text
 
 
-def test_lifecycle_inject_unknown_lead_returns_404():
+def test_lifecycle_inject_unknown_lead_returns_404(monkeypatch):
     """A.2: non-existent lead returns 404."""
     from fastapi.testclient import TestClient
     import main as main_mod
+    from config import settings
+    monkeypatch.setattr(settings, "ADMIN_API_KEY", os.environ["ADMIN_API_KEY"])
     client = TestClient(main_mod.app)
 
     resp = client.post(

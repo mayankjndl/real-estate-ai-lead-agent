@@ -69,7 +69,7 @@ export default function LoginPage() {
         </div>
         
         <p className="text-center text-slate-500 dark:text-zinc-500 text-sm mt-8">
-          Don't have an account? <a href="/contact" className="text-slate-900 dark:text-white hover:underline">Request access</a>
+          Don&apos;t have an account? <a href="/contact" className="text-slate-900 dark:text-white hover:underline">Request access</a>
         </p>
       </div>
     </div>

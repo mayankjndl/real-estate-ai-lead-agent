@@ -1,5 +1,3 @@
-import { Building2, LayoutDashboard, Inbox, Users, Settings, LogOut } from 'lucide-react'
-import { logoutClient } from '@/lib/auth'
 import { ThemeProvider } from "@/components/ThemeProvider"
 
 import { Suspense } from 'react'

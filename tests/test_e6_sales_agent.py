@@ -38,6 +38,34 @@ def test_recommend_schedule_site_visit():
     assert recommend_next_action(lead)["action"] == "schedule_site_visit"
 
 
+def test_recommend_terminal_closed_won_no_outbound():
+    """Closed Won must not schedule visits or send brochures."""
+    lead = Lead(
+        funnel_stage="Closed Won",
+        lead_temperature="hot",
+        name="A",
+        phone="+919999999999",
+        location="Wakad",
+        budget="80L",
+        property_type="2BHK",
+        visit_date="2026-08-01",
+        assigned_agent="Raj",
+    )
+    rec = recommend_next_action(lead)
+    assert rec["action"] == "deal_closed"
+    lead2 = Lead(
+        funnel_stage="Closed Won",
+        lead_temperature="warm",
+        name="B",
+        phone="+919999999998",
+        location="Baner",
+        budget="70L",
+        property_type="2BHK",
+        assigned_agent="Raj",
+    )
+    assert recommend_next_action(lead2)["action"] == "deal_closed"
+
+
 def test_recommend_nurture_when_cold_unassigned():
     lead = Lead(lead_temperature="cold", name="A", phone="+919999999999",
                 location="Wakad", budget="80L", property_type="2BHK")
@@ -47,11 +75,18 @@ def test_recommend_nurture_when_cold_unassigned():
 def test_progress_deal_stage():
     lead = Lead(funnel_stage="New", assigned_agent="Raj")
     assert progress_deal_stage(lead) == "Contacted"
+    # No blind +1 every confirm
+    lead_mid = Lead(funnel_stage="Contacted", assigned_agent="Raj", name="A",
+                    phone="+91", location="W", budget="80L", property_type="2BHK")
+    assert progress_deal_stage(lead_mid) is None
     lead2 = Lead(funnel_stage="Closed Won")
     assert progress_deal_stage(lead2) is None
     lead3 = Lead(funnel_stage="Qualified", name="A", phone="+919999999999",
                  location="W", budget="80L", property_type="2BHK", visit_date="2026-08-01")
     assert progress_deal_stage(lead3) == "Site Visit Booked"
+    lead4 = Lead(funnel_stage="Qualified", name="A", phone="+91", location="W",
+                 budget="80L", property_type="2BHK", visit_date="2026-08-01")
+    assert progress_deal_stage(lead4, {"action": "schedule_site_visit"}) == "Site Visit Booked"
 
 
 def test_sales_ai_run_assigns_and_scores():

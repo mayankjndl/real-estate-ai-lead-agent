@@ -62,7 +62,7 @@ export default function ExportReport({ leads }: { leads: Lead[] }) {
       doc.setFontSize(10)
       doc.text(`Generated on: ${new Date().toLocaleDateString()}`, 14, 22)
       
-      // @ts-ignore
+      // @ts-expect-error jspdf-autotable augments jsPDF at runtime; the plugin's types are loaded via module augmentation
       doc.autoTable({
         startY: 25,
         head: [headers],

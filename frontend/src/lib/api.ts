@@ -6,12 +6,7 @@ if (!BACKEND_URL) {
 }
 
 async function authFetch(url: string, options?: RequestInit) {
-  const res = await fetch(url, options)
-  if (res.status === 401) {
-    const { redirect } = await import('next/navigation')
-    redirect('/login')
-  }
-  return res
+  return fetch(url, options)
 }
 
 export interface Lead {
@@ -110,4 +105,51 @@ export async function fetchAnalytics(): Promise<AnalyticsResponse | null> {
     console.error('Error fetching analytics:', err)
     return null
   }
+}
+
+async function fetchPrediction(path: string) {
+  const cookieStore = await cookies()
+  const token = cookieStore.get('jwt')?.value
+  if (!token) return null
+  try {
+    const res = await authFetch(`${BACKEND_URL}/api/v1/predictions/${path}`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      cache: 'no-store'
+    })
+    if (!res.ok) return null
+    return await res.json()
+  } catch (err) {
+    console.error(`Error fetching prediction ${path}:`, err)
+    return null
+  }
+}
+
+export async function fetchPredictionsRevenue() {
+  return fetchPrediction('revenue')
+}
+
+export async function fetchPredictionsCashflow() {
+  return fetchPrediction('cashflow')
+}
+
+export async function fetchPredictionsInventory() {
+  return fetchPrediction('inventory')
+}
+
+export async function fetchPredictionsCancellationRisk() {
+  return fetchPrediction('cancellation-risk')
+}
+
+export async function fetchAllPredictions() {
+  const [revenue, cashflow, inventory, cancellation] = await Promise.all([
+    fetchPredictionsRevenue(),
+    fetchPredictionsCashflow(),
+    fetchPredictionsInventory(),
+    fetchPredictionsCancellationRisk(),
+  ])
+  return { revenue, cashflow, inventory, cancellation }
 }

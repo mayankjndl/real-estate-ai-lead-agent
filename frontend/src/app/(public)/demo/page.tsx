@@ -21,7 +21,7 @@ export default function DemoPage() {
           <div className="space-y-8 lg:sticky lg:top-32">
             <h2 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white">Your personalized 1:1 session.</h2>
             <p className="text-slate-600 dark:text-zinc-400 leading-relaxed">
-              Skip the generic tour. We'll show you exactly how Revenue OS integrates with your current CRM and how our AI will specifically qualify your leads based on your unique criteria.
+              Skip the generic tour. We&apos;ll show you exactly how Revenue OS integrates with your current CRM and how our AI will specifically qualify your leads based on your unique criteria.
             </p>
             <ul className="space-y-4">
               {['Live WhatsApp AI demonstration', 'CRM integration strategy', 'Custom workflow mapping', 'Pricing tailored to your volume'].map((item, i) => (

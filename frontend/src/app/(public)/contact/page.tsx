@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Mail, MapPin, Phone, ArrowRight, Link } from 'lucide-react'
+import { Mail, Phone, ArrowRight, Link } from 'lucide-react'
 
 export default function ContactPage() {
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -24,7 +24,7 @@ export default function ContactPage() {
       setToast({ message: "Lead captured! Redirecting to CRM...", type: "success" })
       // Reset form
       e.currentTarget.reset()
-    } catch (error) {
+    } catch {
       setToast({ message: "Failed to submit. Please try again.", type: "error" })
     } finally {
       setIsSubmitting(false)
@@ -54,7 +54,7 @@ export default function ContactPage() {
           Get in touch.
         </h1>
         <p className="text-lg text-slate-600 dark:text-zinc-400 max-w-2xl mx-auto font-light">
-          Have questions about pricing, custom integrations, or just want to chat? We'd love to hear from you.
+          Have questions about pricing, custom integrations, or just want to chat? We&apos;d love to hear from you.
         </p>
       </header>
 

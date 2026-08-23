@@ -78,7 +78,7 @@ class CRMExecutor(BaseExecutor):
             try:
                 props = build_crm_properties(lead, include_extended=settings.CRM_SYNC_EXTENDED_PROPERTIES)
                 payload = {"properties": props}
-                result = await _push_to_hubspot(payload)
+                result = await _push_to_hubspot(payload, external_id=lead.external_crm_id)
                 external_id = (result or {}).get("id")
                 lead.external_crm_id = external_id
                 lead.crm_sync_status = decide_crm_status_after_poll(lead)

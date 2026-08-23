@@ -108,9 +108,35 @@ def test_negotiation_phrases_documented():
         "negotiate", "negotiation", "discount", "reduce price",
         "lower price", "too expensive", "can you reduce", "final price",
         "best price", "cheaper", "afford", "budget is tight",
+        "change my budget", "reduce my budget", "lower my budget",
+        "budget is only", "can only afford", "stretch my budget",
     ]
-    assert len(_NEGOTIATION_PHRASES) >= 10
+    assert len(_NEGOTIATION_PHRASES) >= 15
     assert "negotiate" in _NEGOTIATION_PHRASES
+    assert "change my budget" in _NEGOTIATION_PHRASES
+    assert "reduce my budget" in _NEGOTIATION_PHRASES
+
+
+def test_budget_change_phrases_trigger_detection():
+    """Layer 1: budget-change phrases should trigger negotiation detection."""
+    _NEGOTIATION_PHRASES = [
+        "negotiate", "negotiation", "discount", "reduce price",
+        "lower price", "too expensive", "can you reduce", "final price",
+        "best price", "cheaper", "afford", "budget is tight",
+        "change my budget", "reduce my budget", "lower my budget",
+        "budget is only", "can only afford", "stretch my budget",
+    ]
+    test_cases = [
+        "change my budget to 50lakhs",
+        "reduce my budget to 80 lakhs",
+        "lower my budget please",
+        "my budget is only 40 lakhs",
+        "i can only afford 60 lakhs",
+        "can you stretch my budget",
+    ]
+    for msg in test_cases:
+        matched = any(phrase in msg for phrase in _NEGOTIATION_PHRASES)
+        assert matched, f"Expected negotiation phrase to match in: '{msg}'"
 
 
 def test_keyword_detection_sets_flag():
@@ -302,3 +328,71 @@ def test_priority_alert_card_renders_negotiation_badge():
 
     assert "is_negotiating" in content, "PriorityAlertCard should reference is_negotiating"
     assert "Negotiate" in content, "PriorityAlertCard should render compact Negotiate badge"
+
+
+# --------------------------------------------------------------------------- #
+# score_lead() budget alignment fix tests
+# --------------------------------------------------------------------------- #
+
+def test_score_lead_uses_real_budget_alignment():
+    """score_lead() should use evaluate_budget_alignment, not simplistic check.
+
+    Regression test: score_lead() previously set alignment='aligned' whenever
+    budget and property_type existed, overriding the correct evaluation.
+    """
+    from app.agents.whatsapp_agent import score_lead
+    from models import Lead
+
+    lead = Lead(
+        name="Test",
+        phone="+919999999999",
+        budget="50LAKHS",
+        location="Hinjewadi",
+        property_type="3BHK",
+        intent="buy",
+        lead_temperature="warm",
+    )
+    scores = score_lead(lead)
+    # 50L vs 3BHK Hinjewadi (~90L+) should be weak/very_low, NOT aligned
+    assert scores["budget_alignment_status"] not in ("aligned",), (
+        f"score_lead() should not return 'aligned' for 50L budget vs 3BHK Hinjewadi, "
+        f"got: {scores['budget_alignment_status']}"
+    )
+
+
+def test_score_lead_returns_unknown_when_missing_fields():
+    """score_lead() should return 'unknown' when budget/location/property_type missing."""
+    from app.agents.whatsapp_agent import score_lead
+    from models import Lead
+
+    lead = Lead(
+        name="Test",
+        phone="+919999999999",
+        budget="50LAKHS",
+        # no location
+        property_type="3BHK",
+        lead_temperature="warm",
+    )
+    scores = score_lead(lead)
+    assert scores["budget_alignment_status"] == "unknown"
+
+
+def test_score_lead_aligned_when_budget_matches():
+    """score_lead() should return 'aligned' when budget matches property price."""
+    from app.agents.whatsapp_agent import score_lead
+    from models import Lead
+
+    # 1.5cr budget for 2BHK in Baner — should be aligned (2BHK Baner ~1.2-1.8cr)
+    lead = Lead(
+        name="Test",
+        phone="+919999999999",
+        budget="1.5cr",
+        location="Baner",
+        property_type="2BHK",
+        intent="buy",
+        lead_temperature="warm",
+    )
+    scores = score_lead(lead)
+    assert scores["budget_alignment_status"] in ("aligned", "excellent", "strong"), (
+        f"1.5cr for 2BHK Baner should be aligned/strong, got: {scores['budget_alignment_status']}"
+    )

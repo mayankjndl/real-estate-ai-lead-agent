@@ -13,6 +13,7 @@ export default function OnboardingWalkthrough() {
     const storageKey = `revenue_os_onboarding_${userEmail}`
     const hasSeen = localStorage.getItem(storageKey)
     if (!hasSeen) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- hydration guard: SSR and first client render must both be closed (isOpen=false); only flip after mount
       setIsOpen(true)
     }
   }, [])

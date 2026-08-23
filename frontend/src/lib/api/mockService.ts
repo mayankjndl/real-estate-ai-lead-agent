@@ -1,5 +1,8 @@
 // src/lib/api/mockService.ts
+// Dev-only chart shapes. Live KPIs must use /api/v1/predictions/* (P4-6).
+// Do not import mockForecastData as sole production forecast source.
 
+/** @deprecated Prefer live predictions API — kept for illustrative chart series only */
 export const mockForecastData = {
   status: "success",
   forecast: {

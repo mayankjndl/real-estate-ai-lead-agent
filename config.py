@@ -123,15 +123,24 @@ class Settings(BaseSettings):
     N8N_WEBHOOK_MAP: str = ""
     # Phase 8 competitor monitor watch-list (comma-separated, no network call)
     COMPETITOR_KEYWORDS: str = ""
+    # Admin API key for internal webhooks
+    ADMIN_API_KEY: str = ""
     # Wave D.4: WhatsApp brochure/floor plan media URL (public HTTPS). Empty = text fallback.
     BROCHURE_MEDIA_URL: str = ""
     FLOORPLAN_MEDIA_URL: str = ""
+    #CRM API Key for Hubspot
+    CRM_API_KEY: str = ""
     # Google Calendar (real CalendarExecutor) — empty = stub visit_id fallback
     GOOGLE_CALENDAR_ID: str = ""
     GOOGLE_CALENDAR_CREDENTIALS_JSON: str = ""
     GOOGLE_CALENDAR_TIMEZONE: str = "Asia/Kolkata"
 
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
+    # IREIOS 4.0 feature flags
+    FEATURE_GRAPH_VIZ: bool = True
+    FEATURE_TWIN_LIVE: bool = True
+    FEATURE_HUBSPOT_LIVE: bool = True
+
+    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
     @property
     def CLIENT_KEYS(self) -> dict:

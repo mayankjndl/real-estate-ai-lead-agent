@@ -64,7 +64,7 @@ services:
   # Host .env: N8N_API_KEY = webhook Header Auth secret (Authorization: Bearer …).
   # Host .env: N8N_MANAGEMENT_API_KEY = JWT from n8n Settings → n8n API (import script only).
   # Do NOT pass the webhook secret as a container env named N8N_API_KEY — n8n ignores it for /api/v1.
-  # Gmail-first recipes: plans/N8N_LIVE_WORKFLOWS_PLAN.md · docs/N8N_INTEGRATION.md
+  # Gmail-first recipes: plans/phase3/N8N_LIVE_WORKFLOWS_PLAN.md · docs/N8N_INTEGRATION.md
   n8n:
     image: n8nio/n8n:2.31.5
     container_name: n8n-local

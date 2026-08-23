@@ -51,7 +51,7 @@ When `N8N_BASE_URL` / `N8N_API_KEY` are empty, client/bridge return/skip with
 
 ## Recommended workflows (Gmail-first)
 
-Full step-by-step recipes: **`plans/N8N_LIVE_WORKFLOWS_PLAN.md`**.
+Full step-by-step recipes: **`plans/phase3/N8N_LIVE_WORKFLOWS_PLAN.md`**.
 
 | WF | Webhook path | Bus event | n8n action |
 |----|--------------|-----------|------------|

@@ -5,7 +5,18 @@ import { ArrowUpRight, CheckCircle2 } from 'lucide-react'
 import Link from 'next/link'
 import { acknowledgeLeadAlert } from '../crm/actions'
 
-export default function PriorityAlertCard({ lead }: { lead: any }) {
+interface PriorityLead {
+  id: number;
+  name?: string | null;
+  phone?: string | null;
+  budget?: string | null;
+  location?: string | null;
+  assigned_agent?: string | null;
+  is_negotiating?: boolean;
+  conversion_status?: string;
+}
+
+export default function PriorityAlertCard({ lead }: { lead: PriorityLead }) {
   const [isClaimed, setIsClaimed] = useState(lead.conversion_status === 'claimed')
   const [isPending, setIsPending] = useState(false)
 

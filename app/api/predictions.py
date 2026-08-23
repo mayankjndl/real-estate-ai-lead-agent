@@ -34,7 +34,7 @@ def _get_db():
 def get_revenue(client: dict = Depends(get_current_client)):
     db = next(_get_db())
     try:
-        return predict_revenue(db, client["id"])
+        return predict_revenue(db, client.id)
     finally:
         db.close()
 
@@ -43,7 +43,7 @@ def get_revenue(client: dict = Depends(get_current_client)):
 def get_cancellation_risk(client: dict = Depends(get_current_client)):
     db = next(_get_db())
     try:
-        return predict_cancellation_risk(db, client["id"])
+        return predict_cancellation_risk(db, client.id)
     finally:
         db.close()
 
@@ -52,7 +52,7 @@ def get_cancellation_risk(client: dict = Depends(get_current_client)):
 def get_inventory_prediction(client: dict = Depends(get_current_client)):
     db = next(_get_db())
     try:
-        return predict_inventory(db, client["id"])
+        return predict_inventory(db, client.id)
     finally:
         db.close()
 
@@ -61,6 +61,6 @@ def get_inventory_prediction(client: dict = Depends(get_current_client)):
 def get_cashflow(client: dict = Depends(get_current_client)):
     db = next(_get_db())
     try:
-        return predict_cashflow(db, client["id"])
+        return predict_cashflow(db, client.id)
     finally:
         db.close()

@@ -491,6 +491,10 @@ app.include_router(graph_router)
 from app.api.predictions import router as predictions_router
 app.include_router(predictions_router)
 
+# IREIOS 4.0: inventory twin layout (JWT, client-scoped, read-only).
+from app.api.inventory import router as inventory_router
+app.include_router(inventory_router)
+
 # Automations closeout BA-5: calendar availability + AE-backed confirm for n8n.
 from app.api.calendar import router as calendar_router
 app.include_router(calendar_router)
@@ -1747,24 +1751,32 @@ def score_lead_endpoint(
     return {"status": "success", "lead_id": lead_id, "scores": score_lead(lead)}
 
 
+from app.agents.sales_agent import SalesAiBody, sales_agent  # IREIOS 4.0 sales-ai body
+
+
 @app.post("/api/v1/leads/{lead_id}/sales-ai")
 async def sales_ai_endpoint(
     lead_id: int,
+    body: Optional[SalesAiBody] = None,
     current_client: models.Client = Depends(auth.get_current_client),
     db: DBSession = Depends(get_db),
 ):
     """
-    Phase 6 (6.1–6.4): run the Sales AI on a client-owned lead — score, assign,
-    recommend a next-best action, advance the funnel stage, and sync to CRM via
-    the AutomationEngine (observable + DLQ-protected). Returns the recommendation.
+    IREIOS 4.0: Sales AI with preview|execute.
+
+    * preview (default) — compute scores + NBA; no DB/CRM side effects
+    * execute — score, assign, stage progress, CRM via AE (Phase 6 path)
     """
+    body = body or SalesAiBody()
     lead = db.query(models.Lead).filter(
         models.Lead.id == lead_id, models.Lead.client_id == current_client.id
     ).first()
     if not lead:
         raise HTTPException(status_code=404, detail="Lead not found")
-    from app.agents.sales_agent import sales_agent
-    result = await sales_agent.run_sales_ai(db, lead, current_client.id, sync_crm=True)
+    sync_crm = body.mode == "execute"
+    result = await sales_agent.run_sales_ai(
+        db, lead, current_client.id, sync_crm=sync_crm, mode=body.mode
+    )
     return {"status": "success", "lead_id": lead_id, **result}
 
 

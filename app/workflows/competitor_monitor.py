@@ -65,7 +65,9 @@ def _scan_client(db, client: Client) -> list[dict]:
             .all()
         )
         text_parts.extend(m.content or "" for m in recent)
+        print("DEBUG TEXT PARTS INSIDE SCAN CLIENT:", text_parts)
         signal = competitor_signals(" ".join(text_parts))
+        print("DEBUG SIGNAL INSIDE SCAN CLIENT:", signal)
         if signal["alert"]:
             envelopes.append(
                 EventBusClient.build_envelope(

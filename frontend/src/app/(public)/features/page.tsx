@@ -1,4 +1,4 @@
-import { Building2, Bot, MessageSquare, BarChart3, Fingerprint, Webhook } from 'lucide-react'
+import { Bot, MessageSquare, BarChart3, Fingerprint, Webhook } from 'lucide-react'
 
 export default function FeaturesPage() {
   return (
@@ -36,7 +36,7 @@ export default function FeaturesPage() {
             </div>
             <div>
               <h3 className="text-xl font-semibold text-slate-900 dark:text-white mb-2 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors duration-300">Native WhatsApp</h3>
-              <p className="text-sm text-slate-600 dark:text-zinc-400">Powered by Twilio to ensure 100% deliverability directly to your prospect's pocket.</p>
+              <p className="text-sm text-slate-600 dark:text-zinc-400">Powered by Twilio to ensure 100% deliverability directly to your prospect&apos;s pocket.</p>
             </div>
           </div>
 

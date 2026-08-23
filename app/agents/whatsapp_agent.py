@@ -158,14 +158,16 @@ def generate_floorplan(lead: Lead) -> str:
 
 
 def score_lead(lead: Lead) -> dict:
-    """Compute lead scores and persist them on the lead row.
+    """Compute lead scores (fast, deterministic, no LLM).
 
-    Pure-ish heuristic (no LLM) so it is fast and deterministic:
-      * engagement_score: +1 per filled core field, capped at 100
-      * conversion_probability: weighted blend of completeness + temperature
-      * lead_temperature: hot/warm/cold from probability
-      * urgency_level: high/medium/low from visit intent / recency
-      * budget_alignment_status: aligned / unknown / mismatch
+    * engagement_score: filled core fields (+ opt-in)
+    * conversion_probability: completeness + temperature, with the same
+      **floor boosts** as the chat path (``agent.py``): full qualify ≥88,
+      visit date ≥82 — so Sales AI Confirm does not yank a chat/hot score
+      down to a lower generic blend.
+    * Never *decreases* a stored conversion_probability when the lead still
+      has solid completeness (avoids "was 95% → now 80%" UX shocks on Confirm).
+    * lead_temperature / urgency / budget_alignment as before
     """
     core = [lead.name, lead.phone, lead.budget, lead.location, lead.property_type, lead.visit_date]
     filled = sum(1 for c in core if c)
@@ -175,7 +177,27 @@ def score_lead(lead: Lead) -> dict:
     temp_weight = {"hot": 60, "warm": 40, "cold": 15}.get(temp, 15)
     prob = min(98, int(engagement * 0.5 + temp_weight * 0.5))
 
-    if prob >= 70:
+    # Align floors with agent.py DB-aware overrides (chat path)
+    has_visit = bool(lead.visit_date)
+    fully_qualified = all([
+        lead.name, lead.phone, lead.location, lead.budget, lead.property_type, lead.visit_date,
+    ])
+    if fully_qualified:
+        prob = max(prob, 88)
+    elif has_visit:
+        prob = max(prob, 82)
+
+    # Monotonic vs stored score when lead is still well-formed
+    stored_raw = getattr(lead, "conversion_probability", None)
+    try:
+        stored = int(stored_raw) if stored_raw is not None else None
+    except (TypeError, ValueError):
+        stored = None
+    if stored is not None and stored > prob and (filled >= 4 or has_visit or fully_qualified):
+        prob = min(98, stored)
+
+    # Temperature: match chat floors (full qualify / visit → hot)
+    if fully_qualified or has_visit or prob >= 70:
         temperature = "hot"
     elif prob >= 45:
         temperature = "warm"
@@ -189,8 +211,21 @@ def score_lead(lead: Lead) -> dict:
     else:
         urgency = "low"
 
-    if lead.budget and lead.property_type:
-        alignment = "aligned"
+    if lead.budget and lead.location and lead.property_type:
+        try:
+            from app.intelligence.budget_alignment import evaluate_budget_alignment
+
+            alignment_result = evaluate_budget_alignment(
+                budget_text=lead.budget,
+                location=lead.location.split(",")[0].strip(),
+                property_type=lead.property_type,
+                intent=getattr(lead, "intent", "buy") or "buy",
+            )
+            alignment = alignment_result.get("alignment_status", "unknown")
+        except Exception:
+            alignment = "unknown"
+    elif lead.budget and lead.property_type:
+        alignment = "unknown"
     else:
         alignment = "unknown"
 
@@ -298,6 +333,8 @@ class WhatsAppAgent:
 
                 if scores.get("budget_alignment_status") and scores["budget_alignment_status"] not in (
                     "aligned",
+                    "excellent",
+                    "strong",
                     "unknown",
                 ):
                     if not lead.is_negotiating:

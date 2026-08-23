@@ -138,6 +138,7 @@ def test_crm_push_raw_success(monkeypatch):
 
     monkeypatch.setattr(crm_sync, "CRM_API_URL", "https://crm.example.com/contacts")
     monkeypatch.setattr(crm_sync, "CRM_API_KEY", "real-key")
+    monkeypatch.setattr(crm_sync.settings, "FEATURE_HUBSPOT_LIVE", True)
 
     class _Resp:
         status_code = 200
@@ -209,11 +210,12 @@ def test_crm_push_retries_on_429(monkeypatch):
             return _Resp()
 
     monkeypatch.setattr("httpx.AsyncClient", _Client)
-    # demo sim block would short-circuit; force a real URL + key so tenacity path runs
+    # demo sim / FEATURE_HUBSPOT_LIVE=false would short-circuit; force live path
     import crm_sync
 
     monkeypatch.setattr(crm_sync, "CRM_API_URL", "https://crm.example.com/contacts")
     monkeypatch.setattr(crm_sync, "CRM_API_KEY", "real-key")
+    monkeypatch.setattr(crm_sync.settings, "FEATURE_HUBSPOT_LIVE", True)
 
     async def run():
         ex = CRMExecutor()

@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { Building2, Menu, X } from 'lucide-react'
 import { usePathname } from 'next/navigation'
 import Link from 'next/link'
@@ -9,10 +9,12 @@ export default function Header() {
   const pathname = usePathname()
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
 
-  // Close mobile menu on route change
-  useEffect(() => {
+  // Close mobile menu on route change (React-docs pattern: adjust state when a prop changes)
+  const [prevPathname, setPrevPathname] = useState(pathname)
+  if (prevPathname !== pathname) {
+    setPrevPathname(pathname)
     setIsMobileMenuOpen(false)
-  }, [pathname])
+  }
 
   const links = [
     { name: 'Features', href: '/features' },

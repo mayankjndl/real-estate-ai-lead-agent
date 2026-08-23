@@ -36,14 +36,8 @@ export default function TeamManagementPage() {
     lead_type: ''
   })
 
-  // Fetch agents on mount
-  useEffect(() => {
-    fetchAgents()
-  }, [])
-
   const fetchAgents = async () => {
     try {
-      setLoading(true)
       const token = document.cookie.split('; ').find(row => row.startsWith('jwt='))?.split('=')[1] || '';
       
       const res = await fetch('/api/v1/agents', {
@@ -61,6 +55,12 @@ export default function TeamManagementPage() {
       setLoading(false)
     }
   }
+
+  // Fetch agents on mount
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- false positive: fetchAgents sets state only in async continuations after `await`, never synchronously in the effect body
+    fetchAgents()
+  }, [])
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target
@@ -98,6 +98,7 @@ export default function TeamManagementPage() {
           deal_size: '',
           lead_type: ''
         })
+        setLoading(true)
         fetchAgents()
       } else {
         alert('Failed to add team member.')

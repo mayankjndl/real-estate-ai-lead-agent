@@ -17,12 +17,27 @@ const THEME = {
   text: '#ffffff'
 }
 
-const CustomTooltip = ({ active, payload, label }: any) => {
+interface TooltipEntry {
+  name?: string | number;
+  value?: string | number;
+  color?: string;
+  fill?: string;
+}
+
+interface CustomTooltipProps {
+  active?: boolean;
+  payload?: TooltipEntry[];
+  label?: string | number;
+}
+
+type ChartDatum = Record<string, string | number>
+
+const CustomTooltip = ({ active, payload, label }: CustomTooltipProps) => {
   if (active && payload && payload.length) {
     return (
       <div className="bg-zinc-900 border border-zinc-800 p-3 rounded-xl shadow-2xl backdrop-blur-md">
         <p className="text-zinc-300 text-xs font-medium mb-1">{label}</p>
-        {payload.map((entry: any, index: number) => (
+        {payload.map((entry, index) => (
           <p key={index} className="text-sm font-bold" style={{ color: entry.color || entry.fill }}>
             {entry.name}: {entry.value}
           </p>
@@ -33,7 +48,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
   return null;
 }
 
-export function AreaTrendChart({ data }: { data: any[] }) {
+export function AreaTrendChart({ data }: { data: ChartDatum[] }) {
   return (
     <div className="h-64 w-full">
       <ResponsiveContainer width="100%" height="100%">
@@ -55,7 +70,7 @@ export function AreaTrendChart({ data }: { data: any[] }) {
   )
 }
 
-export function SourcePieChart({ data }: { data: any[] }) {
+export function SourcePieChart({ data }: { data: ChartDatum[] }) {
   const COLORS = [THEME.blue, THEME.purple, THEME.emerald, THEME.orange, THEME.rose]
   
   return (
@@ -84,7 +99,7 @@ export function SourcePieChart({ data }: { data: any[] }) {
   )
 }
 
-export function FunnelChart({ data }: { data: any[] }) {
+export function FunnelChart({ data }: { data: ChartDatum[] }) {
   const COLORS = [THEME.emerald, THEME.blue, THEME.purple, THEME.orange]
   return (
     <div className="h-64 w-full">
@@ -105,7 +120,7 @@ export function FunnelChart({ data }: { data: any[] }) {
   )
 }
 
-export function AgentPerformanceChart({ data }: { data: any[] }) {
+export function AgentPerformanceChart({ data }: { data: ChartDatum[] }) {
   return (
     <div className="h-64 w-full">
       <ResponsiveContainer width="100%" height="100%">

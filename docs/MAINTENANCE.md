@@ -1,7 +1,7 @@
 # IREIOS — End-to-End Maintenance Guide
 
 Operational runbook for the **current** codebase (FastAPI monolith + IREIOS 3.0 bus/agents/KG).  
-Companion to `AGENTS.md` (agent-oriented facts) and `plans/IREIOS_3.0_EVIDENCE_PACK.md` (release gates).
+Companion to `AGENTS.md` (agent-oriented facts), `plans/phase3/IREIOS_3.0_EVIDENCE_PACK.md` (3.0 release gates), and `plans/phase4/` (active Product Phase 4 queue).
 
 **Last aligned:** July 2026 · Branch baseline: post–Phase 10 / BD closeout
 
@@ -235,7 +235,46 @@ python publish_stub_event.py --event-type lead.created --tenant-id Client_1 --pa
 | `POST /api/v1/events/stub` | `X-Admin-Token` = `ADMIN_API_KEY` | Returns `event_id` |
 
 Envelope fields (bus): `event_id`, `event_type`, `tenant_id`, `entity_id`, `source`, `timestamp`, `correlation_id`, `payload`.  
-Contracts: `plans/IREIOS_3.0_API_SSE_CONTRACTS.md`.
+Contracts: `plans/phase3/IREIOS_3.0_API_SSE_CONTRACTS.md`.
+
+#### WhatsApp → SSE smoke (G5 / QA gate)
+
+Full loop proof: Twilio-format POST → WhatsAppAgent (LLM turn) → `_emit_turn_events` → Redis
+Streams → CEO agents → tenant SSE stream.
+
+**Prereqs:** docker + uvicorn up, `TEST_MODE=true` (bypasses Twilio signature + skips outbound
+sends), `python seed.py` ran. **Revert `TEST_MODE=false` after the smoke.**
+
+Two-command recipe:
+
+```powershell
+# Terminal A — watch the tenant stream
+curl -N "http://localhost:8000/api/v1/events/stream?api_key=secret-client-key-123"
+
+# Terminal B — send one WhatsApp webhook (13s turn window; LLM reply)
+curl -X POST "http://localhost:8000/api/v1/whatsapp" -H "X-API-Key: secret-client-key-123" `
+  -F "MessageSid=SMf4smoke01" -F "From=whatsapp:+919000000001" -F "To=whatsapp:+14155238886" `
+  -F "Body=Hi, I want a 2BHK in Andheri under 1 crore"
+```
+
+Expect on the stream: `whatsapp.received` → (`lead.created` only for **new** leads) →
+`conversation.updated` → `lead.crm_synced` → `lead.scored`, each arriving ≤~2s after publish.
+
+One-shot script (same checks + timing + exit code, stdlib only):
+
+```powershell
+python wa_sse_smoke.py              # existing lead (reuses From number)
+python wa_sse_smoke.py --new-lead   # unique From → forces lead.created path
+```
+
+**Result log (2026-08-11, live local stack):** turn 4.9–11.3s (LLM-bound, within 13s);
+SSE publish→delivery 10–2183ms across both modes — PASS.
+
+Troubleshooting:
+- SSE `503 Event bus not available` → bus consumer loop died (Redis blip). Restart uvicorn (or
+  touch `main.py` with `--reload`); verify via `docker exec redis-local redis-cli XLEN ireios:events`.
+- Webhook `403` → `TEST_MODE` not true in the running process; set + restart uvicorn.
+- Gemini quota / missing key → turn fails before events are emitted.
 
 ---
 
@@ -387,7 +426,7 @@ python task3_runner.py --category HOT
 | Bug regressions | `tests/test_p*.py` |
 | Expansion / IREIOS 3.0 | `tests/test_e*.py` |
 
-Evidence: `plans/IREIOS_3.0_EVIDENCE_PACK.md`, `python ireios_evidence.py`.
+Evidence: `plans/phase3/IREIOS_3.0_EVIDENCE_PACK.md`, `python ireios_evidence.py`.
 
 ---
 
@@ -403,6 +442,94 @@ npm run lint
 - `NEXT_PUBLIC_API_URL` → backend (e.g. `http://localhost:8000`)
 - Auth: HttpOnly `jwt` cookie via server login action
 - FE SSE: partial cutover (`dashboard-mvp` EventSource); remaining work: `docs/FRONTEND_BACKLOG.md`
+
+### 11.1 Repo-wide lint runbook (ESLint, no TS check)
+
+**Baseline (2026-08-11, pre-freeze):** `23 errors / 17 warnings` — all **pre-existing** (Phase 3
+product/public pages); **none** introduced by the Phase 4 FE wave. Freeze 2026-08-20 requires
+Exit Code 0, so this is a pre-freeze triage batch (see `plans/phase4/IREIOS_4.0_EVIDENCE_PACK.md`
+G5 FE lint item).
+
+**Status (2026-08-11): RESOLVED** — `npm run lint` (ESLint) exits 0 (0 problems, 0 warnings).
+All 23 errors + 17 warnings cleared in this batch; fix patterns below kept for reference.
+`tsc --noEmit` also clean (3 command-center errors fixed in `4494307`) and
+`npm run build` exits 0 (incl. knowledge-graph Suspense prerender fix).
+
+#### Run it
+
+```powershell
+cd frontend
+npm run lint
+```
+
+**Known env gotcha:** on some machines `npm run lint` / `npx eslint` fail with
+`'eslint' is not recognized` even though `node_modules\eslint` exists — the
+`node_modules\.bin\eslint.cmd` shim is missing. Workaround (no reinstall):
+
+```powershell
+node node_modules\eslint\bin\eslint.js .
+```
+
+Proper fix (regenerates all `.bin` shims; takes a few minutes):
+
+```powershell
+npm install   # or: Remove-Item node_modules -Recurse -Force; npm install
+```
+
+#### Error inventory (23 errors — historical, all resolved 2026-08-11)
+
+| Rule | Count | Locations |
+|------|-------|-----------|
+| `react/no-unescaped-entities` | 11 | `src/app/(public)/privacy/page.tsx:14` ×6, `contact/page.tsx:57`, `demo/page.tsx:24`, `features/page.tsx:39`, `login/page.tsx:72` |
+| `@typescript-eslint/no-explicit-any` | 8 | `src/app/(dashboard)/dashboard/Charts.tsx` ×6 (20, 25, 36, 58, 87, 108), `PriorityAlertCard.tsx:8`, `src/lib/auth.ts:10` |
+| `react-hooks/set-state-in-effect` | 3 | `src/components/Header.tsx:14`, `src/components/ThemeToggle.tsx:12`, `src/app/(dashboard)/dashboard/OnboardingWalkthrough.tsx:16` |
+| `react-hooks/immutability` | 1 | `src/app/(dashboard)/settings/team/page.tsx:41` (`fetchAgents` used before declared) |
+| `@typescript-eslint/ban-ts-comment` | 1 | `src/app/(dashboard)/dashboard/ExportReport.tsx:65` (`@ts-ignore` → `@ts-expect-error`) |
+
+#### Warnings (17 — historical, all resolved 2026-08-11)
+
+- Unused imports: `src/app/(dashboard)/layout.tsx:1-2` ×7, `src/app/(public)/page.tsx:1` ×2,
+  `features/page.tsx:1`, `pricing/page.tsx:3`, `contact/page.tsx:4` ×2, `crm/page.tsx:1`,
+  `src/app/layout.tsx:4` ×1, `src/lib/auth.ts:47`
+- `react-hooks/exhaustive-deps`: `src/app/(dashboard)/settings/page.tsx:105`
+
+#### Fix steps (mechanical, no behavior change)
+
+1. **Unescaped entities** — in JSX text replace `'` → `&apos;`, `"` → `&quot;`
+   (privacy page quotes → `&quot;`; apostrophes elsewhere → `&apos;`).
+2. **Unused imports/warnings** — delete the import (keep the alias where re-exported;
+   `layout.tsx` icons are genuinely unused — remove them).
+3. **`@ts-ignore` → `@ts-expect-error`** — `ExportReport.tsx:65`, only if the next line
+   is expected to error.
+4. **`settings/team/page.tsx:41`** — move the `fetchAgents` const above the `useEffect`
+   (or wrap in `useCallback` and add to the dep array).
+5. **`set-state-in-effect` ×3** — React 19 rule. Patterns:
+   - `ThemeToggle.tsx` (`setMounted(true)` in effect): the standard hydration guard —
+     replace with `useSyncExternalStore` for theme or move the mounted flag into the
+     `useEffect` that paints; simplest compliant option: derive from a lazy initial state
+     + skip the mounted gate when not needed.
+   - `Header.tsx` (close mobile menu on pathname change): move the reset into the click
+     handler / nav effect that changes pathname, or keep state in a keyed component.
+   - `OnboardingWalkthrough.tsx` (localStorage read → `setIsOpen`): initialize from the
+     storage key with a lazy `useState` initializer instead of reading inside the effect.
+   - Add `// eslint-disable-next-line react-hooks/set-state-in-effect` **only** where a
+     true hydration guard is required and note why.
+6. **`no-explicit-any` (8)** — replace with concrete types:
+   - `Charts.tsx`: type recharts `payload`/`props` as `PayloadType`/`TooltipProps` from
+     `recharts` instead of `any`.
+   - `PriorityAlertCard.tsx:8` and `auth.ts:10`: use `unknown` + narrowing, or an
+     interface for the props/server-action return.
+7. **Re-verify:**
+
+```powershell
+node node_modules\eslint\bin\eslint.js .    # expect 0 problems
+git diff --stat                             # confirm only intended files touched
+npm run lint                                # also confirms the shim is back
+```
+
+**Do not** run this after 2026-08-20 unless the freeze is lifted (bugfix only from QA).
+Also note the script is ESLint-only — a `tsc --noEmit` pass is recommended separately
+before Vercel build.
 
 ---
 
@@ -494,6 +621,7 @@ Structured logs use `request_id` / `tenant_id` contextvars when set.
 | `gate_dlq_drill.py` / `dlq_replay.py` | DLQ path |
 | `task3_runner.py` | Live conversation matrix |
 | `publish_stub_event.py` | Bus/SSE demo events |
+| `wa_sse_smoke.py` | WhatsApp → SSE live smoke (G5/QA; §5) |
 | `ireios_evidence.py` | Architecture evidence dump |
 | `dlq_replay.py` | Replay pending DLQ |
 
@@ -508,9 +636,16 @@ Structured logs use `request_id` / `tenant_id` contextvars when set.
 | `docs/TIMEOUTS_AND_TIMINGS.md` | All race/TTL/scheduler/backoff values + code anchors |
 | `docs/FRONTEND_BACKLOG.md` | FE SSE/API cutover |
 | `docs/N8N_INTEGRATION.md` | n8n config-later |
-| `plans/UNIFIED_EXECUTION_ORDER.md` | Program order / gates |
-| `plans/IREIOS_3.0_EVIDENCE_PACK.md` | Release evidence |
-| `plans/IREIOS_3.0_API_SSE_CONTRACTS.md` | Realtime contracts |
+| `docs/PROD_READINESS_CHECKLIST.md` | Prod readiness: flag matrix, secrets track, infra adoption, integration runbooks |
+| FE lint runbook | `docs/MAINTENANCE.md` §11.1 (23e/17w baseline → **resolved 2026-08-11**, exit 0) |
+| `plans/phase4/UNIFIED_EXECUTION_ORDER.md` | **Active** Product Phase 4 order / gates (**G5 green 2026-08-10**) |  
+| `plans/phase4/IREIOS_4.0_EVIDENCE_PACK.md` | Phase 4 gate evidence (G5 filled) |  
+| `plans/phase4/TEAM_LEAD_QUESTIONNAIRE_ANSWERED.md` | Locked lead decisions (blank template removed 2026-08-14 — answered copy is canonical) |  
+| `plans/phase3/UNIFIED_EXECUTION_ORDER.md` | Archived IREIOS 3.0 order / gates |
+| `plans/phase3/IREIOS_3.0_EVIDENCE_PACK.md` | 3.0 release evidence |
+| `plans/phase4/IREIOS_4.0_EVIDENCE_PACK.md` | 4.0 release evidence |
+| `plans/phase3/IREIOS_3.0_API_SSE_CONTRACTS.md` | 3.0 realtime contracts |
+| `plans/phase4/IREIOS_4.0_API_CONTRACTS.md` | 4.0 FE/API contracts |
 
 ---
 

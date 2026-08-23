@@ -14,7 +14,9 @@ High-signal, repo-specific facts an agent would likely miss without help.
 | Docker services | `docker compose up -d` (pg, redis, neo4j, ngrok, frontend, **n8n**) · n8n only: `docker compose up -d n8n` → http://localhost:5678 |
 | Seed local test clients | `python seed.py` → keys `secret-client-key-123` / `secret-client-key-456` |
 | Seed 1000 dummy leads + Neo4j | `python seed_dummy_leads.py` (`--count`, `--purge-only`, `--no-neo4j`) |
+| Seed twin inventory (40 units) | `python seed_twin_demo.py --client-id 1` (`--clear`) |
 | Project PG leads → Neo4j | `python project_leads_to_neo4j.py` (`--client-id`, `--source dummy_seed`) |
+| Phase 4 API tests | `pytest tests/test_f4_sales_ai.py tests/test_f4_graph_neighborhood.py tests/test_f4_twin.py tests/test_f4_hubspot_flag.py -v` |
 | Ops / maintenance runbook | `docs/MAINTENANCE.md` |
 | Timeouts & timings map | `docs/TIMEOUTS_AND_TIMINGS.md` (all race/TTL/scheduler values + line anchors) |
 | Provision production client | `python add_client.py` (interactive, generates secure keys) |
@@ -84,7 +86,7 @@ High-signal, repo-specific facts an agent would likely miss without help.
 - **Frontend badge:** "🤝 Open for Negotiation" purple badge on CRM KanbanBoard
 - **Claim button expanded:** Visible on ANY column (not just "New") when `is_negotiating = True`
 - **Debounce:** 5-minute Redis debounce per lead (TTL 300s) to prevent event spam
-- **Phrases:** `negotiate, negotiation, discount, reduce price, lower price, too expensive, can you reduce, final price, best price, cheaper, afford, budget is tight` (expandable in `agent.py`)
+- **Phrases:** `negotiate, negotiation, discount, reduce price, lower price, too expensive, can you reduce, final price, best price, cheaper, afford, budget is tight, change my budget, reduce my budget, lower my budget, budget is only, can only afford, stretch my budget` (expandable in `agent.py`)
 - **Events:** `lead.negotiation.started` with `trigger` = `user_phrase` | `budget_misaligned`
 
 ---
@@ -192,15 +194,26 @@ IS_PRODUCTION=false
 - `NEO4J_URI` / `NEO4J_USER` / `NEO4J_PASSWORD` — Neo4j (Phase 7). Empty = graph no-op. Local: `bolt://localhost:7687` / `neo4j`/`localpass`.
 - `N8N_BASE_URL` / `N8N_API_KEY` — n8n optional ops plane (webhook Header Auth secret; backend sends `Authorization: Bearer`). Empty = `n8n_not_configured`.  
 - `N8N_MANAGEMENT_API_KEY` — JWT from n8n UI Settings → n8n API; **only** for `import_n8n_workflows.py` (`X-N8N-API-KEY` on `/api/v1/*`). Never reuse the webhook secret (always 401).  
-- **Bus→n8n bridge:** `app/automation_engine/n8n_bridge.py` (group `ireios-n8n`, not CEO `ireios-cg`). Stock n8n cannot XREADGROUP Streams. Env: `N8N_BRIDGE_ENABLED`, `N8N_BRIDGE_GROUP`, optional `N8N_WEBHOOK_MAP`. Gmail-first recipes: **`plans/N8N_LIVE_WORKFLOWS_PLAN.md`**. See **`docs/N8N_INTEGRATION.md`**.
+- **Bus→n8n bridge:** `app/automation_engine/n8n_bridge.py` (group `ireios-n8n`, not CEO `ireios-cg`). Stock n8n cannot XREADGROUP Streams. Env: `N8N_BRIDGE_ENABLED`, `N8N_BRIDGE_GROUP`, optional `N8N_WEBHOOK_MAP`. Gmail-first recipes: **`plans/phase3/N8N_LIVE_WORKFLOWS_PLAN.md`**. See **`docs/N8N_INTEGRATION.md`**.
 - `COMPETITOR_KEYWORDS` — comma-separated watch-list for the competitor monitor (empty = job no-ops).
 - `GOOGLE_CALENDAR_ID` / `GOOGLE_CALENDAR_CREDENTIALS_JSON` / `GOOGLE_CALENDAR_TIMEZONE` — real Google Calendar for `CalendarExecutor`. Empty = synthetic `visit_id` stub fallback (AE contract unchanged).
 - `BROCHURE_MEDIA_URL` / `FLOORPLAN_MEDIA_URL` — public **HTTPS** media for WhatsApp Approach B. Empty = plain-text brochure/floorplan. Non-HTTPS rejected.
-- HubSpot: `CRM_API_URL` / `CRM_API_KEY` via `crm_sync` `os.getenv` (not Settings). Default demo key = fake UUID in non-prod; skippable until a portal exists.
+- HubSpot: `CRM_API_URL` / `CRM_API_KEY` via `crm_sync` `os.getenv` (not Settings). **`CRM_API_KEY` = Private App Token** sent as `Authorization: Bearer …`. Contacts r/w scopes enough (no custom objects). Default demo key = fake UUID in non-prod. Live path also requires `FEATURE_HUBSPOT_LIVE=true`.
+
+## IREIOS 4.0 APIs (Backend Wave 1 shipped)
+
+- `POST /api/v1/leads/{id}/sales-ai` body `{ "mode": "preview"|"execute" }` — default **preview** (no DB/CRM writes). Execute = score+assign+stage+CRM AE. Bus SalesAgent path still auto-executes.
+- `GET /api/v1/graph/neighborhood?lead_id=&limit=25` — ego `{nodes,edges}`; soft-empty if Neo4j down or `FEATURE_GRAPH_VIZ=false`. Keep `/graph/leads/{id}/context` for LLM.
+- `GET /api/v1/inventory/twin` — project/towers/floors/units from PG `InventoryUnit` (`meta_json.floor`). Empty if `FEATURE_TWIN_LIVE=false`. Seed: `python seed_twin_demo.py --client-id 1`.
+- Flags (Settings): `FEATURE_GRAPH_VIZ` (default true), `FEATURE_TWIN_LIVE` (default true), `FEATURE_HUBSPOT_LIVE` (default **false**).
 
 ## Production Go-Live Checklist (config-later flags)
 
-Flip these in `.env` at deploy (see `.env.example` footer): `IS_PRODUCTION=true`, `TEST_MODE=false`, `FOLLOW_UP_TEST_MODE=false`, `FOLLOW_UP_DLQ_TEST=false`, real `TWILIO_*`. Optional: `NEO4J_*`, `N8N_*`, `GOOGLE_CALENDAR_*`, `BROCHURE_*`/`FLOORPLAN_*`, `COMPETITOR_KEYWORDS`, real `CRM_API_*` (HubSpot skippable). Everything degrades gracefully when an integration is left unconfigured.
+**Single source + full matrix (flag matrix, secrets track, infra adoption, integration runbooks): `docs/PROD_READINESS_CHECKLIST.md`.** QA gate (P4-QA) = checklist executed; release gate (P4-REL) = runbook approved (Mayank).  
+**Command Center smoke (auth/twin/graph/copilot/predictions): `docs/COMMAND_CENTER_VERIFY.md`** — dashboard JWT = Bearer **or** cookie on all JWT routes (twin/neighborhood included; unified 2026-08-13).  
+**Eng freeze handoff (Mayank + Piyush):** `plans/phase4/HANDOFF_MAYANK_PIYUSH.md` — twin at `/digital-twin` (command-center); docker n8n Publish after volume wipe = Mayank; Twilio secrets = Piyush.
+
+Flip these in `.env` at deploy (see `.env.example` footer): `IS_PRODUCTION=true`, `TEST_MODE=false`, `FOLLOW_UP_TEST_MODE=false`, `FOLLOW_UP_DLQ_TEST=false`, real `TWILIO_*`. Optional: `NEO4J_*`, `N8N_*`, `GOOGLE_CALENDAR_*`, `BROCHURE_*`/`FLOORPLAN_*`, `COMPETITOR_KEYWORDS`, real `CRM_API_*` + `FEATURE_HUBSPOT_LIVE=true` (HubSpot skippable). Everything degrades gracefully when an integration is left unconfigured.
 
 **Dual-path note:** Expansion 10.2/10.3 module delete is **deferred**. Root `agent.py`, `crm_sync.py`, `follow_up.py` remain shared libraries for v3 wrappers (not a second product path).
 
@@ -251,13 +264,15 @@ Sales hot escalate: notify_agent + create_task → agent_tasks
 
 ## Docs pointers
 
+- **Active program queue (Product Phase 4 / IREIOS 4.0):** `plans/phase4/UNIFIED_EXECUTION_ORDER.md` · **G5 green 2026-08-10** · next P4-QA freeze **2026-08-20** · release **2026-09-03** · locked answers `plans/phase4/TEAM_LEAD_QUESTIONNAIRE_ANSWERED.md` · contracts `plans/phase4/IREIOS_4.0_API_CONTRACTS.md` · evidence `plans/phase4/IREIOS_4.0_EVIDENCE_PACK.md`
+- **Archived IREIOS 3.0 plans:** `plans/phase3/` (do not add new Phase 4 tasks there)
 - **Timeouts & timings (all race/TTL/scheduler values):** `docs/TIMEOUTS_AND_TIMINGS.md`
 - n8n: Compose + AE path + **bridge** shipped; **6/6 workflows** (Gmail + Sheets). Full Cloud Console + import runbook: `docs/N8N_GOOGLE_CREDENTIALS_SETUP.md`. Arch: `docs/N8N_INTEGRATION.md`. Brochure HTTPS URLs optional until set.
-- **Post-G3 automations closeout (Step 24):** `plans/PHASE3_AUTOMATIONS_CLOSEOUT.md`. Canonical bus (`lead.hot` + `trigger`). HubSpot Python stays skipped.
+- **Post-G3 automations closeout (Step 24):** `plans/phase3/PHASE3_AUTOMATIONS_CLOSEOUT.md`. Canonical bus (`lead.hot` + `trigger`). HubSpot Python stays skipped.
 - **BA-1…BA-7 + bridge:** `lead_hot.py`; `chat_context`; EE visit merge; HITL paths; calendar REST; **`n8n_bridge`** (not stock Redis→n8n). Tests: `tests/test_e18_*.py`, `tests/test_e20_n8n_bridge.py`.
-- Frontend remaining work: `docs/FRONTEND_BACKLOG.md` (Mayank: partial SSE in `a10aa68`; MockSSE file + mocks + JWT SSE still open)
-- Evidence: `plans/IREIOS_3.0_EVIDENCE_PACK.md` (G2 + G3)
-- **Post-G2 Waves A–D (depth fill, G3 green):** living log `plans/IREIOS_3.0_WAVE_A_D_CHANGELOG.md`; how-to `plans/IREIOS_3.0_WAVE_A_D_EXPANSION.md`; tests `tests/test_e14_wave_a.py`…`test_e17_wave_d.py`. UNIFIED Steps **20–23** + Gate **G3** = `[x]`.
+- Frontend remaining work: `docs/FRONTEND_BACKLOG.md` (SSE live + JWT cookie + MockSSE purged + lint/tsc/build exit 0 as of 2026-08-11)
+- Evidence (3.0): `plans/phase3/IREIOS_3.0_EVIDENCE_PACK.md` (G2 + G3) · Evidence (4.0): `plans/phase4/IREIOS_4.0_EVIDENCE_PACK.md`
+- **Post-G2 Waves A–D (depth fill, G3 green):** living log `plans/phase3/IREIOS_3.0_WAVE_A_D_CHANGELOG.md`; how-to `plans/phase3/IREIOS_3.0_WAVE_A_D_EXPANSION.md`; tests `tests/test_e14_wave_a.py`…`test_e17_wave_d.py`. UNIFIED Steps **20–23** + Gate **G3** = `[x]`.
 
 ## WhatsApp brochure / floor plan (Approach B — shipped + post-G3 polish)
 
@@ -275,6 +290,7 @@ Sales hot escalate: notify_agent + create_task → agent_tasks
 - **Execution Engine:** `app/execution_engine/execution_engine.py` (`execution_engine` singleton) + `BaseExecutor`/`NoopExecutor` in `base_executor.py`. `dispatch` returns `{"status":"error","error":"no_executor"}` for unknown actions and writes a `DLQEvent` (via injectable `session_factory`, default `database.SessionLocal`) on any failure. `resolve_client_id` maps `Client_<id>` tenant ids to integer `client_id`. Registered: `send_whatsapp`, `update_crm`, `schedule_visit`, `notify_agent`, **`create_task`** (`TaskExecutor` → `agent_tasks`).
 - **BaseAgent:** `app/agents/base_agent.py` runs `fetch_context → analyze → decide`; `process_event` forwards any action to `app.automation_engine.engine.submit` (Phase 1 stub → EE; Phase 2 adds approval/retry).
 - `EventBusClient.publish` raises loudly if called before `start()` or if Redis is down.
+- **Bus resilience (P3.8):** `_consume_loop` retries on transient Redis errors (`TimeoutError`, `RedisError`, `ConnectionError`, `OSError`) with exponential backoff: **1s → 2s → 4s → … → cap 16s**. Counter resets on any successful fetch. Gives up after **10** consecutive failures (`_MAX_CONSUME_RETRIES`). Transient blips self-heal on the next successful read. Sustained Redis outage logs error and stops the loop (bus is dead; app continues without events).
 
 ## IREIOS 3.0 — Early API envelopes + SSE (Phase 1b, FE unblock)
 
@@ -287,7 +303,7 @@ Sales hot escalate: notify_agent + create_task → agent_tasks
   curl -N "http://localhost:8000/api/v1/events/stream?api_key=secret-client-key-123"
   python publish_stub_event.py --event-type lead.created --tenant-id Client_1 --payload "{\"name\":\"demo\"}"
   ```
-- Contracts: `plans/IREIOS_3.0_API_SSE_CONTRACTS.md`. FE cutover: `docs/FRONTEND_BACKLOG.md`. Wipes / Neo4j ops: `docs/MAINTENANCE.md` §4.1.
+- Contracts: `plans/phase3/IREIOS_3.0_API_SSE_CONTRACTS.md`. FE cutover: `docs/FRONTEND_BACKLOG.md`. Wipes / Neo4j ops: `docs/MAINTENANCE.md` §4.1.
 
 ## Dev data wipes (soft / hard)
 

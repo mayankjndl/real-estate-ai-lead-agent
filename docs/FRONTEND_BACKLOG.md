@@ -1,8 +1,9 @@
-# Frontend Backlog (Post–Backend IREIOS 3.0 + G3)
+# Frontend Backlog (Post–Backend IREIOS 3.0 + G3 → IREIOS 4.0)
 
-Backend Waves A–D / Gate G3 are **code-complete**. FE cutover (Expansion Phase 9.3–9.7) is **Mayank-owned**. This file is the live checklist.
+Backend Waves A–D / Gate G3 are **code-complete**. FE cutover under **IREIOS 4.0** (`plans/phase4/`).
 
-**Last reviewed:** 2026-07-30
+**Last reviewed:** 2026-08-13 (Command-Center JWT auth unified BE-side: Bearer **or** cookie on twin/neighborhood/predictions; verify doc `docs/COMMAND_CENTER_VERIFY.md`)  
+**Home route:** `/dashboard` · **Freeze:** 2026-08-20 · **Release:** 2026-09-03
 
 ---
 
@@ -10,25 +11,14 @@ Backend Waves A–D / Gate G3 are **code-complete**. FE cutover (Expansion Phase
 
 | Endpoint / signal | Auth | Purpose |
 |-------------------|------|---------|
-| `GET /api/v1/events/stream` | API key query **or** `jwt` cookie | SSE envelopes (tenant-filtered) |
-| `GET /api/v1/events/leads/{id}/timeline` | API key / JWT | Envelope list for Sales Copilot |
-| `POST /api/v1/events/stub` | `X-Admin-Token` | Demo inject (dev only) |
-| `GET /api/v1/leads/{id}/score` | JWT | Score breakdown |
-| `GET /api/v1/leads/{id}/prediction` | JWT | Conversion / closure |
-| `GET /api/v1/predictions/revenue` | JWT | Heuristic revenue forecast |
-| `GET /api/v1/predictions/cancellation-risk` | JWT | At-risk style cancel proxy |
-| `GET /api/v1/predictions/inventory` | JWT | Inventory unit counts |
-| `GET /api/v1/predictions/cashflow` | JWT | Heuristic cashflow slice |
-| `GET /api/v1/graph/leads/{id}/context` | API key / JWT | Neo4j similar leads |
-| `GET /api/v1/approvals` + approve/reject | JWT | HITL (tenant-scoped) |
-| `POST /api/v1/leads/{id}/sales-ai` | JWT | Sales copilot action (also bus-driven backend) |
-| `POST /api/v1/chat` | API key | Reply; may include `media_url` after brochure/floorplan turn |
-| `POST /api/v1/lifecycle/events` | Admin | Ops inject booking/payment/document events |
-| SSE `marketing.report.generated` | stream | Marketing / executive panels |
-| SSE `brochure.sent` / `floorplan.sent` | stream | Media share timeline |
+| `GET /api/v1/events/stream` | JWT cookie (same-origin rewrite) or api_key | SSE envelopes |
+| `GET /api/v1/events/leads/{id}/timeline` | JWT cookie / Bearer | Timeline |
+| `POST /api/v1/leads/{id}/sales-ai` | JWT | `{mode: preview\|execute}` |
+| `GET /api/v1/predictions/*` | JWT | Heuristic forecasts |
+| `GET /api/v1/graph/neighborhood?lead_id=` | JWT | Ego graph |
+| `GET /api/v1/inventory/twin` | JWT | Digital twin layout |
 
-Contracts: `plans/IREIOS_3.0_API_SSE_CONTRACTS.md`, OpenAPI `plans/openapi_ireios3.json`.  
-Backend depth log: `plans/IREIOS_3.0_WAVE_A_D_CHANGELOG.md`.
+Same-origin: Next `rewrites` `/api/v1/:path*` → `NEXT_PUBLIC_API_URL` so browser cookies work.
 
 ---
 
@@ -36,70 +26,34 @@ Backend depth log: `plans/IREIOS_3.0_WAVE_A_D_CHANGELOG.md`.
 
 | Item | Status | Evidence |
 |------|--------|----------|
-| Real SSE on command-center dashboard | **Partial `[~]`** | `a10aa68` — `dashboard-mvp/page.tsx` uses `EventSource` → `/api/v1/events/stream?api_key=…` |
-| Lead timeline API | **Partial `[~]`** | `a10aa68` — `sales-copilot/page.tsx` fetches `/api/v1/events/leads/1/timeline` (hardcoded lead `1` + api_key) |
-| Delete / stop using `MockSSEService` | **Open** | Class still in `frontend/src/lib/api/mockService.ts`; not used by dashboard-mvp anymore but file remains |
-| Forecast widgets → real predictions API | **Open** | `dashboard-mvp` still seeds KPIs/forecast from `mockForecastData` |
-| JWT cookie auth for SSE (not hard-coded api_key) | **Open** | Dev uses `secret-client-key-123` query param |
-| Approvals UI | **Open** | Backend ready; no FE list/approve flow confirmed |
-| Sales AI button | **Open** | Backend `POST /api/v1/leads/{id}/sales-ai` ready |
-| Graph panel | **Open** | Optional |
-| Media preview from chat `media_url` | **Open** | Optional |
-| Main `(dashboard)` route group vs command-center | **Clarify** | Primary product routes may still differ from MVP pages |
+| Real SSE on command-center dashboard | **Done** | `dashboard-mvp` EventSource `/api/v1/events/stream` + credentials |
+| Lead timeline API | **Done** | Selected lead; JWT via rewrite |
+| Delete / stop using MockSSE | **Done** | No MockSSE class; mock forecast not sole KPI source |
+| Forecast widgets → real predictions API | **Done** | mvp + product dashboard ₹ Cr + disclaimer |
+| JWT cookie auth for SSE | **Done** | No hard-coded api_key in `frontend/src` |
+| Approvals UI | **Deferred 4.1** | Lead Q7.4 |
+| Sales AI button | **Done** | Copilot preview/confirm + Leads table |
+| Graph panel | **Done** | Ego embed on copilot + knowledge-graph page |
+| Digital Twin live | **Done** | Route **`/digital-twin`** under **command-center** (sidebar “Digital Twin”) — **not** on product `/dashboard` nav. API `GET /api/v1/inventory/twin` + 30s poll. Seed: `python seed_twin_demo.py --client-id 1 --clear` (40 units). Empty page = no inventory for JWT tenant, not missing FE. |
+| Command-center JWT middleware | **Done** | `proxy.ts` guards CC routes |
+| Login home `/dashboard` | **Done** | `auth.ts` redirect |
+| **Twin / graph / predictions JWT auth gap** | **Fixed 2026-08-13** | BE unify: `get_current_client` + `get_events_client` accept Bearer **or** cookie `jwt` (`auth.py` helpers `_client_from_jwt_token` / `resolve_jwt_from_request`). Twin (cookie fetch) no longer 401; neighborhood (Bearer server action) no longer auth-empty; `/predictions/*` cookie works. No FE changes needed. Verify: `docs/COMMAND_CENTER_VERIFY.md` + `tests/test_f4_jwt_auth.py` |
 
 ---
 
-## Required FE work (still open)
+## Acceptance (production FE / G5)
 
-### 1. Finish MockSSE cutover
-- [x] MVP dashboard uses live `EventSource` (not MockSSE)
-- [ ] Remove or isolate `MockSSEService` so nothing imports it for prod paths
-- [ ] Prefer **HttpOnly `jwt` cookie** + same-origin/proxy (not hard-coded `api_key` in client bundle)
-- [ ] Graceful reconnect + ignore SSE `: ping` heartbeats
-
-### 2. Live dashboard pulse (harden)
-- [x] Basic mapping: `lead.created`, `lead.scored`, `approval.requested`, `marketing.report.generated`
-- [ ] Bind real KPIs from APIs (not artificial `+150000` demo math)
-- [ ] Cover: `lead.assigned`, `conversation.updated`, `whatsapp.sent`, `lead.hot`, `site_visit.scheduled`
-
-### 3. Lead timeline (Sales Copilot)
-- [x] Calls real timeline endpoint
-- [ ] Use **selected lead id** (not hardcoded `1`)
-- [ ] Auth via JWT; tenant 404 handling
-- [ ] Poll or SSE refresh after new events
-
-### 4. Graph panel (optional)
-- [ ] `GET /api/v1/graph/leads/{id}/context` when `available`
-
-### 5. Approvals UI
-- [ ] List `GET /api/v1/approvals`; approve / reject (tenant-scoped)
-
-### 6. Sales AI button
-- [ ] `POST /api/v1/leads/{id}/sales-ai` → show recommended next action + stage
-
-### 7. Forecast widgets
-- [ ] Replace `mockForecastData` with `/api/v1/predictions/*`
-
-### 8. Optional media preview
-- [ ] When chat returns `media_url`, show PDF/image link
-
-### 9. Env / proxy
-- [ ] `NEXT_PUBLIC_API_URL` → backend; cookie path works for SSE in prod
+- [x] No `secret-client-key-123` in `frontend/src`
+- [x] Dashboard SSE without query api_key
+- [x] Timeline for selected owned lead
+- [x] Forecast widgets from `/predictions/*` + heuristic label
+- [x] Sales AI preview+confirm on copilot + leads
+- [x] Graph ego (`/knowledge-graph` + copilot embed) + twin live at **`/digital-twin`** (or empty when flag/Neo4j/inventory off) — runtime auth mismatch (cookie vs Bearer) **fixed 2026-08-13** (BE unify; no FE change)
+- [x] Full `npm run lint` exit 0 + `tsc --noEmit` clean + `npm run build` exit 0 (resolved 2026-08-11 — 23 errors + 17 warnings cleared per `docs/MAINTENANCE.md` §11.1; command-center tsc errors + Suspense prerender fixed in `4494307`)
+- [x] G5 automated demos / API evidence 2026-08-10; WA → SSE live smoke PASS 2026-08-11 (`wa_sse_smoke.py`, both modes)
 
 ---
 
-## Out of scope for FE
-- Changing bus schema (frozen in Phase 1b)
-- Direct Redis / Neo4j access
-- Twilio webhooks
-- Backend Wave A–D implementation (done)
+## Out of scope (IREIOS 4.0)
 
----
-
-## Acceptance (production FE)
-- [ ] `MockSSEService` unused / deleted for shipped routes
-- [ ] Dashboard shows live event within 2s of chat/WA message (API up)
-- [ ] Timeline loads for **selected owned lead**; 404 for cross-tenant
-- [ ] No console errors on SSE disconnect/reconnect
-- [ ] Forecast widgets not using hardcoded mock revenue only
-- [ ] No hard-coded `secret-client-key-123` in client source
+- Approvals UI, HubSpot bi-di UI, twin write-back, LangGraph-in-n8n, new n8n WFs

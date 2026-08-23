@@ -208,7 +208,7 @@ def test_bridge_docs_and_gmail_recipes_exist():
 
     root = Path(__file__).resolve().parent.parent
     integ = (root / "docs" / "N8N_INTEGRATION.md").read_text(encoding="utf-8")
-    plan = (root / "plans" / "N8N_LIVE_WORKFLOWS_PLAN.md").read_text(encoding="utf-8")
+    plan = (root / "plans" / "phase3" / "N8N_LIVE_WORKFLOWS_PLAN.md").read_text(encoding="utf-8")
     assert "ireios-n8n" in integ
     assert "n8n_bridge" in integ
     assert "Gmail" in integ or "gmail" in integ.lower()

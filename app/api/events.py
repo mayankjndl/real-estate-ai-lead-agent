@@ -21,13 +21,12 @@ import logging
 import os
 from typing import Optional
 
-import jwt as jwt_lib
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from app.clients.event_bus_client import event_bus
-from auth import SECRET_KEY, ALGORITHM, get_current_client
+from auth import _client_from_jwt_token, resolve_jwt_from_request
 from config import tenant_id_ctx
 from database import get_db
 from models import Client, EventLog, Lead, Session as SessionModel
@@ -42,7 +41,8 @@ ADMIN_API_KEY_NAME = "X-Admin-Token"
 
 
 # --------------------------------------------------------------------------- #
-# Auth: api_key query/header (webhook-style) OR jwt HttpOnly cookie (frontend)
+# Auth: api_key query/header (webhook-style) OR JWT — Authorization: Bearer
+# (server actions) or the HttpOnly `jwt` cookie (browser/SSE).
 # --------------------------------------------------------------------------- #
 async def get_events_client(
     request: Request,
@@ -61,22 +61,17 @@ async def get_events_client(
         if client:
             tenant_id_ctx.set(f"Client_{client.id}")
             return client
-    # 2) JWT HttpOnly cookie (frontend EventSource cannot set headers).
-    token = request.cookies.get("jwt")
+    # 2) JWT — Authorization: Bearer <token> (server actions) or the HttpOnly
+    #    `jwt` cookie (EventSource / browser fetch through the Next rewrite).
+    header_auth = request.headers.get("Authorization")
+    bearer = None
+    if header_auth and header_auth.lower().startswith("bearer "):
+        bearer = header_auth[7:].strip()
+    token = resolve_jwt_from_request(request, bearer)
     if token:
         try:
-            payload = jwt_lib.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-            client_id = payload.get("sub")
-            if client_id:
-                client = (
-                    db.query(Client)
-                    .filter(Client.id == int(client_id), Client.is_active.is_(True))
-                    .first()
-                )
-                if client:
-                    tenant_id_ctx.set(f"Client_{client.id}")
-                    return client
-        except Exception:  # noqa: BLE001 - fall through to 401
+            return _client_from_jwt_token(token, db)
+        except HTTPException:  # invalid/expired/unknown tenant — fall through
             pass
     raise HTTPException(status_code=401, detail="Unauthorized")
 

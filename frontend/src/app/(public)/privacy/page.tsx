@@ -11,7 +11,7 @@ export default function PrivacyPolicyPage() {
           <section>
             <h2 className="text-2xl font-semibold text-slate-900 dark:text-white mb-4">1. Information We Collect</h2>
             <p>
-              Imperion Data Systems Private Limited ("we", "our", or "us") operates Revenue OS. We collect information that you provide directly to us, including your name, email address, phone number, and any other information you choose to provide when using our platform.
+              Imperion Data Systems Private Limited (&quot;we&quot;, &quot;our&quot;, or &quot;us&quot;) operates Revenue OS. We collect information that you provide directly to us, including your name, email address, phone number, and any other information you choose to provide when using our platform.
             </p>
           </section>
 

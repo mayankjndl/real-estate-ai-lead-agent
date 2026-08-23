@@ -45,7 +45,7 @@ async def handler(envelope: dict) -> None:
         if lead is None:
             return
         budget_raw = (lead.budget or "").strip().lower()
-        is_aligned = lead.budget_alignment_status == "aligned"
+        is_aligned = lead.budget_alignment_status in ("aligned", "excellent", "strong")
         needs_approval = not is_aligned and bool(budget_raw)
         if needs_approval:
             # Non-blocking: keep chatting (no HITL pause) but notify manager + n8n.

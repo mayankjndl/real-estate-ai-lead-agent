@@ -9,8 +9,8 @@ Produces a machine-readable evidence summary for the program final gate (G2):
 Run:  python ireios_evidence.py            # prints summary
       python ireios_evidence.py --openapi out.json   # also dumps OpenAPI spec
 
-See plans/IREIOS_3.0_STEP_BY_STEP_EXPANSION.md (Phase 10) and
-plans/IREIOS_3.0_EXPANSION_CHANGELOG.md.
+See plans/phase3/IREIOS_3.0_STEP_BY_STEP_EXPANSION.md (Phase 10) and
+plans/phase3/IREIOS_3.0_EXPANSION_CHANGELOG.md.
 """
 from __future__ import annotations
 

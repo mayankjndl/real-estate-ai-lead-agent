@@ -360,7 +360,7 @@ python publish_stub_event.py --event-type lead.created --tenant-id Client_1 --pa
 
 Auth alternatives: `X-API-Key` header, or browser `EventSource` with HttpOnly `jwt` cookie.  
 Timeline: `GET /api/v1/events/leads/{id}/timeline`. Admin stub HTTP: `POST /api/v1/events/stub` + `X-Admin-Token`.  
-Contracts: `plans/IREIOS_3.0_API_SSE_CONTRACTS.md`, FE checklist: `docs/FRONTEND_BACKLOG.md`.  
+Contracts: `plans/phase3/IREIOS_3.0_API_SSE_CONTRACTS.md`, FE checklist: `docs/FRONTEND_BACKLOG.md`.  
 Full ops runbook: `docs/MAINTENANCE.md`.  
 Timeouts & timings map: `docs/TIMEOUTS_AND_TIMINGS.md`.
 

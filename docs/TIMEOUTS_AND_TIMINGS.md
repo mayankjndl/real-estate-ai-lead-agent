@@ -180,6 +180,8 @@ SMS does **not** use the WA race/interim pattern; it awaits `process_unified_lea
 | Handler task drain on stop | **2.0s** | `wait_for` per task | `event_bus_client.py` ~117 |
 | Pending XREAD reclaim | block **10ms**, count **10**, outer wait **2s** | startup reclaim | `event_bus_client.py` ~208–212 |
 | Live XREAD | block **250ms**, count **10** | main consumer loop | `event_bus_client.py` ~221 |
+| Consume retry max | **10** consecutive | Bus gives up after N sustained failures | `event_bus_client.py` `_MAX_CONSUME_RETRIES` (P3.8) |
+| Reconnect backoff | **1s → 2s → 4s → … → cap 16s** | Exponential between retries; resets on success | `event_bus_client.py` `_RECONNECT_BASE_DELAY`, `_RECONNECT_MAX_DELAY` (P3.8) |
 | SSE heartbeat | **15s** | `: ping` | `app/api/events.py` `HEARTBEAT_SEC` ~39, ~127 |
 | SSE queue max | **1000** | drop on full | `events.py` `SSE_QUEUE_MAX` ~40 |
 
@@ -246,7 +248,7 @@ SMS does **not** use the WA race/interim pattern; it awaits `process_unified_lea
 | Doc | What it covers |
 |-----|----------------|
 | `AGENTS.md` → Webhook Flow & Timeouts | Agent-oriented WA path summary |
-| `plans/BUG_FIXES_CHANGELOG.md` → P3.6 / P3.6b | Race + critical-path change history |
+| `plans/phase3/BUG_FIXES_CHANGELOG.md` → P3.6 / P3.6b | Race + critical-path change history |
 | `docs/BACKEND_RELIABILITY_CHECKLIST.md` | Ops reliability including WA race |
 | `.env.example` | Env knobs for WA/LLM/RAG/graph |
 
