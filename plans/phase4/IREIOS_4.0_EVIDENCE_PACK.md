@@ -135,6 +135,21 @@
 
 ---
 
+## Hardening sprint (PH)
+
+Exit gate: Appendices A+B in `PRODUCTION_HARDENING_SPRINT.md` filled with evidence → UNIFIED **PH** `[x]`.
+
+- [ ] PH-0 prep (branch `phase4_tests`, flags, n8n/wipe readiness)
+- [ ] PH-A.1 tenant-aware logs on all jobs / APIs / queues
+- [ ] PH-C joint drill (duplicate / simultaneous / retry + n8n single-fire)
+- [ ] PH-A.2 load 25 / 50 / 100 (latency + drop rates)
+- [ ] PH-B fresh 100-eval + stop-on-reply / fallback / opt-in
+- [ ] PH-A.3 DR drill on `pg-staging` (backup → fail → restore → verify)
+- [ ] PH-A.4 security / secrets audit
+- [ ] PH-R reports signed (Aritro / Maitri / Mayank)
+
+---
+
 ## QA freeze / RC1 (from 2026-08-20)
 
 Exit gate: `docs/PROD_READINESS_CHECKLIST.md` executed. Tasks: `IREIOS_4.0_STEP_BY_STEP.md` QA.1.1–QA.1.6.

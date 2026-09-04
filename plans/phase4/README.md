@@ -17,6 +17,7 @@
 5. Evidence: `IREIOS_4.0_EVIDENCE_PACK.md`  
 6. Prod readiness: `../../docs/PROD_READINESS_CHECKLIST.md` (flags, secrets, infra, integrations)  
 7. **Eng → lead handoff:** `HANDOFF_MAYANK_PIYUSH.md`
+8. Hardening sprint (cert tracks + reports): `PRODUCTION_HARDENING_SPRINT.md`
 
 ## Doc roles
 
@@ -29,6 +30,7 @@
 | `IREIOS_4.0_API_CONTRACTS.md` | FE/BE contracts |
 | `IREIOS_4.0_CHANGELOG.md` | Living log |
 | `IREIOS_4.0_EVIDENCE_PACK.md` | Gate proof |
+| `PRODUCTION_HARDENING_SPRINT.md` | Hardening cert tracks + reports |
 | `TEAM_LEAD_QUESTIONNAIRE_ANSWERED.md` | Decision source of truth |
 | `openapi_ireios4.json` | Regen after routes |
 

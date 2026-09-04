@@ -61,6 +61,7 @@
 | **P4-9** | FE SSE/JWT | JWT cookie only; guard command-center; purge MockSSE + hard-coded keys; home `/dashboard` | grep clean + backlog acceptance | Mayank | `[x]` |
 | **P4-10** | Ops/n8n | **No new WFs** — smoke existing bridge only if time | Evidence ops N/A or smoke | Maitri | `[-]` default no-op unless ops asks |
 | **G5** | Gate | Phase 4 MVP complete | Evidence G5 + pytest + isolation + DLQ-if-HS + lint + `task3_runner` | Team | `[x]` 2026-08-10 (task3_runner skipped Mayank ack; FE lint/tsc/build exit 0 2026-08-11) |
+| **PH** | Hardening | Production Hardening Sprint: backend cert (Aritro) + 100-eval (Maitri) + joint webhook/n8n drill | Appendices A+B in `PRODUCTION_HARDENING_SPRINT.md` + Evidence § Hardening | Aritro/Maitri | `[ ]` |
 | **P4-QA** | Freeze | Hard freeze 2026-08-20; RC1 `ireios4-rc1` (local `pg-staging` snapshot; hosted read-replica adopted when ops delivers — `docs/PROD_READINESS_CHECKLIST.md` §5). **Pre-freeze eng baseline already green** (Evidence Pack § QA). | Prod readiness checklist + QA evidence · handoff `HANDOFF_MAYANK_PIYUSH.md` | Mayank | `[ ]` ceremony |
 | **P4-REL** | Release | 2026-09-03 prod + telemetry · Twilio from Piyush · docker n8n Publish on deploy host (Mayank, optional) | Runbook approved (Mayank) · `HANDOFF_MAYANK_PIYUSH.md` | Mayank | `[ ]` |
 
